@@ -55,168 +55,400 @@ const CONFIG = {
   
   // 调试模式
   DEBUG: true
+  // 请求超时（秒）
+  TIMEOUT: 10
+};
+
+const META = { 
+  name: 'UnifiedVIP', 
+  version: '20.1.0',
+  description: 'Runtime Loader with 16 Apps Support'
 };
 
 // ==========================================
-// 核心代码（无需修改）
+// 环境修复（QX兼容性）
 // ==========================================
 
-const META = { name: 'UnifiedVIP', version: '20.0.0' };
-
-// 修复环境
-(function fixEnv() {
+(function fixEnvironment() {
   if (typeof console === 'undefined') globalThis.console = { log: () => {} };
   const _log = console.log.bind(console);
-  ['error', 'warn', 'debug', 'info'].forEach(m => {
-    if (typeof console[m] !== 'function') {
-      console[m] = (...a) => _log(`[${m.toUpperCase()}]`, ...a);
+  
+  ['error', 'warn', 'debug', 'info'].forEach(method => {
+    if (typeof console[method] !== 'function') {
+      console[method] = (...args) => {
+        const prefix = `[${method.toUpperCase()}]`;
+        return _log(prefix, ...args);
+      };
     }
   });
 })();
 
-// HTTP 请求
+// ==========================================
+// HTTP 请求（跨平台兼容）
+// ==========================================
+
 const HTTP = {
-  get: (url, timeout = 10) => new Promise((resolve, reject) => {
+  get: (url, timeout = CONFIG.TIMEOUT) => new Promise((resolve, reject) => {
     const startTime = Date.now();
-    
-    const callback = (e, r, b) => {
-      if (e) {
-        reject(new Error(`HTTP Error: ${e}`));
+    
+    const handleResponse = (error, response, body) => {
+      if (error) {
+        reject(new Error(`HTTP Error: ${error}`));
       } else {
         resolve({
-          body: b,
-          status: typeof r === 'object' ? r.status : 200,
+          body: body || '',
+          status: typeof response === 'object' ? (response.status || 200) : 200,
           time: Date.now() - startTime
         });
       }
     };
 
-    if (typeof $task !== 'undefined') {
-      $task.fetch({ url, method: 'GET', timeout }).then(
-        res => callback(null, { status: res.statusCode }, res.body),
-        err => callback(err, null, null)
-      );
-    } else if (typeof $httpClient !== 'undefined') {
-      $httpClient.get({ url, timeout }, callback);
-    } else if (typeof $http !== 'undefined') {
-      $http.get(url, callback);
-    } else {
-      reject(new Error('No HTTP client available'));
+    try {
+      if (typeof $task !== 'undefined') {
+        // Quantumult X
+        $task.fetch({ url, method: 'GET', timeout }).then(
+          res => handleResponse(null, { status: res.statusCode }, res.body),
+          err => handleResponse(err, null, null)
+        );
+      } else if (typeof $httpClient !== 'undefined') {
+        // Surge
+        $httpClient.get({ url, timeout }, handleResponse);
+      } else if (typeof $http !== 'undefined') {
+        // Loon
+        $http.get(url, handleResponse);
+      } else {
+        reject(new Error('No HTTP client available'));
+      }
+    } catch (e) {
+      reject(new Error(`HTTP Setup Error: ${e.message}`));
     }
   })
 };
 
-// 存储
+// ==========================================
+// 存储（跨平台兼容）
+// ==========================================
+
 const Storage = {
-  read: (k) => {
-    if (typeof $prefs !== 'undefined') return $prefs.valueForKey(k);
-    if (typeof $persistentStore !== 'undefined') return $persistentStore.read(k);
+  read: (key) => {
+    try {
+      if (typeof $prefs !== 'undefined') {
+        return $prefs.valueForKey(key);
+      } else if (typeof $persistentStore !== 'undefined') {
+        return $persistentStore.read(key);
+      }
+    } catch (e) {}
     return null;
   },
-  write: (k, v) => {
-    if (typeof $prefs !== 'undefined') return $prefs.setValueForKey(v, k);
-    if (typeof $persistentStore !== 'undefined') return $persistentStore.write(v, k);
+  
+  write: (key, value) => {
+    try {
+      if (typeof $prefs !== 'undefined') {
+        return $prefs.setValueForKey(value, key);
+      } else if (typeof $persistentStore !== 'undefined') {
+        return $persistentStore.write(value, key);
+      }
+    } catch (e) {}
     return false;
   },
-  remove: (k) => Storage.write(k, null)
+  
+  remove: (key) => Storage.write(key, null)
 };
 
-// 工具
+// ==========================================
+// 工具函数
+// ==========================================
+
 const Utils = {
-  safeJsonParse: (s, d = null) => {
-    try { return JSON.parse(s); } catch (e) { return d; }
-  },
-  safeJsonStringify: (o) => {
-    try { return JSON.stringify(o); } catch (e) { return '{}'; }
-  },
-  getPath: (o, p) => p.split('.').reduce((a, k) => a?.[k], o),
-  setPath: (o, p, v) => {
-    const parts = p.split('.');
-    let c = o;
-    for (let i = 0; i < parts.length - 1; i++) {
-      const k = parts[i];
-      if (!(k in c)) c[k] = {};
-      c = c[k];
+  safeJsonParse: (str, defaultVal = null) => {
+    try { 
+      return JSON.parse(str); 
+    } catch (e) { 
+      return defaultVal; 
     }
-    c[parts[parts.length - 1]] = v;
-    return o;
+  },
+
+  safeJsonStringify: (obj) => {
+    try { 
+      return JSON.stringify(obj); 
+    } catch (e) { 
+      return '{}'; 
+    }
+  },
+
+  getPath: (obj, path) => {
+    if (!path || !obj) return undefined;
+    return path.split('.').reduce((current, part) => {
+      if (current === null || current === undefined) return undefined;
+      // 支持数组索引，如 data.items[0].name
+      const match = part.match(/^([^\[]+)\[(\d+)\]$/);
+      if (match) {
+        const arr = current[match[1]];
+        return Array.isArray(arr) ? arr[parseInt(match[2])] : undefined;
+      }
+      return current[part];
+    }, obj);
+  },
+
+  setPath: (obj, path, value) => {
+    if (!path || !obj) return obj;
+    const parts = path.split('.');
+    let current = obj;
+
+    for (let i = 0; i < parts.length - 1; i++) {
+      const part = parts[i];
+      const nextPart = parts[i + 1];
+      const match = part.match(/^([^\[]+)\[(\d+)\]$/);
+      
+      if (match) {
+        // 数组索引
+        const arrName = match[1];
+        const arrIndex = parseInt(match[2]);
+        if (!(arrName in current) || !Array.isArray(current[arrName])) {
+          current[arrName] = [];
+        }
+        while (current[arrName].length <= arrIndex) {
+          current[arrName].push({});
+        }
+        if (i === parts.length - 2) {
+          current[arrName][arrIndex] = value;
+          return obj;
+        } else {
+          current = current[arrName][arrIndex];
+        }
+      } else {
+        // 普通对象
+        const isNextArray = /^[^\[]+\[\d+\]$/.test(nextPart);
+        if (!(part in current) || current[part] === null) {
+          current[part] = isNextArray ? [] : {};
+        }
+        current = current[part];
+      }
+    }
+
+    // 最后一个部分
+    const lastPart = parts[parts.length - 1];
+    const lastMatch = lastPart.match(/^([^\[]+)\[(\d+)\]$/);
+    
+    if (lastMatch) {
+      const arrName = lastMatch[1];
+      const arrIndex = parseInt(lastMatch[2]);
+      if (!Array.isArray(current[arrName])) current[arrName] = [];
+      while (current[arrName].length <= arrIndex) current[arrName].push(null);
+      current[arrName][arrIndex] = value;
+    } else {
+      current[lastPart] = value;
+    }
+    return obj;
   }
 };
 
-// 处理器工厂（安全沙箱）
+// ==========================================
+// 处理器工厂（完整版）
+// ==========================================
+
 const ProcessorFactory = {
+  
+  // 1. 基础字段设置
   setFields: (params) => (obj, env) => {
-    let mod = 0;
-    for (const [path, val] of Object.entries(params.fields || {})) {
-      const actual = typeof val === 'string' && val.startsWith('$') 
-        ? Utils.getPath({ CONSTANTS: window.CONSTANTS }, val.slice(1))
-        : val;
-      Utils.setPath(obj, path, actual);
-      mod++;
+    let modified = 0;
+    for (const [path, value] of Object.entries(params.fields || {})) {
+      Utils.setPath(obj, path, value);
+      modified++;
     }
-    if (mod) env?.debug(`SetFields: ${mod}`);
-    return obj;
-  },
-  
-  mapArray: (params) => (obj, env) => {
-    const arr = Utils.getPath(obj, params.path);
-    if (!Array.isArray(arr)) return obj;
-    arr.forEach(item => {
-      if (item) Object.assign(item, params.fields || {});
-    });
-    return obj;
-  },
-  
-  filterArray: (params) => (obj, env) => {
-    const arr = Utils.getPath(obj, params.path);
-    if (!Array.isArray(arr)) return obj;
-    const exclude = new Set(params.excludeKeys || []);
-    const filtered = arr.filter(item => !exclude.has(item[params.keyField]));
-    Utils.setPath(obj, params.path, filtered);
-    return obj;
-  },
-  
-  clearArray: (params) => (obj, env) => {
-    const arr = Utils.getPath(obj, params.path);
-    if (Array.isArray(arr)) arr.length = 0;
+    if (modified > 0 && env) env.debug(`SetFields: ${modified} fields`);
     return obj;
   },
 
-  when: (params) => {
-    return function(obj, env) {
+  // 2. 数组映射
+  mapArray: (params) => (obj, env) => {
+    const arr = Utils.getPath(obj, params.path);
+    if (!Array.isArray(arr)) {
+      env?.warn(`MapArray: ${params.path} is not array`);
+      return obj;
+    }
+    
+    let modified = 0;
+    arr.forEach((item, index) => {
+      if (!item) return;
+      // 支持条件判断
+      if (params.condition && typeof params.condition === 'function') {
+        if (!params.condition(item, index)) return;
+      }
+      
+      for (const [field, value] of Object.entries(params.fields || {})) {
+        if (item[field] !== undefined || value !== undefined) {
+          item[field] = value;
+        }
+      }
+      modified++;
+    });
+    
+    if (env) env.debug(`MapArray: ${modified}/${arr.length} items`);
+    return obj;
+  },
+
+  // 3. 数组过滤
+  filterArray: (params) => (obj, env) => {
+    const arr = Utils.getPath(obj, params.path);
+    if (!Array.isArray(arr)) {
+      env?.warn(`FilterArray: ${params.path} is not array`);
+      return obj;
+    }
+    
+    const originalLength = arr.length;
+    let filtered;
+    
+    if (params.excludeKeys && params.keyField) {
+      const excludeSet = new Set(params.excludeKeys);
+      filtered = arr.filter(item => !excludeSet.has(item[params.keyField]));
+    } else if (params.keepPredicate) {
+      filtered = arr.filter(params.keepPredicate);
+    } else {
+      return obj;
+    }
+    
+    Utils.setPath(obj, params.path, filtered);
+    if (env) env.log(`Filter: ${originalLength} -> ${filtered.length}`);
+    return obj;
+  },
+
+  // 4. 清空数组
+  clearArray: (params) => (obj, env) => {
+    const arr = Utils.getPath(obj, params.path);
+    if (Array.isArray(arr)) {
+      const count = arr.length;
+      arr.length = 0;
+      if (env) env.log(`Cleared ${params.logName || params.path}: ${count} items`);
+    }
+    return obj;
+  },
+
+  // 5. 删除字段
+  deleteFields: (params) => (obj, env) => {
+    for (const path of params.paths || []) {
+      const parts = path.split('.');
+      let current = obj;
+      for (let i = 0; i < parts.length - 1; i++) {
+        current = current?.[parts[i]];
+        if (!current) break;
+      }
+      if (current) {
+        delete current[parts[parts.length - 1]];
+        env?.debug(`Deleted: ${path}`);
+      }
+    }
+    return obj;
+  },
+
+  // 6. 数组切片（保留前N个）
+  sliceArray: (params) => (obj, env) => {
+    const arr = Utils.getPath(obj, params.path);
+    if (Array.isArray(arr) && arr.length > params.keepCount) {
+      const original = arr.length;
+      Utils.setPath(obj, params.path, arr.slice(0, params.keepCount));
+      if (env) env.log(`Sliced ${params.logName || params.path}: ${original} -> ${params.keepCount}`);
+    }
+    return obj;
+  },
+
+  // 7. 移除数组第一个元素
+  shiftArray: (params) => (obj, env) => {
+    const arr = Utils.getPath(obj, params.path);
+    if (Array.isArray(arr) && arr.length > 0) {
+      const removed = arr.shift();
+      if (env) env.log(`Shifted ${params.logName || params.path}: removed ${removed?.title || 'item'}`);
+    }
+    return obj;
+  },
+
+  // 8. 按键前缀处理（游戏货币等）
+  processByKeyPrefix: (params) => (obj, env) => {
+    const target = Utils.getPath(obj, params.objPath);
+    if (!target || typeof target !== 'object') {
+      env?.warn(`ProcessByKeyPrefix: ${params.objPath} not found`);
+      return obj;
+    }
+    
+    const stats = {};
+    for (const [key, value] of Object.entries(target)) {
+      let matched = false;
+      
+      for (const [prefix, handler] of Object.entries(params.prefixRules || {})) {
+        if (prefix === '*') continue;
+        
+        if (key.startsWith(prefix)) {
+          Object.assign(value, handler);
+          stats[prefix] = (stats[prefix] || 0) + 1;
+          matched = true;
+          break;
+        }
+      }
+      
+      if (!matched && params.prefixRules?.['*']) {
+        Object.assign(value, params.prefixRules['*']);
+        stats['*'] = (stats['*'] || 0) + 1;
+      }
+    }
+    
+    if (env && params.logPrefix) {
+      env.log(`${params.logPrefix}: ${JSON.stringify(stats)}`);
+    }
+    return obj;
+  },
+
+  // 9. 组合处理器（顺序执行）
+  compose: (params, compile) => {
+    const processors = (params.steps || []).map(step => compile(step));
+    return (obj, env) => {
+      return processors.reduce((acc, processor) => {
+        if (!acc) return acc;
+        try {
+          return processor(acc, env);
+        } catch (e) {
+          env?.warn(`Compose step error: ${e.message}`);
+          return acc;
+        }
+      }, obj);
+    };
+  },
+
+  // 10. 条件处理器（增强版）
+  when: (params, compile) => {
+    return (obj, env) => {
       try {
         let conditionMet = false;
         
-        // 支持多种条件类型
         switch (params.condition) {
           case "empty":
-            // 检查字段是否为空
+            // 检查对象是否为空
             const val = Utils.getPath(obj, params.check);
-            conditionMet = !val || Object.keys(val).length === 0;
+            conditionMet = !val || (typeof val === 'object' && Object.keys(val).length === 0);
             break;
             
           case "hasKey":
             // 检查数组中是否有指定key的对象
             const arr = Utils.getPath(obj, params.path);
             if (Array.isArray(arr)) {
-              conditionMet = arr.some(item => item.key === params.key);
+              conditionMet = arr.some(item => item?.key === params.key);
             }
             break;
             
           case "pathMatch":
-            // URL路径匹配
-            const url = env?.getUrl?.() || '';
-            conditionMet = url.includes(params.path);
+            // URL路径包含
+            const url1 = env?.getUrl?.() || '';
+            conditionMet = url1.includes(params.path);
             break;
             
           case "queryMatch":
             // URL参数匹配
-            const urlObj = new URL(env?.getUrl?.() || 'http://localhost');
-            conditionMet = urlObj.searchParams.get(params.param) === params.value;
+            const url2 = env?.getUrl?.() || '';
+            const match = url2.match(new RegExp(`[?&]${params.param}=([^&]+)`));
+            conditionMet = match && decodeURIComponent(match[1]) === params.value;
             break;
             
           case "includes":
-            // 数组/字符串包含
+            // 包含检查
             const target = Utils.getPath(obj, params.path);
             if (Array.isArray(target)) {
               conditionMet = target.includes(params.value);
@@ -226,115 +458,91 @@ const ProcessorFactory = {
             break;
             
           case "isObject":
-            conditionMet = typeof Utils.getPath(obj, params.check) === 'object' 
-              && !Array.isArray(Utils.getPath(obj, params.check));
+            // 是对象但不是数组
+            const check1 = Utils.getPath(obj, params.check);
+            conditionMet = typeof check1 === 'object' && !Array.isArray(check1) && check1 !== null;
             break;
             
           case "isArray":
-            conditionMet = Array.isArray(Utils.getPath(obj, params.check));
+            // 是数组
+            const check2 = Utils.getPath(obj, params.check);
+            conditionMet = Array.isArray(check2);
             break;
             
           default:
-            conditionMet = false;
+            // 自定义函数条件
+            if (typeof params.condition === 'function') {
+              conditionMet = params.condition(obj);
+            }
         }
         
-        if (conditionMet) {
-          return compileProcessor(params.then)(obj, env);
-        } else if (params.else) {
-          return compileProcessor(params.else)(obj, env);
+        if (conditionMet && params.then) {
+          const thenProc = compile(params.then);
+          return thenProc(obj, env);
+        } else if (!conditionMet && params.else) {
+          const elseProc = compile(params.else);
+          return elseProc(obj, env);
         }
       } catch (e) {
         env?.warn(`When error: ${e.message}`);
       }
       return obj;
-    },
- 
-  deleteFields: (params) => (obj, env) => {
-    for (const path of params.paths || []) {
-      const parts = path.split('.');
-      let c = obj;
-      for (let i = 0; i < parts.length - 1; i++) c = c?.[parts[i]];
-      if (c) delete c[parts[parts.length - 1]];
-    }
-    return obj;
-  },
-  
-  compose: (params, compile) => {
-    const processors = (params.steps || []).map(step => compile(step));
-    return (obj, env) => processors.reduce((o, p) => o ? p(o, env) : o, obj);
-  },
-  
-  when: (params, compile) => {
-    const thenProc = compile(params.then);
-    const elseProc = params.else ? compile(params.else) : null;
-    return (obj, env) => {
-      try {
-        if (params.condition(obj)) return thenProc(obj, env);
-        if (elseProc) return elseProc(obj, env);
-      } catch (e) {}
-      return obj;
     };
   },
-  
+
+  // 11. 场景分发器
   sceneDispatcher: (params, compile) => {
-    const scenes = (params.scenes || []).map(s => ({
-      name: s.name,
-      when: s.when,
-      then: compile(s.then)
+    const scenes = (params.scenes || []).map(scene => ({
+      name: scene.name,
+      when: scene.when,
+      then: compile(scene.then)
     }));
+
     return (obj, env) => {
       for (const scene of scenes) {
         try {
-          if (scene.when(obj)) {
+          let matched = false;
+          
+          // 支持字符串条件类型
+          if (scene.when === "isObject") {
+            matched = typeof obj.data === 'object' && !Array.isArray(obj.data);
+          } else if (scene.when === "isArray") {
+            matched = Array.isArray(obj.data);
+          } else if (typeof scene.when === 'function') {
+            matched = scene.when(obj);
+          }
+          
+          if (matched) {
             env?.debug(`Scene: ${scene.name}`);
             return scene.then(obj, env);
           }
-        } catch (e) {}
+        } catch (e) {
+          env?.warn(`Scene ${scene.name} error: ${e.message}`);
+        }
       }
       return obj;
     };
   }
 };
 
-// 编译配置
-function compileConfig(raw) {
-  const config = { ...raw };
-  
-  // 编译正则
-  if (raw.urlPattern) {
-    config.urlPattern = new RegExp(raw.urlPattern);
-  }
-  
-  // 编译处理器
-  if (raw.processor) {
-    config.customProcessor = compileProcessor(raw.processor);
-  }
-  
-  // 编译正则替换
-  if (raw.regexReplacements) {
-    config.regexReplacements = raw.regexReplacements.map(r => ({
-      pattern: new RegExp(r.pattern, r.flags || 'g'),
-      replacement: r.replacement
-    }));
-  }
-  
-  return config;
-}
-
+// 编译处理器（递归）
 function compileProcessor(def) {
   if (!def || !def.processor) return null;
-  
+  
   const factory = ProcessorFactory[def.processor];
   if (!factory) {
     console.error(`Unknown processor: ${def.processor}`);
     return null;
   }
-  
-  // 传递 compile 函数用于嵌套
+  
+  // 传递 compileProcessor 用于嵌套
   return factory(def.params, compileProcessor);
 }
 
-// 加载器
+// ==========================================
+// 运行时加载器
+// ==========================================
+
 class RuntimeLoader {
   constructor() {
     this.cache = new Map();
@@ -342,17 +550,19 @@ class RuntimeLoader {
   }
 
   async loadManifest(force = false) {
-    const cacheKey = 'vip_manifest_v2';
+    const cacheKey = 'vip_manifest_v20';
     const cacheTimeKey = `${cacheKey}_time`;
-    
+    
     // 检查缓存
     if (!force) {
       const cached = Storage.read(cacheKey);
       const cacheTime = parseInt(Storage.read(cacheTimeKey) || '0');
-      if (cached && (Date.now() - cacheTime < CONFIG.CACHE_TTL)) {
+      const age = Date.now() - cacheTime;
+      
+      if (cached && age < CONFIG.CACHE_TTL) {
         this.manifest = Utils.safeJsonParse(cached);
         if (this.manifest) {
-          if (CONFIG.DEBUG) console.log('[Loader] Using cached manifest');
+          if (CONFIG.DEBUG) console.log(`[Loader] Using cached manifest (${(age/1000/60).toFixed(1)}min ago)`);
           return this.manifest;
         }
       }
@@ -360,31 +570,30 @@ class RuntimeLoader {
 
     // 远程加载
     const url = `${CONFIG.REMOTE_BASE}/manifest.json?t=${Date.now()}`;
-    if (CONFIG.DEBUG) console.log(`[Loader] Fetching: ${url}`);
-    
+    if (CONFIG.DEBUG) console.log(`[Loader] Fetching manifest...`);
+    
     try {
-      const res = await HTTP.get(url, 15);
-      if (res.status === 200) {
+      const res = await HTTP.get(url);
+      if (res.status === 200 && res.body) {
         this.manifest = Utils.safeJsonParse(res.body);
         if (this.manifest) {
           Storage.write(cacheKey, res.body);
           Storage.write(cacheTimeKey, Date.now().toString());
-          if (CONFIG.DEBUG) console.log('[Loader] Manifest updated');
+          if (CONFIG.DEBUG) console.log(`[Loader] Manifest updated (${res.time}ms)`);
           return this.manifest;
         }
       }
+      throw new Error(`HTTP ${res.status}`);
     } catch (e) {
-      console.error(`[Loader] Failed: ${e.message}`);
+      console.error(`[Loader] Manifest failed: ${e.message}`);
+      // 使用过期缓存
+      const expired = Storage.read(cacheKey);
+      if (expired) {
+        console.log('[Loader] Using expired cache');
+        return Utils.safeJsonParse(expired);
+      }
+      throw e;
     }
-    
-    // 使用缓存（即使过期）
-    const cached = Storage.read(cacheKey);
-    if (cached) {
-      console.log('[Loader] Using expired cache');
-      return Utils.safeJsonParse(cached);
-    }
-    
-    throw new Error('No manifest available');
   }
 
   async loadConfig(configId, force = false) {
@@ -394,51 +603,87 @@ class RuntimeLoader {
       return this.cache.get(configId);
     }
 
-    const cacheKey = `vip_cfg_${configId}`;
+    const cacheKey = `vip_cfg_v20_${configId}`;
     const cacheTimeKey = `${cacheKey}_time`;
-    
+    
     // 本地缓存
     if (!force) {
       const cached = Storage.read(cacheKey);
       const cacheTime = parseInt(Storage.read(cacheTimeKey) || '0');
-      if (cached && (Date.now() - cacheTime < CONFIG.CACHE_TTL)) {
-        const config = compileConfig(Utils.safeJsonParse(cached));
-        this.cache.set(configId, config);
-        if (CONFIG.DEBUG) console.log(`[Loader] Disk cache: ${configId}`);
-        return config;
+      const age = Date.now() - cacheTime;
+      
+      if (cached && age < CONFIG.CACHE_TTL) {
+        try {
+          const config = this.prepareConfig(Utils.safeJsonParse(cached));
+          this.cache.set(configId, config);
+          if (CONFIG.DEBUG) console.log(`[Loader] Disk cache: ${configId}`);
+          return config;
+        } catch (e) {
+          console.warn(`[Loader] Cache parse error: ${e.message}`);
+        }
       }
     }
 
     // 远程加载
     const url = `${CONFIG.REMOTE_BASE}/configs/${configId}.json?t=${Date.now()}`;
     if (CONFIG.DEBUG) console.log(`[Loader] Fetching: ${configId}`);
-    
+    
     try {
-      const res = await HTTP.get(url, 15);
-      if (res.status === 200) {
+      const res = await HTTP.get(url);
+      if (res.status === 200 && res.body) {
         Storage.write(cacheKey, res.body);
         Storage.write(cacheTimeKey, Date.now().toString());
-        
-        const config = compileConfig(Utils.safeJsonParse(res.body));
+        
+        const config = this.prepareConfig(Utils.safeJsonParse(res.body));
         this.cache.set(configId, config);
         return config;
       }
+      throw new Error(`HTTP ${res.status}`);
     } catch (e) {
       console.error(`[Loader] Config failed: ${e.message}`);
+      // 使用过期缓存
+      const expired = Storage.read(cacheKey);
+      if (expired) {
+        console.log(`[Loader] Using expired: ${configId}`);
+        return this.prepareConfig(Utils.safeJsonParse(expired));
+      }
+      throw e;
     }
-    
-    // 使用过期缓存
-    const cached = Storage.read(cacheKey);
-    if (cached) {
-      console.log(`[Loader] Using expired: ${configId}`);
-      return compileConfig(Utils.safeJsonParse(cached));
-    }
-    
-    throw new Error(`Cannot load: ${configId}`);
   }
 
-  findMatch(url, manifest) {
-    for (const [id, info] of Object.entries(manifest.configs || {})) {
+  prepareConfig(raw) {
+    const config = { ...raw };
+    
+    // 编译正则
+    if (raw.urlPattern) {
+      try {
+        config.urlPattern = new RegExp(raw.urlPattern);
+      } catch (e) {
+        console.error(`[Loader] Invalid regex for ${raw.id}: ${e.message}`);
+        config.urlPattern = /.*/;
+      }
+    }
+    
+    // 编译处理器（JSON模式）
+    if (raw.processor && raw.mode === 'json') {
+      config.customProcessor = compileProcessor(raw.processor);
+    }
+    
+    // 编译正则替换
+    if (raw.regexReplacements) {
+      config.regexReplacements = raw.regexReplacements.map(r => ({
+        pattern: new RegExp(r.pattern, r.flags || 'g'),
+        replacement: r.replacement
+      }));
+    }
+    
+    return Object.freeze(config);
+  }
+
+  findMatch(url) {
+    if (!this.manifest || !this.manifest.configs) return null;
+    
+    for (const [id, info] of Object.entries(this.manifest.configs)) {
       try {
         const pattern = new RegExp(info.urlPattern);
         if (pattern.test(url)) return id;
@@ -447,20 +692,70 @@ class RuntimeLoader {
     return null;
   }
 
-  clearCache() {
-    // 清除所有缓存
-    const keys = ['vip_manifest_v2'];
-    for (let i = 0; i < localStorage?.length || 0; i++) {
-      const key = localStorage.key(i);
-      if (key?.startsWith('vip_cfg_')) keys.push(key);
-    }
-    keys.forEach(k => Storage.remove(k));
-    this.cache.clear();
-    console.log('[Loader] Cache cleared');
+  getStats() {
+    return {
+      manifest: this.manifest ? Object.keys(this.manifest.configs).length : 0,
+      cached: this.cache.size
+    };
   }
 }
 
-// 引擎
+// ==========================================
+// 跨平台环境
+// ==========================================
+
+class Environment {
+  constructor(name) {
+    this.name = name;
+    this.isQX = typeof $task !== 'undefined';
+    this.isSurge = typeof $httpClient !== 'undefined' && !this.isQX;
+    this.isLoon = typeof $loon !== 'undefined';
+    
+    this.response = typeof $response !== 'undefined' ? $response : {};
+    this.request = typeof $request !== 'undefined' ? $request : {};
+    
+    if (!this.request.url && this.response.request?.url) {
+      this.request = this.response.request;
+    }
+  }
+
+  getUrl() {
+    let url = this.response?.url || this.request?.url || '';
+    // QX 特殊处理
+    if (this.isQX && typeof $request === 'string') {
+      url = $request;
+    }
+    return url.toString();
+  }
+
+  getBody() {
+    return this.response?.body || '';
+  }
+
+  log(level, msg) {
+    if (!CONFIG.DEBUG && level === 'debug') return;
+    const ts = new Date().toISOString().split('T')[1].split('.')[0];
+    console.log(`[${this.name}][${level.toUpperCase()}][${ts}] ${msg}`);
+  }
+
+  debug(m) { this.log('debug', m); }
+  info(m) { this.log('info', m); }
+  warn(m) { this.log('warn', m); }
+  error(m) { this.log('error', m); }
+
+  done(result) {
+    if (typeof $done === 'function') {
+      $done(result);
+    } else {
+      console.log('[DONE]', result);
+    }
+  }
+}
+
+// ==========================================
+// VIP 解锁引擎
+// ==========================================
+
 class VipEngine {
   constructor(env) {
     this.env = env;
@@ -476,6 +771,10 @@ class VipEngine {
         return this.processRegex(body, config);
       case 'game':
         return this.processGame(body, config);
+      case 'hybrid':
+        return this.processHybrid(body, config);
+      case 'html':
+        return this.processHtml(body, config);
       default:
         return { body };
     }
@@ -483,10 +782,17 @@ class VipEngine {
 
   processJson(body, config) {
     let obj = Utils.safeJsonParse(body);
-    if (!obj) return { body };
+    if (!obj) {
+      this.env.warn('JSON parse failed');
+      return { body };
+    }
 
     if (typeof config.customProcessor === 'function') {
-      obj = config.customProcessor(obj, this.env);
+      try {
+        obj = config.customProcessor(obj, this.env);
+      } catch (e) {
+        this.env.error(`Processor error: ${e.message}`);
+      }
     }
 
     return { body: Utils.safeJsonStringify(obj) };
@@ -494,110 +800,132 @@ class VipEngine {
 
   processRegex(body, config) {
     let modified = body;
+    let count = 0;
+    
     for (const rule of config.regexReplacements || []) {
       try {
+        const original = modified;
         modified = modified.replace(rule.pattern, rule.replacement);
+        if (original !== modified) count++;
       } catch (e) {
-        this.env?.warn(`Regex error: ${e.message}`);
+        this.env.warn(`Regex error: ${e.message}`);
       }
     }
+    
+    if (count > 0) this.env.debug(`Regex: ${count} replacements`);
     return { body: modified };
   }
 
   processGame(body, config) {
     let modified = body;
+    let count = 0;
+    
     for (const res of config.gameResources || []) {
       try {
         const pattern = new RegExp(`"${res.field}":\\d+`, 'g');
+        const original = modified;
         modified = modified.replace(pattern, `"${res.field}":${res.value}`);
-      } catch (e) {}
+        if (original !== modified) count++;
+      } catch (e) {
+        this.env.warn(`Game error: ${e.message}`);
+      }
     }
+    
+    if (count > 0) this.env.debug(`Game: ${count} resources modified`);
+    return { body: modified };
+  }
+
+  processHybrid(body, config) {
+    // 先 JSON 处理
+    let result = this.processJson(body, config);
+    // 再 Regex 处理
+    if (config.regexReplacements) {
+      result = this.processRegex(result.body, config);
+    }
+    return result;
+  }
+
+  processHtml(body, config) {
+    let modified = body;
+    
+    for (const rule of config.htmlReplacements || []) {
+      try {
+        const regex = new RegExp(rule.pattern, 'i');
+        modified = modified.replace(regex, rule.replacement);
+      } catch (e) {
+        this.env.warn(`HTML error: ${e.message}`);
+      }
+    }
+    
     return { body: modified };
   }
 }
 
-// 环境
-class Environment {
-  constructor(name) {
-    this.name = name;
-    this.isQX = typeof $task !== 'undefined';
-    this.isSurge = typeof $httpClient !== 'undefined' && !this.isQX;
-    this.isLoon = typeof $loon !== 'undefined';
-    this.response = typeof $response !== 'undefined' ? $response : {};
-    this.request = typeof $request !== 'undefined' ? $request : {};
-    if (!this.request.url && this.response.request?.url) {
-      this.request = this.response.request;
-    }
-  }
-
-  getUrl() {
-    return this.response?.url || this.request?.url || '';
-  }
-
-  getBody() {
-    return this.response?.body || '';
-  }
-
-  log(level, msg) {
-    const ts = new Date().toISOString();
-    console.log(`[${this.name}][${level.toUpperCase()}][${ts}] ${msg}`);
-  }
-
-  debug(m) { if (CONFIG.DEBUG) this.log('debug', m); }
-  info(m) { this.log('info', m); }
-  warn(m) { this.log('warn', m); }
-  error(m) { this.log('error', m); }
-
-  done(result) {
-    if (typeof $done === 'function') $done(result);
-  }
-}
-
+// ==========================================
 // 主函数
+// ==========================================
+
 async function main() {
   const env = new Environment(META.name);
-  
+  
   try {
     env.info(`${META.name} v${META.version} [Runtime]`);
-
+    
+    // 获取 URL
     const url = env.getUrl();
     if (!url) {
-      env.error('No URL');
+      env.error('No URL detected');
       return env.done({});
     }
-    env.debug(`URL: ${url.substring(0, 50)}...`);
-
+    env.debug(`URL: ${url.substring(0, 60)}...`);
+    
+    // 初始化加载器
     const loader = new RuntimeLoader();
-    
+    
     // 加载清单
-    const manifest = await loader.loadManifest();
-    env.debug(`Manifest: ${Object.keys(manifest.configs).length} apps`);
-
+    let manifest;
+    try {
+      manifest = await loader.loadManifest();
+    } catch (e) {
+      env.error(`Manifest failed: ${e.message}`);
+      return env.done({ body: env.getBody() });
+    }
+    
+    const stats = loader.getStats();
+    env.debug(`Apps: ${stats.manifest}, Cached: ${stats.cached}`);
+    
     // 查找匹配
-    const configId = loader.findMatch(url, manifest);
+    const configId = loader.findMatch(url);
     if (!configId) {
-      env.warn('No match');
+      env.warn('No matching config');
       return env.done({ body: env.getBody() });
     }
     env.info(`Match: ${configId}`);
-
+    
     // 加载配置
-    const config = await loader.loadConfig(configId);
-    env.debug(`Loaded: ${config.name} [${config.mode}]`);
-
-    // 执行
+    let config;
+    try {
+      config = await loader.loadConfig(configId);
+    } catch (e) {
+      env.error(`Config failed: ${e.message}`);
+      return env.done({ body: env.getBody() });
+    }
+    
+    env.debug(`Mode: ${config.mode}, Name: ${config.name}`);
+    
+    // 执行解锁
     const engine = new VipEngine(env);
     const result = engine.process(env.getBody(), config);
-
-    env.info('Completed');
+    
+    env.info('Completed successfully');
     env.done(result);
-
+    
   } catch (e) {
-    env.error(`Fatal: ${e.message}`);
-    // 出错时返回原始响应
+    env.error(`Fatal error: ${e.message}`);
+    // 出错返回原始响应，避免破坏
     env.done({ body: env.getBody() });
   }
 }
 
 // 启动
-main();
+main()
