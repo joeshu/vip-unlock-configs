@@ -181,7 +181,74 @@ const ProcessorFactory = {
     if (Array.isArray(arr)) arr.length = 0;
     return obj;
   },
-  
+
+  when: (params) => {
+    return function(obj, env) {
+      try {
+        let conditionMet = false;
+        
+        // 支持多种条件类型
+        switch (params.condition) {
+          case "empty":
+            // 检查字段是否为空
+            const val = Utils.getPath(obj, params.check);
+            conditionMet = !val || Object.keys(val).length === 0;
+            break;
+            
+          case "hasKey":
+            // 检查数组中是否有指定key的对象
+            const arr = Utils.getPath(obj, params.path);
+            if (Array.isArray(arr)) {
+              conditionMet = arr.some(item => item.key === params.key);
+            }
+            break;
+            
+          case "pathMatch":
+            // URL路径匹配
+            const url = env?.getUrl?.() || '';
+            conditionMet = url.includes(params.path);
+            break;
+            
+          case "queryMatch":
+            // URL参数匹配
+            const urlObj = new URL(env?.getUrl?.() || 'http://localhost');
+            conditionMet = urlObj.searchParams.get(params.param) === params.value;
+            break;
+            
+          case "includes":
+            // 数组/字符串包含
+            const target = Utils.getPath(obj, params.path);
+            if (Array.isArray(target)) {
+              conditionMet = target.includes(params.value);
+            } else if (typeof target === 'string') {
+              conditionMet = target.includes(params.value);
+            }
+            break;
+            
+          case "isObject":
+            conditionMet = typeof Utils.getPath(obj, params.check) === 'object' 
+              && !Array.isArray(Utils.getPath(obj, params.check));
+            break;
+            
+          case "isArray":
+            conditionMet = Array.isArray(Utils.getPath(obj, params.check));
+            break;
+            
+          default:
+            conditionMet = false;
+        }
+        
+        if (conditionMet) {
+          return compileProcessor(params.then)(obj, env);
+        } else if (params.else) {
+          return compileProcessor(params.else)(obj, env);
+        }
+      } catch (e) {
+        env?.warn(`When error: ${e.message}`);
+      }
+      return obj;
+    },
+ 
   deleteFields: (params) => (obj, env) => {
     for (const path of params.paths || []) {
       const parts = path.split('.');
