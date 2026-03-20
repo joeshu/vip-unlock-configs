@@ -1,14 +1,11 @@
-
 {
   "id": "v2ex",
   "name": "V2EX去广告",
-  "urlPattern": "^https?:\\/\\/(www\\.)?v2ex\\.com\\/(?!(api|login|cdn-cgi|verify))",
+  "urlPattern": "^https?:\\/\\/(www\\.)?v2ex\\.com\\/(t|go|recent|hot|member)",
   "mode": "html",
   "htmlReplacements": [
     {
       "pattern": "<head>",
-      "replacement": "<head><style>.ads,.advertisement,.banner-ads{display:none!important}</style>",
+      "replacement": "<head><style>.ads,.advertisement{display:none!important}</style>",
       "flags": "i"
     }
-  ]
-}
