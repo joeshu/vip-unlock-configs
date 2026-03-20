@@ -1,0 +1,42 @@
+{
+  "id": "qiujingapp",
+  "name": "球竞APP",
+  "urlPattern": "^https?:\\/\\/gateway-api\\.yizhilive\\.com\\/api\\/(v2\\/index\\/carouses\\/(3|6|8|11)|v3\\/index\\/all)",
+  "mode": "json",
+  "processor": {
+    "processor": "compose",
+    "params": {
+      "steps": [
+        {
+          "processor": "when",
+          "params": {
+            "condition": "pathMatch",
+            "path": "/api/v2/index/carouses/",
+            "then": {
+              "processor": "clearArray",
+              "params": {
+                "path": "data",
+                "logName": "carousel ads"
+              }
+            }
+          }
+        },
+        {
+          "processor": "when",
+          "params": {
+            "condition": "queryMatch",
+            "param": "position",
+            "value": "2",
+            "then": {
+              "processor": "clearArray",
+              "params": {
+                "path": "data.banners",
+                "logName": "banners"
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}
