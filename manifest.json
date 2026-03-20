@@ -1,0 +1,18 @@
+{
+  "version": "20.0.0",
+  "updated": "2026-03-20",
+  "configs": {
+    "tophub": {
+      "name": "TopHub",
+      "urlPattern": "(?:api[23]\\.tophub\\.(?:xyz|today|app)|tophub(?:2)?\\.(?:tophubdata\\.com|idaily\\.today))\\/account\\/sync"
+    },
+    "sylangyue": {
+      "name": "思朗月影视",
+      "urlPattern": "^https?:\\/\\/theater-api\\.sylangyue\\.xyz\\/api\\/user\\/info"
+    },
+    "kyxq": {
+      "name": "口语星球",
+      "urlPattern": "^https?:\\/\\/mapi\\.kouyuxingqiu\\.com\\/api\\/v2"
+    }
+  }
+}
