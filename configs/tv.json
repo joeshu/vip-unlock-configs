@@ -1,0 +1,84 @@
+{
+  "id": "tv",
+  "name": "影视去广告",
+  "urlPattern": "^https?:\\/\\/(yzy0916|yz1018|yz250907|yz0320|cfvip)\\..+\\.com\\/(v2|v1)\\/api\\/(basic\\/init|home\\/firstScreen|adInfo\\/getPageAd|home\\/body)",
+  "mode": "json",
+  "processor": {
+    "processor": "compose",
+    "params": {
+      "steps": [
+        {
+          "processor": "when",
+          "params": {
+            "condition": "pathMatch",
+            "path": "/basic/init",
+            "then": {
+              "processor": "setFields",
+              "params": {
+                "fields": {
+                  "data.startAdShowTime": 0,
+                  "data.startAd": null,
+                  "data.startAdList": null
+                }
+              }
+            }
+          }
+        },
+        {
+          "processor": "when",
+          "params": {
+            "condition": "pathMatch",
+            "path": "/home/firstScreen",
+            "then": {
+              "processor": "compose",
+              "params": {
+                "steps": [
+                  {
+                    "processor": "deleteFields",
+                    "params": {
+                      "paths": ["data.focusAdList"]
+                    }
+                  },
+                  {
+                    "processor": "sliceArray",
+                    "params": {
+                      "path": "data.hotMudleList",
+                      "keepCount": 5
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "processor": "when",
+          "params": {
+            "condition": "pathMatch",
+            "path": "/adInfo/getPageAd",
+            "then": {
+              "processor": "deleteFields",
+              "params": {
+                "paths": ["data.floatAd", "data.popupAd"]
+              }
+            }
+          }
+        },
+        {
+          "processor": "when",
+          "params": {
+            "condition": "pathMatch",
+            "path": "/home/body",
+            "then": {
+              "processor": "shiftArray",
+              "params": {
+                "path": "data.adList",
+                "logName": "first ad"
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}
