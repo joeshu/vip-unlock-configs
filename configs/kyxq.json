@@ -1,0 +1,46 @@
+{
+  "id": "kyxq",
+  "name": "口语星球",
+  "urlPattern": "^https?:\\/\\/mapi\\.kouyuxingqiu\\.com\\/api\\/v2",
+  "mode": "json",
+  "processor": {
+    "processor": "sceneDispatcher",
+    "params": {
+      "scenes": [
+        {
+          "name": "permission",
+          "when": "isObject",
+          "check": "data",
+          "then": {
+            "processor": "setFields",
+            "params": {
+              "fields": {
+                "data.expireDate": 4102416000000,
+                "data.havePermission": true,
+                "data.type": 2,
+                "data.isVip": true,
+                "data.vipLevel": 10
+              }
+            }
+          }
+        },
+        {
+          "name": "courseList",
+          "when": "isArray",
+          "check": "data",
+          "then": {
+            "processor": "mapArray",
+            "params": {
+              "path": "data",
+              "fields": {
+                "overTime": 4102416000000,
+                "status": 1,
+                "isStudyIng": 1
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}
