@@ -1,18 +1,87 @@
 {
   "version": "20.0.0",
   "updated": "2026-03-20",
+  "total": 16,
   "configs": {
+    "iappdaily": {
+      "name": "iAppDaily",
+      "urlPattern": "api\\.iappdaily\\.com\\/my\\/balance",
+      "mode": "json"
+    },
     "tophub": {
       "name": "TopHub",
-      "urlPattern": "(?:api[23]\\.tophub\\.(?:xyz|today|app)|tophub(?:2)?\\.(?:tophubdata\\.com|idaily\\.today))\\/account\\/sync"
+      "urlPattern": "(?:api[23]\\.tophub\\.(?:xyz|today|app)|tophub(?:2)?\\.(?:tophubdata\\.com|idaily\\.today|remai\\.today|iappdaiy\\.com|ipadown\\.com))\\/account\\/sync",
+      "mode": "json"
     },
     "sylangyue": {
       "name": "思朗月影视",
-      "urlPattern": "^https?:\\/\\/theater-api\\.sylangyue\\.xyz\\/api\\/user\\/info"
+      "urlPattern": "^https?:\\/\\/theater-api\\.sylangyue\\.xyz\\/api\\/user\\/info",
+      "mode": "json"
+    },
+    "gps": {
+      "name": "GPS工具箱",
+      "urlPattern": "^https:\\/\\/service\\.gpstool\\.com\\/app\\/index\\/getUserInfo",
+      "mode": "json"
     },
     "kyxq": {
       "name": "口语星球",
-      "urlPattern": "^https?:\\/\\/mapi\\.kouyuxingqiu\\.com\\/api\\/v2"
+      "urlPattern": "^https?:\\/\\/mapi\\.kouyuxingqiu\\.com\\/api\\/v2",
+      "mode": "json"
+    },
+    "mhlz": {
+      "name": "魔幻粒子",
+      "urlPattern": "^https?:\\/\\/ss\\.landintheair\\.com\\/storage\\/",
+      "mode": "json"
+    },
+    "xjsm": {
+      "name": "星际使命",
+      "urlPattern": "^https?:\\/\\/star\\.jvplay\\.cn\\/v2\\/storage",
+      "mode": "json"
+    },
+    "v2ex": {
+      "name": "V2EX去广告",
+      "urlPattern": "^https?:\\/\\/.*v2ex\\.com\\/(?!(.*(api|login|cdn-cgi|verify|auth|captch|(\\.js|\\.css|\\.jpg|\\.png|\\.gif|\\.woff|\\.mp4|\\.json)))))",
+      "mode": "html"
+    },
+    "foday": {
+      "name": "复游会",
+      "urlPattern": "^https?:\\/\\/apis\\.folidaymall\\.com\\/online\\/capi\\/component\\/getPageComponents",
+      "mode": "json"
+    },
+    "qiujingapp": {
+      "name": "球竞APP",
+      "urlPattern": "^https?:\\/\\/gateway-api\\.yizhilive\\.com\\/api\\/(v2\\/index\\/carouses\\/(3|6|8|11)|v3\\/index\\/all)",
+      "mode": "json"
+    },
+    "tv": {
+      "name": "影视去广告",
+      "urlPattern": "^https?:\\/\\/(yzy0916|yz1018|yz250907|yz0320|cfvip)\\..+\\.com\\/(v2|v1)\\/api\\/(basic\\/init|home\\/firstScreen|adInfo\\/getPageAd|home\\/body)",
+      "mode": "json"
+    },
+    "keep": {
+      "name": "Keep",
+      "urlPattern": "^https?:\\/\\/(api|kit)\\.gotokeep\\.com\\/(nuocha|gerudo|athena|nuocha\\/plans|suit\\/v5\\/smart|kprime\\/v4\\/suit\\/sales)\\/",
+      "mode": "regex"
+    },
+    "bqwz": {
+      "name": "标枪王者",
+      "urlPattern": "^https?:\\/\\/javelin\\.mandrillvr\\.com\\/api\\/data\\/get_game_data",
+      "mode": "game"
+    },
+    "cyljy": {
+      "name": "成语来解压",
+      "urlPattern": "^https?:\\/\\/yr-game-api\\.feigo\\.fun\\/api\\/user\\/get-game-user-value",
+      "mode": "game"
+    },
+    "bxkt": {
+      "name": "伴学课堂",
+      "urlPattern": "^https?:\\/\\/api\\.banxueketang\\.com\\/api\\/classpal\\/app\\/v1",
+      "mode": "hybrid"
+    },
+    "wohome": {
+      "name": "联通智家",
+      "urlPattern": "^https:\\/\\/iotpservice\\.smartont\\.net\\/wohome\\/dispatcher",
+      "mode": "json"
     }
   }
 }
