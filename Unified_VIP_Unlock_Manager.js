@@ -12,7 +12,7 @@
 
 const CONFIG = {
   // 远程配置服务器地址
-  REMOTE_BASE: 'https://your-github-username.github.io/vip-configs',
+  REMOTE_BASE: 'https://joeshu.github.io/vip-unlock-configs/',
   
   // 缓存时间（毫秒）：默认24小时
   CACHE_TTL: 24 * 60 * 60 * 1000,
