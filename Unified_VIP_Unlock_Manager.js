@@ -1,7 +1,11 @@
 /**
- * Unified VIP Unlock Manager - Runtime Loader
- * 运行时动态加载版 - iOS 专用
- * @version 20.0.0
+ * ==========================================
+ * Unified VIP Unlock Manager v20.1.0
+ * 统一 VIP 解锁管理器 - 运行时加载完整版
+ * @version 20.1.0
+ * @description 支持16个应用，纯远程配置，iOS全平台兼容
+ * ==========================================
+
  [rewrite_local]
  # iAppDaily - 余额查询接口（JSON模式-声明式字段设置）
  ^https:\/\/api\.iappdaily\.com\/my\/balance url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager.js
@@ -39,22 +43,22 @@
  [mitm]
  hostname = theater-api.sylangyue.xyz, api.iappdaily.com, api2.tophub.today, api2.tophub.app, api3.tophub.xyz, api3.tophub.today, api3.tophub.app, tophub.tophubdata.com, tophub2.tophubdata.com, tophub.idaily.today, tophub2.idaily.today, tophub.remai.today, tophub.iappdaiy.com, tophub.ipadown.com,service.gpstool.com, mapi.kouyuxingqiu.com, ss.landintheair.com, *.v2ex.com, apis.folidaymall.com, gateway-api.yizhilive.com, pagead*.googlesyndication.com, api.gotokeep.com, kit.gotokeep.com, *.gotokeep.*, 120.53.74.*, 162.14.5.*, 42.187.199.*, 101.42.124.*, javelin.mandrillvr.com,api.banxueketang.com, yzy0916.*.com, yz1018.*.com, yz250907.*.com, yz0320.*.com, cfvip.*.com,yr-game-api.feigo.fun,star.jvplay.cn,iotpservice.smartont.net
  */
-
 'use strict';
 
 // ==========================================
-// 配置区域（修改这里）
+// 配置区域（修改为你的服务器地址）
 // ==========================================
 
 const CONFIG = {
-  // 远程配置服务器地址
+  // 远程配置服务器地址（GitHub Pages/Cloudflare/你的服务器）
   REMOTE_BASE: 'https://joeshu.github.io/vip-unlock-configs',
-  
+  
   // 缓存时间（毫秒）：默认24小时
   CACHE_TTL: 24 * 60 * 60 * 1000,
-  
-  // 调试模式
-  DEBUG: true
+  
+  // 调试模式：true显示详细日志，false只显示错误
+  DEBUG: true,
+  
   // 请求超时（秒）
   TIMEOUT: 10
 };
@@ -928,4 +932,4 @@ async function main() {
 }
 
 // 启动
-main()
+main();
