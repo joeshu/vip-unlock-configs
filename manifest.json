@@ -38,11 +38,11 @@
       "urlPattern": "^https?:\\/\\/star\\.jvplay\\.cn\\/v2\\/storage",
       "mode": "json"
     },
-    "v2ex": {
-      "name": "V2EX去广告",
-      "urlPattern": "^https?:\\/\\/.*v2ex\\.com\\/(?!(.*(api|login|cdn-cgi|verify|auth|captch|(\\.js|\\.css|\\.jpg|\\.png|\\.gif|\\.woff|\\.mp4|\\.json)))))",
-      "mode": "html"
-    },
+  "v2ex": {
+    "name": "V2EX去广告",
+    "urlPattern": "^https?:\\\\/\\\\/[^\\\\/]*v2ex\\\\.com\\\\/+(?!.*(?:api|login|signin|cdn-cgi|static|_))(?:.*)$",
+    "mode": "html"
+  },
     "foday": {
       "name": "复游会",
       "urlPattern": "^https?:\\/\\/apis\\.folidaymall\\.com\\/online\\/capi\\/component\\/getPageComponents",
