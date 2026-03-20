@@ -1,13 +1,14 @@
+
 {
   "id": "v2ex",
   "name": "V2EX去广告",
-  "urlPattern": "^https?:\\/\\/.*v2ex\\.com\\/(?!(.*(api|login|cdn-cgi|verify|auth|captch|(\\.js|\\.css|\\.jpg|\\.png|\\.gif|\\.woff|\\.mp4|\\.json)))))",
+  "urlPattern": "^https?:\\/\\/(www\\.)?v2ex\\.com\\/(?!(api|login|cdn-cgi|verify))",
   "mode": "html",
   "htmlReplacements": [
     {
       "pattern": "<head>",
       "replacement": "<head><style>.ads,.advertisement,.banner-ads{display:none!important}</style>",
-      "description": "注入CSS隐藏广告元素"
+      "flags": "i"
     }
   ]
 }
