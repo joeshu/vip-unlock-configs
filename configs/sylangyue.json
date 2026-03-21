@@ -7,6 +7,7 @@
     "processor": "setFields",
     "params": {
       "fields": {
+      "fields": {
         "code": 200,
         "msg": "发送成功",
         "data.vip.status": true,
