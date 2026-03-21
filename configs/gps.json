@@ -9,11 +9,11 @@
       "fields": {
         "data.is_vip": 1,
         "data.vip_name": "VIP会员",
-        "data.vip_expire_date": 2099999,
+        "data.vip_expire_date": 20999999,
         "data.is_super_vip": 1,
         "data.is_power_vip": 1,
         "data.group_vip": 1,
-        "data.group_vip_expire_date": 2099999
+        "data.group_vip_expire_date": 20999999
       }
     }
   }
