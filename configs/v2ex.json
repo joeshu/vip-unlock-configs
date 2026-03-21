@@ -1,4 +1,4 @@
-//"urlPattern": "^https?:\\\\/\\\\/(www\\\\.)?v2ex\\\\.com\\\\/(?!.*(?:api|login|signin|cdn-cgi|static|_)).*$",
+//**"urlPattern": "^https?:\\\\/\\\\/(www\\\\.)?v2ex\\\\.com\\\\/(?!.*(?:api|login|signin|cdn-cgi|static|_)).*$",**/
 {
   "id": "v2ex",
   "name": "V2EX去广告",
