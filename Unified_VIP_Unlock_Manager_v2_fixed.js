@@ -1,9 +1,9 @@
 /**
  * ==========================================
- * Unified VIP Unlock Manager v20.2.4
- * 统一 VIP 解锁管理器 - 静默模式版
- * @version 20.2.4
- * @description 支持智能预加载、域名索引、惰性编译、热更新
+ * Unified VIP Unlock Manager v20.2.5
+ * 统一 VIP 解锁管理器 - 防重复执行版
+ * @version 20.2.5
+ * @description 支持智能预加载、域名索引、惰性编译、热更新、防重复执行
  * ==========================================
 
 [rewrite_local]
@@ -43,11 +43,36 @@
  [mitm]
  hostname = theater-api.sylangyue.xyz, api.iappdaily.com, api2.tophub.today, api2.tophub.app, api3.tophub.xyz, api3.tophub.today, api3.tophub.app, tophub.tophubdata.com, tophub2.tophubdata.com, tophub.idaily.today, tophub2.idaily.today, tophub.remai.today, tophub.iappdaiy.com, tophub.ipadown.com,service.gpstool.com, mapi.kouyuxingqiu.com, ss.landintheair.com, *.v2ex.com, apis.folidaymall.com, gateway-api.yizhilive.com, pagead*.googlesyndication.com, api.gotokeep.com, kit.gotokeep.com, *.gotokeep.*, 120.53.74.*, 162.14.5.*, 42.187.199.*, 101.42.124.*, javelin.mandrillvr.com,api.banxueketang.com, yzy0916.*.com, yz1018.*.com, yz250907.*.com, yz0320.*.com, cfvip.*.com,yr-game-api.feigo.fun,star.jvplay.cn,iotpservice.smartont.net
 */
-
 'use strict';
 
 // ==========================================
-// 配置区域
+// 防重复执行锁（关键修复）
+// ==========================================
+const EXECUTION_KEY = '__UnifiedVIP_executing';
+try {
+ if (globalThis[EXECUTION_KEY]) {
+ // 如果正在执行，直接返回原始响应
+ if (typeof $response !== 'undefined') {
+ $done({ body: $response.body });
+ } else {
+ $done({});
+ }
+ return;
+ }
+ globalThis[EXECUTION_KEY] = true;
+} catch (e) {
+ // 如果无法设置锁，继续执行
+}
+
+// 执行完成后释放锁
+const releaseLock = () => {
+ try {
+ delete globalThis[EXECUTION_KEY];
+ } catch (e) {}
+};
+
+// ==========================================
+// 配置区域（确保在 Logger 之前定义）
 // ==========================================
 const CONFIG = {
  REMOTE_BASE: 'https://joeshu.github.io/vip-unlock-configs',
@@ -64,13 +89,16 @@ const CONFIG = {
 
 const META = {
  name: 'UnifiedVIP',
- version: '20.2.4'
+ version: '20.2.5'
 };
 
 // ==========================================
 // 日志系统（核心：DEBUG=false时完全静默）
 // ==========================================
 const Logger = (() => {
+ // 立即捕获 DEBUG 配置，防止后续被修改
+ const isDebug = CONFIG.DEBUG === true;
+ 
  // 空函数，用于静默模式
  const noop = () => {};
  
@@ -90,16 +118,18 @@ const Logger = (() => {
  log('FATAL', tag, errorMsg);
  };
  
- // 根据DEBUG配置返回相应实现
- if (!CONFIG.DEBUG) {
+ // 根据DEBUG配置返回相应实现（使用闭包锁定isDebug）
+ if (!isDebug) {
  // 静默模式：只有fatal可用
  return {
  debug: noop,
  info: noop,
  warn: noop,
  stats: noop,
- error: noop,  // 普通error也静默，只有fatal输出
- fatal: fatal
+ error: noop,
+ fatal: fatal,
+ // 暴露配置状态供检查
+ _isSilent: true
  };
  }
  
@@ -110,7 +140,8 @@ const Logger = (() => {
  warn: (tag, msg, data) => log('warn', tag, msg, data),
  stats: (msg, data) => log('STATS', '', msg, data),
  error: (tag, msg, data) => log('error', tag, msg, data),
- fatal: fatal
+ fatal: fatal,
+ _isSilent: false
  };
 })();
 
@@ -265,7 +296,7 @@ const Utils = {
 };
 
 // ==========================================
-// 处理器工厂（无日志或条件日志）
+// 处理器工厂
 // ==========================================
 const ProcessorFactory = {
  setFields: (params) => (obj, env) => {
@@ -934,6 +965,7 @@ async function main() {
  const url = env.getUrl();
  if (!url) {
  Logger.fatal('Main', 'No URL in request');
+ releaseLock();
  return env.done({});
  }
  
@@ -946,12 +978,14 @@ async function main() {
  manifest = await loader.loadManifest();
  } catch (e) {
  Logger.fatal('Main', 'Manifest failed', e);
+ releaseLock();
  return env.done({ body: env.getBody() });
  }
 
  const configId = loader.findMatch(url);
  if (!configId) {
  Logger.debug('Main', 'No rule matched');
+ releaseLock();
  return env.done({ body: env.getBody() });
  }
 
@@ -960,6 +994,7 @@ async function main() {
  config = await loader.loadConfig(configId);
  } catch (e) {
  Logger.fatal('Main', 'Config failed', e);
+ releaseLock();
  return env.done({ body: env.getBody() });
  }
 
@@ -967,10 +1002,13 @@ async function main() {
  const result = engine.process(env.getBody(), config);
 
  Logger.debug('Main', 'Completed');
+ 
+ releaseLock();
  env.done(result);
 
  } catch (e) {
  Logger.fatal('Main', 'Fatal error', e);
+ releaseLock();
  env.done({ body: env.getBody() });
  }
 }
