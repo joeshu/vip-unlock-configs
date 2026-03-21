@@ -17,8 +17,7 @@
           "amount": "99999999988888888",
           "total_collected": "99999999988888888"
         }
-      },
-      "logPrefix": "Currency"
+      }
     }
   }
 }
