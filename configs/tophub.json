@@ -12,12 +12,40 @@
           "params": {
             "fields": {
               "error": 0,
-              "status": 200,
-              "data.is_vip": "1",
-              "data.is_vip_now": 1,
-              "data.vip_expired": "2099-12-31 23:59:59",
-              "data.vip_type": "lifetime",
-              "data.vip_level": 99
+              "status": 200
+            }
+          }
+        },
+        {
+          "processor": "when",
+          "params": {
+            "condition": "empty",
+            "check": "data",
+            "then": {
+              "processor": "setFields",
+              "params": {
+                "fields": {
+                  "data": {
+                    "is_vip": "1",
+                    "is_vip_now": 1,
+                    "vip_expired": "2099-12-31 23:59:59",
+                    "vip_type": "lifetime",
+                    "vip_level": 99
+                  }
+                }
+              }
+            },
+            "else": {
+              "processor": "setFields",
+              "params": {
+                "fields": {
+                  "data.is_vip": "1",
+                  "data.is_vip_now": 1,
+                  "data.vip_expired": "2099-12-31 23:59:59",
+                  "data.vip_type": "lifetime",
+                  "data.vip_level": 99
+                }
+              }
             }
           }
         }
