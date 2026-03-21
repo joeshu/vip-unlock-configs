@@ -1,7 +1,7 @@
 {
   "id": "tv",
   "name": "影视去广告",
-  "urlPattern": "^https?:\\/\\/(yzy0916|yz1018|yz250907|yz0320|cfvip)\\..+\\.com\\/(v2|v1)\\/api\\/(basic\\/init|home\\/firstScreen|adInfo\\/getPageAd|home\\/body)",
+  "urlPattern": "^https?:\\/\\/(?:yzy0916|yz1018|yz250907|yz0320|cfvip)\\..+\\.com\\/(?:v2|v1)\\/api\\/(?:basic\\/init|home\\/firstScreen|adInfo\\/getPageAd|home\\/body)",
   "mode": "json",
   "processor": {
     "processor": "compose",
@@ -72,8 +72,7 @@
             "then": {
               "processor": "shiftArray",
               "params": {
-                "path": "data.adList",
-                "logName": "first ad"
+                "path": "data.adList"
               }
             }
           }
