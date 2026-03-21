@@ -61,7 +61,7 @@ const CONFIG = {
   LAZY_COMPILE: true,                      // 启用 Processor 惰性编译
   STREAM_THRESHOLD: 100 * 1024,            // 流式处理阈值 100KB
   HOT_RELOAD: true,                        // 启用配置热更新
-  DEBUG: false,
+  DEBUG: true,                             //false
   TIMEOUT: 10
 };
 
