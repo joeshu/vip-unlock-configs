@@ -7,7 +7,7 @@
     "processor": "when",
     "params": {
       "condition": "includes",
-      "path": "data.posCode",
+      "check": "data.posCode",
       "value": "APP_START_PAGE",
       "then": {
         "processor": "deleteFields",
