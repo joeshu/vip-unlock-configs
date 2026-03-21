@@ -1,8 +1,8 @@
 /**
  * ==========================================
- * Unified VIP Unlock Manager v20.2.1-fixed
+ * Unified VIP Unlock Manager v20.2.2-fixed
  * 统一 VIP 解锁管理器 - 高性能优化修复版
- * @version 20.2.1-fixed
+ * @version 20.2.2-fixed
  * @description 支持智能预加载、域名索引、惰性编译、热更新
  * ==========================================
 
@@ -43,7 +43,6 @@
  [mitm]
  hostname = theater-api.sylangyue.xyz, api.iappdaily.com, api2.tophub.today, api2.tophub.app, api3.tophub.xyz, api3.tophub.today, api3.tophub.app, tophub.tophubdata.com, tophub2.tophubdata.com, tophub.idaily.today, tophub2.idaily.today, tophub.remai.today, tophub.iappdaiy.com, tophub.ipadown.com,service.gpstool.com, mapi.kouyuxingqiu.com, ss.landintheair.com, *.v2ex.com, apis.folidaymall.com, gateway-api.yizhilive.com, pagead*.googlesyndication.com, api.gotokeep.com, kit.gotokeep.com, *.gotokeep.*, 120.53.74.*, 162.14.5.*, 42.187.199.*, 101.42.124.*, javelin.mandrillvr.com,api.banxueketang.com, yzy0916.*.com, yz1018.*.com, yz250907.*.com, yz0320.*.com, cfvip.*.com,yr-game-api.feigo.fun,star.jvplay.cn,iotpservice.smartont.net
 */
-
 'use strict';
 
 // ==========================================
@@ -64,7 +63,7 @@ const CONFIG = {
 
 const META = {
  name: 'UnifiedVIP',
- version: '20.2.1-fixed'
+ version: '20.2.2-fixed'
 };
 
 // ==========================================
@@ -139,7 +138,7 @@ const Storage = {
 };
 
 // ==========================================
-// 工具函数（关键修复：修正正则表达式转义）
+// 工具函数
 // ==========================================
 const Utils = {
  safeJsonParse: (str, defaultVal = null) => {
@@ -148,12 +147,10 @@ const Utils = {
  safeJsonStringify: (obj) => {
  try { return JSON.stringify(obj); } catch (e) { return '{}'; }
  },
- // 修复：使用正确的正则表达式（与v20.1.0一致）
  getPath: (obj, path) => {
  if (!path || !obj) return undefined;
  return path.split('.').reduce((current, part) => {
  if (current === null || current === undefined) return undefined;
- // 修复：移除过度转义，\\[ 改为 \[，\\d 改为 \d
  const match = part.match(/^([^\\[]+)\\[(\\d+)\\]$/);
  if (match) {
  const arr = current[match[1]];
@@ -170,7 +167,6 @@ const Utils = {
  for (let i = 0; i < parts.length - 1; i++) {
  const part = parts[i];
  const nextPart = parts[i + 1];
- // 修复：移除过度转义
  const match = part.match(/^([^\\[]+)\\[(\\d+)\\]$/);
 
  if (match) {
@@ -187,7 +183,6 @@ const Utils = {
  current = current[arrName][arrIndex];
  }
  } else {
- // 修复：移除过度转义
  const isNextArray = /^[^\\[]+\\[\\d+\\]$/.test(nextPart);
  if (!(part in current) || current[part] === null) {
  current[part] = isNextArray ? [] : {};
@@ -197,7 +192,6 @@ const Utils = {
  }
 
  const lastPart = parts[parts.length - 1];
- // 修复：移除过度转义
  const lastMatch = lastPart.match(/^([^\\[]+)\\[(\\d+)\\]$/);
 
  if (lastMatch) {
@@ -394,7 +388,12 @@ const ProcessorFactory = {
  }
 };
 
+// ==========================================
+// 处理器编译缓存（修复：分离存储，避免修改冻结对象）
+// ==========================================
 const ProcessorCompileCache = new Map();
+// 新增：配置ID到处理器的映射，避免在config对象上添加属性
+const ConfigProcessorCache = new Map();
 
 function compileProcessor(def) {
  if (!def || !def.processor) return null;
@@ -418,6 +417,23 @@ function compileProcessor(def) {
  ProcessorCompileCache.set(cacheKey, processor);
  }
 
+ return processor;
+}
+
+// 新增：获取或编译配置对应的处理器
+function getConfigProcessor(config) {
+ if (!config || !config.processor || config.mode !== 'json') return null;
+ 
+ const configId = config.id || Utils.simpleHash(JSON.stringify(config));
+ 
+ if (ConfigProcessorCache.has(configId)) {
+ return ConfigProcessorCache.get(configId);
+ }
+ 
+ const processor = compileProcessor(config.processor);
+ if (processor) {
+ ConfigProcessorCache.set(configId, processor);
+ }
  return processor;
 }
 
@@ -696,9 +712,10 @@ class RuntimeLoader {
  }
  }
 
- if (!CONFIG.LAZY_COMPILE && raw.processor && raw.mode === 'json') {
- config.customProcessor = compileProcessor(raw.processor);
- }
+ // 修复：不再在config上存储customProcessor，而是使用外部缓存
+ // 移除：if (!CONFIG.LAZY_COMPILE && raw.processor && raw.mode === 'json') {
+ //   config.customProcessor = compileProcessor(raw.processor);
+ // }
 
  if (raw.regexReplacements) {
  config.regexReplacements = raw.regexReplacements.map(r => ({
@@ -707,7 +724,10 @@ class RuntimeLoader {
  }));
  }
 
- return Object.freeze(config);
+ // 修复：不再冻结对象，或者使用不可扩展但可写的方式
+ // 使用 Object.seal 替代 Object.freeze，允许修改现有属性但防止添加新属性
+ // 但更好的方案是完全不冻结，因为我们需要灵活性
+ return config;
  }
 
  getStats() {
@@ -765,9 +785,10 @@ class VipEngine {
  process(body, config) {
  if (!body) return { body: '{}' };
 
- if (CONFIG.LAZY_COMPILE && config.processor && !config.customProcessor && config.mode === 'json') {
- config.customProcessor = compileProcessor(config.processor);
- }
+ // 修复：使用外部缓存获取处理器，而不是修改config对象
+ // if (CONFIG.LAZY_COMPILE && config.processor && !config.customProcessor && config.mode === 'json') {
+ //   config.customProcessor = compileProcessor(config.processor);
+ // }
 
  switch (config.mode) {
  case 'json':
@@ -787,9 +808,13 @@ class VipEngine {
  processJson(body, config) {
  let obj = Utils.safeJsonParse(body);
  if (!obj) return { body };
- if (typeof config.customProcessor === 'function') {
+ 
+ // 修复：使用外部缓存获取处理器
+ const customProcessor = getConfigProcessor(config);
+ 
+ if (typeof customProcessor === 'function') {
  try {
- obj = config.customProcessor(obj, this.env);
+ obj = customProcessor(obj, this.env);
  } catch (e) {
  this.env.error(`Processor: ${e.message}`);
  }
@@ -830,7 +855,6 @@ class VipEngine {
  let modified = body;
  for (const rule of config.htmlReplacements || []) {
  try {
- // 修复：恢复 rule.flags 支持
  const regex = new RegExp(rule.pattern, rule.flags || 'i');
  modified = modified.replace(regex, rule.replacement);
  } catch (e) {}
