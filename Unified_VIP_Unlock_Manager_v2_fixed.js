@@ -1,8 +1,8 @@
 /**
  * ==========================================
- * Unified VIP Unlock Manager v20.2.5
- * 统一 VIP 解锁管理器 - 防重复执行版
- * @version 20.2.5
+ * Unified VIP Unlock Manager v20.2.6
+ * 统一 VIP 解锁管理器 - sceneDispatcher增强版
+ * @version 20.2.6
  * @description 支持智能预加载、域名索引、惰性编译、热更新、防重复执行
  * ==========================================
 
@@ -456,33 +456,71 @@ const ProcessorFactory = {
  return obj;
  };
  },
- sceneDispatcher: (params, compile) => {
- const scenes = (params.scenes || []).map(s => ({
- name: s.name,
- when: s.when,
- then: compile(s.then)
- }));
- return (obj, env) => {
- for (const scene of scenes) {
- try {
- let matched = false;
- if (scene.when === "isObject") {
- matched = typeof obj.data === 'object' && !Array.isArray(obj.data);
- } else if (scene.when === "isArray") {
- matched = Array.isArray(obj.data);
- } else if (typeof scene.when === 'function') {
- matched = scene.when(obj);
- }
- if (matched) {
- Logger.debug('Scene', `Matched: ${scene.name}`);
- return scene.then(obj, env);
- }
- } catch (e) {}
- }
- Logger.debug('Scene', 'No scene matched');
- return obj;
- };
- }
+    sceneDispatcher: (params, compile) => {
+        const scenes = (params.scenes || []).map(s => ({
+            name: s.name,
+            when: s.when,
+            path: s.path,
+            param: s.param,
+            value: s.value,
+            check: s.check,
+            then: compile(s.then)
+        }));
+        
+        return (obj, env) => {
+            const url = env?.getUrl?.() || '';
+            
+            for (const scene of scenes) {
+                try {
+                    let matched = false;
+                    
+                    switch (scene.when) {
+                        case "isObject":
+                            matched = typeof obj.data === 'object' && !Array.isArray(obj.data);
+                            break;
+                        case "isArray":
+                            matched = Array.isArray(obj.data);
+                            break;
+                        case "pathMatch":
+                            matched = scene.path && url.includes(scene.path);
+                            break;
+                        case "queryMatch":
+                            const match = url.match(new RegExp(`[?&]${scene.param}=([^&]+)`));
+                            matched = match && decodeURIComponent(match[1]) === scene.value;
+                            break;
+                        case "includes":
+                            const data = Utils.getPath(obj, scene.check || 'data');
+                            matched = Array.isArray(data) 
+                                ? data.includes(scene.value) 
+                                : String(data).includes(scene.value);
+                            break;
+                        case "empty":
+                            const checkData = Utils.getPath(obj, scene.check || 'data');
+                            matched = !checkData || Object.keys(checkData).length === 0;
+                            break;
+                        case "hasKey":
+                            const arr = Utils.getPath(obj, scene.path);
+                            matched = Array.isArray(arr) && arr.some(item => item?.key === scene.key);
+                            break;
+                        default:
+                            if (typeof scene.when === 'function') {
+                                matched = scene.when(obj);
+                            }
+                    }
+                    
+                    if (matched) {
+                        Logger.debug('Scene', `Matched: ${scene.name}`);
+                        return scene.then(obj, env);
+                    }
+                } catch (e) {
+                    Logger.debug('Scene', `Error in ${scene.name}: ${e.message}`);
+                }
+            }
+            
+            Logger.debug('Scene', 'No scene matched');
+            return obj;
+        };
+    }
 };
 
 // ==========================================
