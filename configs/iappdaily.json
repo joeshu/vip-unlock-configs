@@ -1,7 +1,7 @@
 {
   "id": "iappdaily",
   "name": "iAppDaily",
-  "urlPattern": "api\\.iappdaily\\.com\\/my\\/balance",
+  "urlPattern": "^https:\\/\\/api\\.iappdaily\\.com\\/my\\/balance",
   "mode": "json",
   "processor": {
     "processor": "setFields",
