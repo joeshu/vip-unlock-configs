@@ -1,11 +1,18 @@
 {
   "id": "v2ex",
   "name": "V2EX去广告",
-  "urlPattern": "^https?:\\/\\/(www\\.)?v2ex\\.com\\/(t|go|recent|hot|member)",
+  "urlPattern": "^https?:\\\\/\\\\/(www\\\\.)?v2ex\\\\.com\\\\/(?!.*(?:api|login|signin|cdn-cgi|static|_)).*$",
   "mode": "html",
   "htmlReplacements": [
     {
       "pattern": "<head>",
-      "replacement": "<head><style>.ads,.advertisement{display:none!important}</style>",
+      "replacement": "<head><style>.sidebar_units,.sidebar_compliance,.ads,[style*='border-left:3px solid #ff6b6b']{display:none!important}</style>",
       "flags": "i"
+    },
+    {
+      "pattern": "<div class=\"sidebar_units\">[\\\\s\\\\S]*?<\\\\/div>",
+      "replacement": "",
+      "flags": "gi"
     }
+  ]
+}
