@@ -4,37 +4,33 @@
   "urlPattern": "^https?:\\/\\/star\\.jvplay\\.cn\\/v2\\/storage",
   "mode": "json",
   "processor": {
-    "processor": "compose",
+    "processor": "sceneDispatcher",
     "params": {
-      "steps": [
+      "scenes": [
         {
-          "processor": "when",
-          "params": {
-            "condition": "hasKey",
-            "path": "objects",
-            "key": "wallet",
-            "then": {
-              "processor": "setFields",
-              "params": {
-                "fields": {
-                  "objects[0].value": "{\"coin\":9999880,\"coupon\":9999880,\"gem\":9999880}"
-                }
+          "name": "wallet",
+          "when": "hasKey",
+          "path": "objects",
+          "key": "wallet",
+          "then": {
+            "processor": "setFields",
+            "params": {
+              "fields": {
+                "objects[0].value": "{\"coin\":9999880,\"coupon\":9999880,\"gem\":9999880}"
               }
             }
           }
         },
         {
-          "processor": "when",
-          "params": {
-            "condition": "hasKey",
-            "path": "objects",
-            "key": "Bag",
-            "then": {
-              "processor": "setFields",
-              "params": {
-                "fields": {
-                  "data.weaponUnlocked": true
-                }
+          "name": "bag",
+          "when": "hasKey",
+          "path": "objects",
+          "key": "Bag",
+          "then": {
+            "processor": "setFields",
+            "params": {
+              "fields": {
+                "data.weaponUnlocked": true
               }
             }
           }
