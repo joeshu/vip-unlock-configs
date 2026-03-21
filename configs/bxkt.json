@@ -1,0 +1,41 @@
+{
+  "id": "bxkt",
+  "name": "伴学课堂",
+  "urlPattern": "^https?:\\/\\/api\\.banxueketang\\.com\\/api\\/classpal\\/app\\/v1",
+  "mode": "hybrid",
+  "processor": {
+    "processor": "compose",
+    "params": {
+      "steps": [
+        {
+          "processor": "setFields",
+          "params": {
+            "fields": {
+              "data.isVip": true,
+              "data.isHave": true,
+              "data.isLock": false,
+              "data.isSale": true,
+              "data.trialTopNum": 999
+            }
+          }
+        },
+        {
+          "processor": "mapArray",
+          "params": {
+            "path": "data.refBusinessList",
+            "fields": {
+              "isLock": false
+            }
+          }
+        }
+      ]
+    }
+  },
+  "regexReplacements": [
+    {
+      "pattern": "\"isVip\":false",
+      "replacement": "\"isVip\":true",
+      "flags": "g"
+    }
+  ]
+}
