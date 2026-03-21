@@ -53,7 +53,7 @@
 const CONFIG = {
   REMOTE_BASE: 'https://joeshu.github.io/vip-unlock-configs',
   //CACHE_TTL: 1 * 20 * 60 * 1000,
-  CACHE_TTL: 1 * 2 * 60* 1000,
+  CACHE_TTL: 6 * 60 * 60* 1000,
   DEBUG: true,
   TIMEOUT: 10
 };
