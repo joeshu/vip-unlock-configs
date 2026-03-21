@@ -1,8 +1,8 @@
 /**
  * ==========================================
- * Unified VIP Unlock Manager v20.2.2-fixed
- * 统一 VIP 解锁管理器 - 高性能优化修复版
- * @version 20.2.2-fixed
+ * Unified VIP Unlock Manager v20.2.4
+ * 统一 VIP 解锁管理器 - 静默模式版
+ * @version 20.2.4
  * @description 支持智能预加载、域名索引、惰性编译、热更新
  * ==========================================
 
@@ -43,6 +43,7 @@
  [mitm]
  hostname = theater-api.sylangyue.xyz, api.iappdaily.com, api2.tophub.today, api2.tophub.app, api3.tophub.xyz, api3.tophub.today, api3.tophub.app, tophub.tophubdata.com, tophub2.tophubdata.com, tophub.idaily.today, tophub2.idaily.today, tophub.remai.today, tophub.iappdaiy.com, tophub.ipadown.com,service.gpstool.com, mapi.kouyuxingqiu.com, ss.landintheair.com, *.v2ex.com, apis.folidaymall.com, gateway-api.yizhilive.com, pagead*.googlesyndication.com, api.gotokeep.com, kit.gotokeep.com, *.gotokeep.*, 120.53.74.*, 162.14.5.*, 42.187.199.*, 101.42.124.*, javelin.mandrillvr.com,api.banxueketang.com, yzy0916.*.com, yz1018.*.com, yz250907.*.com, yz0320.*.com, cfvip.*.com,yr-game-api.feigo.fun,star.jvplay.cn,iotpservice.smartont.net
 */
+
 'use strict';
 
 // ==========================================
@@ -57,14 +58,61 @@ const CONFIG = {
  DOMAIN_INDEX_ENABLED: true,
  LAZY_COMPILE: true,
  HOT_RELOAD: true,
- DEBUG: true,
+ DEBUG: true,      // false = 完全静默模式，只保留致命错误
  TIMEOUT: 10
 };
 
 const META = {
  name: 'UnifiedVIP',
- version: '20.2.2-fixed'
+ version: '20.2.4'
 };
+
+// ==========================================
+// 日志系统（核心：DEBUG=false时完全静默）
+// ==========================================
+const Logger = (() => {
+ // 空函数，用于静默模式
+ const noop = () => {};
+ 
+ // 实际日志函数
+ const log = (level, tag, msg, data) => {
+ const now = new Date();
+ const time = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`;
+ const prefix = `[${META.name}][${level.toUpperCase()}][${time}]`;
+ const tagStr = tag ? `[${tag}]` : '';
+ const dataStr = data ? ` | ${typeof data === 'object' ? JSON.stringify(data) : data}` : '';
+ console.log(`${prefix}${tagStr} ${msg}${dataStr}`);
+ };
+ 
+ // 致命错误（始终输出，不受DEBUG控制）
+ const fatal = (tag, msg, err) => {
+ const errorMsg = err ? `${msg}: ${err.message || err}` : msg;
+ log('FATAL', tag, errorMsg);
+ };
+ 
+ // 根据DEBUG配置返回相应实现
+ if (!CONFIG.DEBUG) {
+ // 静默模式：只有fatal可用
+ return {
+ debug: noop,
+ info: noop,
+ warn: noop,
+ stats: noop,
+ error: noop,  // 普通error也静默，只有fatal输出
+ fatal: fatal
+ };
+ }
+ 
+ // 调试模式：全功能
+ return {
+ debug: (tag, msg, data) => log('debug', tag, msg, data),
+ info: (tag, msg, data) => log('info', tag, msg, data),
+ warn: (tag, msg, data) => log('warn', tag, msg, data),
+ stats: (msg, data) => log('STATS', '', msg, data),
+ error: (tag, msg, data) => log('error', tag, msg, data),
+ fatal: fatal
+ };
+})();
 
 // ==========================================
 // 环境修复
@@ -217,7 +265,7 @@ const Utils = {
 };
 
 // ==========================================
-// 处理器工厂
+// 处理器工厂（无日志或条件日志）
 // ==========================================
 const ProcessorFactory = {
  setFields: (params) => (obj, env) => {
@@ -226,13 +274,13 @@ const ProcessorFactory = {
  Utils.setPath(obj, path, value);
  modified++;
  }
- if (modified > 0 && env) env.debug(`SetFields: ${modified}`);
+ Logger.debug('Processor', `SetFields modified ${modified} fields`);
  return obj;
  },
  mapArray: (params) => (obj, env) => {
  const arr = Utils.getPath(obj, params.path);
  if (!Array.isArray(arr)) {
- env?.warn(`MapArray: ${params.path} not array`);
+ Logger.debug('Processor', `${params.path} is not an array`);
  return obj;
  }
  let modified = 0;
@@ -242,10 +290,10 @@ const ProcessorFactory = {
  if (item[field] !== undefined || value !== undefined) {
  item[field] = value;
  }
- }
  modified++;
+ }
  });
- if (env) env.debug(`MapArray: ${modified}/${arr.length}`);
+ Logger.debug('Processor', `MapArray processed ${modified} items`);
  return obj;
  },
  filterArray: (params) => (obj, env) => {
@@ -255,7 +303,7 @@ const ProcessorFactory = {
  const excludeSet = new Set(params.excludeKeys || []);
  const filtered = arr.filter(item => !excludeSet.has(item[params.keyField]));
  Utils.setPath(obj, params.path, filtered);
- if (env) env.log(`Filter: ${originalLength} -> ${filtered.length}`);
+ Logger.debug('Processor', `Filtered ${params.path}: ${originalLength} → ${filtered.length}`);
  return obj;
  },
  clearArray: (params) => (obj, env) => {
@@ -263,11 +311,12 @@ const ProcessorFactory = {
  if (Array.isArray(arr)) {
  const count = arr.length;
  arr.length = 0;
- if (env) env.log(`Clear ${params.logName || params.path}: ${count}`);
+ Logger.debug('Processor', `Cleared ${params.logName || params.path}: ${count} items`);
  }
  return obj;
  },
  deleteFields: (params) => (obj, env) => {
+ let deleted = 0;
  for (const path of params.paths || []) {
  const parts = path.split('.');
  let current = obj;
@@ -275,15 +324,19 @@ const ProcessorFactory = {
  current = current?.[parts[i]];
  if (!current) break;
  }
- if (current) delete current[parts[parts.length - 1]];
+ if (current) {
+ delete current[parts[parts.length - 1]];
+ deleted++;
  }
+ }
+ Logger.debug('Processor', `Deleted ${deleted} fields`);
  return obj;
  },
  sliceArray: (params) => (obj, env) => {
  const arr = Utils.getPath(obj, params.path);
  if (Array.isArray(arr) && arr.length > params.keepCount) {
  Utils.setPath(obj, params.path, arr.slice(0, params.keepCount));
- if (env) env.log(`Slice: ${arr.length} -> ${params.keepCount}`);
+ Logger.debug('Processor', `Sliced ${params.path}: ${arr.length} → ${params.keepCount}`);
  }
  return obj;
  },
@@ -291,27 +344,38 @@ const ProcessorFactory = {
  const arr = Utils.getPath(obj, params.path);
  if (Array.isArray(arr) && arr.length > 0) {
  arr.shift();
- if (env) env.log(`Shift: ${params.logName}`);
+ Logger.debug('Processor', `Shifted ${params.logName || params.path}`);
  }
  return obj;
  },
  processByKeyPrefix: (params) => (obj, env) => {
  const target = Utils.getPath(obj, params.objPath);
  if (!target || typeof target !== 'object') return obj;
+ let modified = 0;
  for (const [key, value] of Object.entries(target)) {
  for (const [prefix, handler] of Object.entries(params.prefixRules || {})) {
  if (prefix === '*') continue;
  if (key.startsWith(prefix)) {
  Object.assign(value, handler);
+ modified++;
  break;
  }
  }
  }
+ Logger.debug('Processor', `Processed ${modified} items by key prefix`);
  return obj;
  },
  compose: (params, compile) => {
  const processors = (params.steps || []).map(step => compile(step));
- return (obj, env) => processors.reduce((o, p) => o ? p(o, env) : o, obj);
+ return (obj, env) => {
+ let result = obj;
+ for (let i = 0; i < processors.length; i++) {
+ if (!result) break;
+ Logger.debug('Compose', `Step ${i + 1}/${processors.length}`);
+ result = processors[i](result, env);
+ }
+ return result;
+ };
  },
  when: (params, compile) => {
  return (obj, env) => {
@@ -349,13 +413,14 @@ const ProcessorFactory = {
  conditionMet = params.condition(obj);
  }
  }
+ Logger.debug('When', `Condition "${params.condition}" = ${conditionMet}`);
  if (conditionMet && params.then) {
  return compile(params.then)(obj, env);
  } else if (!conditionMet && params.else) {
  return compile(params.else)(obj, env);
  }
  } catch (e) {
- env?.warn(`When: ${e.message}`);
+ Logger.debug('When', `Error: ${e.message}`);
  }
  return obj;
  };
@@ -378,21 +443,21 @@ const ProcessorFactory = {
  matched = scene.when(obj);
  }
  if (matched) {
- env?.debug(`Scene: ${scene.name}`);
+ Logger.debug('Scene', `Matched: ${scene.name}`);
  return scene.then(obj, env);
  }
  } catch (e) {}
  }
+ Logger.debug('Scene', 'No scene matched');
  return obj;
  };
  }
 };
 
 // ==========================================
-// 处理器编译缓存（修复：分离存储，避免修改冻结对象）
+// 处理器编译缓存
 // ==========================================
 const ProcessorCompileCache = new Map();
-// 新增：配置ID到处理器的映射，避免在config对象上添加属性
 const ConfigProcessorCache = new Map();
 
 function compileProcessor(def) {
@@ -407,7 +472,7 @@ function compileProcessor(def) {
 
  const factory = ProcessorFactory[def.processor];
  if (!factory) {
- console.error(`Unknown: ${def.processor}`);
+ Logger.debug('Compile', `Unknown processor: ${def.processor}`);
  return null;
  }
  const processor = factory(def.params, compileProcessor);
@@ -420,7 +485,6 @@ function compileProcessor(def) {
  return processor;
 }
 
-// 新增：获取或编译配置对应的处理器
 function getConfigProcessor(config) {
  if (!config || !config.processor || config.mode !== 'json') return null;
  
@@ -433,6 +497,7 @@ function getConfigProcessor(config) {
  const processor = compileProcessor(config.processor);
  if (processor) {
  ConfigProcessorCache.set(configId, processor);
+ Logger.debug('Cache', `Compiled processor for ${configId}`);
  }
  return processor;
 }
@@ -460,7 +525,7 @@ class RuntimeLoader {
  _getMemConfigCache(configId) {
  const item = this._configMemCache.get(configId);
  if (item && this._isMemCacheValid(item.time)) {
- if (CONFIG.DEBUG) console.log(`[Loader] Memory cache hit: ${configId}`);
+ Logger.debug('Loader', `Memory cache hit: ${configId}`);
  return item.data;
  }
  return null;
@@ -479,7 +544,7 @@ class RuntimeLoader {
  const cacheTimeKey = `${cacheKey}_time`;
 
  if (!force && this._manifestMemCache && this._isMemCacheValid(this._manifestCacheTime, CONFIG.CACHE_TTL)) {
- if (CONFIG.DEBUG) console.log(`[Loader] Manifest memory cache`);
+ Logger.debug('Loader', 'Using memory cached manifest');
  return this._manifestMemCache;
  }
 
@@ -492,14 +557,14 @@ class RuntimeLoader {
  this._manifestMemCache = this.manifest;
  this._manifestCacheTime = Date.now();
  this.compilePatterns();
- if (CONFIG.DEBUG) console.log(`[Loader] Manifest storage cache`);
+ Logger.debug('Loader', 'Using storage cached manifest');
  return this.manifest;
  }
  }
  }
 
  const url = `${CONFIG.REMOTE_BASE}/manifest.json?t=${Date.now()}`;
- if (CONFIG.DEBUG) console.log(`[Loader] Fetching manifest...`);
+ Logger.debug('Loader', 'Fetching manifest...');
 
  try {
  const res = await HTTP.get(url);
@@ -511,13 +576,13 @@ class RuntimeLoader {
  this._manifestMemCache = this.manifest;
  this._manifestCacheTime = Date.now();
  this.compilePatterns();
- if (CONFIG.DEBUG) console.log(`[Loader] Manifest updated`);
+ Logger.debug('Loader', `Manifest updated: ${Object.keys(this.manifest.configs).length} apps`);
  return this.manifest;
  }
  }
  throw new Error(`HTTP ${res.status}`);
  } catch (e) {
- console.error(`[Loader] Manifest: ${e.message}`);
+ Logger.fatal('Loader', 'Manifest fetch failed', e);
  const expired = Storage.read(cacheKey);
  if (expired) {
  this.manifest = Utils.safeJsonParse(expired);
@@ -557,11 +622,11 @@ class RuntimeLoader {
  }
  }
  } catch (e) {
- console.error(`[Loader] Invalid regex for ${id}: ${e.message}`);
+ Logger.debug('Loader', `Invalid regex for ${id}: ${e.message}`);
  }
  }
 
- if (CONFIG.DEBUG) console.log(`[Loader] Compiled ${this.patterns.size} patterns, ${this.domainIndex.size} domains`);
+ Logger.debug('Loader', `Compiled ${this.patterns.size} patterns, ${this.domainIndex.size} domains`);
  }
 
  findMatch(url) {
@@ -595,7 +660,7 @@ class RuntimeLoader {
  return id;
  }
  } catch (e) {
- console.warn(`[Loader] Test error: ${id}`);
+ Logger.debug('Loader', `Pattern test error: ${id}`);
  }
  }
 
@@ -648,7 +713,7 @@ class RuntimeLoader {
  const cachedVersion = Storage.read(`vip_cfg_version_${configId}`);
  if (cachedVersion !== remoteVersion) {
  force = true;
- if (CONFIG.DEBUG) console.log(`[Loader] Version changed for ${configId}`);
+ Logger.debug('Loader', `Version changed for ${configId}`);
  }
  }
 
@@ -666,13 +731,13 @@ class RuntimeLoader {
  if (cached && this._isMemCacheValid(cacheTime)) {
  const config = this.prepareConfig(Utils.safeJsonParse(cached));
  this._setMemConfigCache(configId, config);
- if (CONFIG.DEBUG) console.log(`[Loader] Config storage cache: ${configId}`);
+ Logger.debug('Loader', `Storage cache: ${configId}`);
  return config;
  }
  }
 
  const url = `${CONFIG.REMOTE_BASE}/configs/${configId}.json?t=${Date.now()}`;
- if (CONFIG.DEBUG) console.log(`[Loader] Fetch: ${configId}`);
+ Logger.debug('Loader', `Fetching: ${configId}`);
 
  try {
  const res = await HTTP.get(url);
@@ -686,12 +751,12 @@ class RuntimeLoader {
 
  const config = this.prepareConfig(Utils.safeJsonParse(res.body));
  this._setMemConfigCache(configId, config);
- if (CONFIG.DEBUG) console.log(`[Loader] Config updated: ${configId}`);
+ Logger.debug('Loader', `Config updated: ${configId}`);
  return config;
  }
  throw new Error(`HTTP ${res.status}`);
  } catch (e) {
- console.error(`[Loader] Config: ${e.message}`);
+ Logger.fatal('Loader', `Config fetch failed: ${configId}`, e);
  const expired = Storage.read(cacheKey);
  if (expired) {
  const config = this.prepareConfig(Utils.safeJsonParse(expired));
@@ -712,11 +777,6 @@ class RuntimeLoader {
  }
  }
 
- // 修复：不再在config上存储customProcessor，而是使用外部缓存
- // 移除：if (!CONFIG.LAZY_COMPILE && raw.processor && raw.mode === 'json') {
- //   config.customProcessor = compileProcessor(raw.processor);
- // }
-
  if (raw.regexReplacements) {
  config.regexReplacements = raw.regexReplacements.map(r => ({
  pattern: new RegExp(r.pattern, r.flags || 'g'),
@@ -724,9 +784,6 @@ class RuntimeLoader {
  }));
  }
 
- // 修复：不再冻结对象，或者使用不可扩展但可写的方式
- // 使用 Object.seal 替代 Object.freeze，允许修改现有属性但防止添加新属性
- // 但更好的方案是完全不冻结，因为我们需要灵活性
  return config;
  }
 
@@ -763,15 +820,6 @@ class Environment {
  getBody() {
  return this.response?.body || '';
  }
- log(level, msg) {
- if (!CONFIG.DEBUG && level === 'debug') return;
- const ts = new Date().toISOString().split('T')[1].split('.')[0];
- console.log(`[${this.name}][${level.toUpperCase()}][${ts}] ${msg}`);
- }
- debug(m) { this.log('debug', m); }
- info(m) { this.log('info', m); }
- warn(m) { this.log('warn', m); }
- error(m) { this.log('error', m); }
  done(result) {
  if (typeof $done === 'function') $done(result);
  else console.log('[DONE]', result);
@@ -783,12 +831,10 @@ class VipEngine {
  this.env = env;
  }
  process(body, config) {
- if (!body) return { body: '{}' };
-
- // 修复：使用外部缓存获取处理器，而不是修改config对象
- // if (CONFIG.LAZY_COMPILE && config.processor && !config.customProcessor && config.mode === 'json') {
- //   config.customProcessor = compileProcessor(config.processor);
- // }
+ if (!body) {
+ Logger.debug('Engine', 'Empty body');
+ return { body: '{}' };
+ }
 
  switch (config.mode) {
  case 'json':
@@ -802,23 +848,30 @@ class VipEngine {
  case 'html':
  return this.processHtml(body, config);
  default:
+ Logger.debug('Engine', `Unknown mode: ${config.mode}`);
  return { body };
  }
  }
  processJson(body, config) {
  let obj = Utils.safeJsonParse(body);
- if (!obj) return { body };
+ if (!obj) {
+ Logger.fatal('Engine', 'Failed to parse JSON');
+ return { body };
+ }
  
- // 修复：使用外部缓存获取处理器
  const customProcessor = getConfigProcessor(config);
  
  if (typeof customProcessor === 'function') {
  try {
  obj = customProcessor(obj, this.env);
+ Logger.debug('Engine', `${config.name} VIP unlocked`);
  } catch (e) {
- this.env.error(`Processor: ${e.message}`);
+ Logger.fatal('Engine', `Processor error`, e);
  }
+ } else {
+ Logger.debug('Engine', 'No custom processor');
  }
+ 
  return { body: Utils.safeJsonStringify(obj) };
  }
  processRegex(body, config) {
@@ -831,17 +884,21 @@ class VipEngine {
  if (original !== modified) count++;
  } catch (e) {}
  }
- if (count > 0) this.env.debug(`Regex: ${count}`);
+ Logger.debug('Engine', `Regex replaced ${count} patterns`);
  return { body: modified };
  }
  processGame(body, config) {
  let modified = body;
+ let count = 0;
  for (const res of config.gameResources || []) {
  try {
  const pattern = new RegExp(`"${res.field}":\\d+`, 'g');
+ const original = modified;
  modified = modified.replace(pattern, `"${res.field}":${res.value}`);
+ if (original !== modified) count++;
  } catch (e) {}
  }
+ Logger.debug('Engine', `Game resources modified: ${count}`);
  return { body: modified };
  }
  processHybrid(body, config) {
@@ -853,12 +910,16 @@ class VipEngine {
  }
  processHtml(body, config) {
  let modified = body;
+ let count = 0;
  for (const rule of config.htmlReplacements || []) {
  try {
  const regex = new RegExp(rule.pattern, rule.flags || 'i');
+ const original = modified;
  modified = modified.replace(regex, rule.replacement);
+ if (original !== modified) count++;
  } catch (e) {}
  }
+ Logger.debug('Engine', `HTML replaced ${count} patterns`);
  return { body: modified };
  }
 }
@@ -868,14 +929,15 @@ class VipEngine {
 // ==========================================
 async function main() {
  const env = new Environment(META.name);
+ 
  try {
- env.info(`${META.name} v${META.version}`);
  const url = env.getUrl();
  if (!url) {
- env.error('No URL');
+ Logger.fatal('Main', 'No URL in request');
  return env.done({});
  }
- env.debug(`URL: ${url.substring(0, 60)}...`);
+ 
+ Logger.debug('Request', `Processing ${url.replace(/\?.*$/, '').substring(0, 50)}...`);
 
  const loader = new RuntimeLoader();
 
@@ -883,38 +945,32 @@ async function main() {
  try {
  manifest = await loader.loadManifest();
  } catch (e) {
- env.error(`Manifest: ${e.message}`);
+ Logger.fatal('Main', 'Manifest failed', e);
  return env.done({ body: env.getBody() });
  }
-
- const stats = loader.getStats();
- env.debug(`Apps: ${stats.manifest}, Mem: ${stats.memCached}, Domains: ${stats.domains}`);
 
  const configId = loader.findMatch(url);
  if (!configId) {
- env.warn(`No match for: ${url.substring(0, 40)}...`);
+ Logger.debug('Main', 'No rule matched');
  return env.done({ body: env.getBody() });
  }
- env.info(`Match: ${configId}`);
 
  let config;
  try {
  config = await loader.loadConfig(configId);
  } catch (e) {
- env.error(`Load: ${e.message}`);
+ Logger.fatal('Main', 'Config failed', e);
  return env.done({ body: env.getBody() });
  }
-
- env.debug(`${config.name} [${config.mode}]`);
 
  const engine = new VipEngine(env);
  const result = engine.process(env.getBody(), config);
 
- env.info('Done');
+ Logger.debug('Main', 'Completed');
  env.done(result);
 
  } catch (e) {
- env.error(`Fatal: ${e.message}`);
+ Logger.fatal('Main', 'Fatal error', e);
  env.done({ body: env.getBody() });
  }
 }
