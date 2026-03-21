@@ -42,32 +42,29 @@
 ^https?:\/\/theater-api\.sylangyue\.xyz\/api\/user\/info url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v2.js
  [mitm]
  hostname = theater-api.sylangyue.xyz, api.iappdaily.com, api2.tophub.today, api2.tophub.app, api3.tophub.xyz, api3.tophub.today, api3.tophub.app, tophub.tophubdata.com, tophub2.tophubdata.com, tophub.idaily.today, tophub2.idaily.today, tophub.remai.today, tophub.iappdaiy.com, tophub.ipadown.com,service.gpstool.com, mapi.kouyuxingqiu.com, ss.landintheair.com, *.v2ex.com, apis.folidaymall.com, gateway-api.yizhilive.com, pagead*.googlesyndication.com, api.gotokeep.com, kit.gotokeep.com, *.gotokeep.*, 120.53.74.*, 162.14.5.*, 42.187.199.*, 101.42.124.*, javelin.mandrillvr.com,api.banxueketang.com, yzy0916.*.com, yz1018.*.com, yz250907.*.com, yz0320.*.com, cfvip.*.com,yr-game-api.feigo.fun,star.jvplay.cn,iotpservice.smartont.net
-
 */
-
 
 'use strict';
 
 // ==========================================
-// 配置区域（优化版新增参数）
+// 配置区域
 // ==========================================
 const CONFIG = {
   REMOTE_BASE: 'https://joeshu.github.io/vip-unlock-configs',
-  CACHE_TTL: 6 * 60 * 60 * 1000,           // Manifest 缓存6小时
-  CONFIG_CACHE_TTL: 60 * 60 * 1000,        // 单个配置缓存60分钟
-  PRELOAD_ENABLED: true,                   // 启用智能预加载
-  PRELOAD_CONCURRENT: 3,                   // 最大并发预加载数
-  DOMAIN_INDEX_ENABLED: true,              // 启用域名索引加速
-  LAZY_COMPILE: true,                      // 启用 Processor 惰性编译
-  STREAM_THRESHOLD: 100 * 1024,            // 流式处理阈值 100KB
-  HOT_RELOAD: true,                        // 启用配置热更新
-  DEBUG: true,                             //false
+  CACHE_TTL: 6 * 60 * 60 * 1000,
+  CONFIG_CACHE_TTL: 60 * 60 * 1000,
+  PRELOAD_ENABLED: true,
+  PRELOAD_CONCURRENT: 3,
+  DOMAIN_INDEX_ENABLED: true,
+  LAZY_COMPILE: true,
+  HOT_RELOAD: true,
+  DEBUG: true,
   TIMEOUT: 10
 };
 
 const META = {
   name: 'UnifiedVIP',
-  version: '20.2.0'
+  version: '20.2.1'
 };
 
 // ==========================================
@@ -142,7 +139,7 @@ const Storage = {
 };
 
 // ==========================================
-// 工具函数
+// 工具函数（关键修复：移除过度转义）
 // ==========================================
 const Utils = {
   safeJsonParse: (str, defaultVal = null) => {
@@ -151,6 +148,7 @@ const Utils = {
   safeJsonStringify: (obj) => {
     try { return JSON.stringify(obj); } catch (e) { return '{}'; }
   },
+  // 修复：使用与v20.1.0完全相同的正则
   getPath: (obj, path) => {
     if (!path || !obj) return undefined;
     return path.split('.').reduce((current, part) => {
@@ -209,7 +207,6 @@ const Utils = {
     }
     return obj;
   },
-  // 新增：简单哈希函数
   simpleHash: (str) => {
     let hash = 0;
     for (let i = 0; i < str.length; i++) {
@@ -222,7 +219,7 @@ const Utils = {
 };
 
 // ==========================================
-// 处理器工厂（完整版）
+// 处理器工厂
 // ==========================================
 const ProcessorFactory = {
   setFields: (params) => (obj, env) => {
@@ -393,13 +390,11 @@ const ProcessorFactory = {
   }
 };
 
-// Processor 编译缓存（全局）
 const ProcessorCompileCache = new Map();
 
 function compileProcessor(def) {
   if (!def || !def.processor) return null;
   
-  // 惰性编译：先检查缓存
   if (CONFIG.LAZY_COMPILE) {
     const cacheKey = Utils.simpleHash(JSON.stringify(def));
     if (ProcessorCompileCache.has(cacheKey)) {
@@ -414,7 +409,6 @@ function compileProcessor(def) {
   }
   const processor = factory(def.params, compileProcessor);
   
-  // 存入缓存
   if (CONFIG.LAZY_COMPILE && processor) {
     const cacheKey = Utils.simpleHash(JSON.stringify(def));
     ProcessorCompileCache.set(cacheKey, processor);
@@ -424,54 +418,15 @@ function compileProcessor(def) {
 }
 
 // ==========================================
-// 并发调度器（新增）
-// ==========================================
-class LoadScheduler {
-  constructor(maxConcurrent = 3) {
-    this.maxConcurrent = maxConcurrent;
-    this.running = 0;
-    this.queue = [];
-  }
-  
-  async schedule(task, priority = 0) {
-    return new Promise((resolve, reject) => {
-      this.queue.push({ task, priority, resolve, reject });
-      this.queue.sort((a, b) => b.priority - a.priority);
-      this._runNext();
-    });
-  }
-  
-  async _runNext() {
-    if (this.running >= this.maxConcurrent || this.queue.length === 0) return;
-    
-    this.running++;
-    const { task, resolve, reject } = this.queue.shift();
-    
-    try {
-      const result = await task();
-      resolve(result);
-    } catch (e) {
-      reject(e);
-    } finally {
-      this.running--;
-      setTimeout(() => this._runNext(), 0);
-    }
-  }
-}
-
-// ==========================================
-// 运行时加载器（高性能优化版）
+// 运行时加载器
 // ==========================================
 class RuntimeLoader {
   constructor() {
     this.cache = new Map();
     this.manifest = null;
     this.patterns = new Map();
-    this.domainIndex = new Map();           // 新增：域名索引
-    this.accessStats = new Map();           // 新增：访问统计
-    this.scheduler = new LoadScheduler(CONFIG.PRELOAD_CONCURRENT);
-    
-    // 内存缓存
+    this.domainIndex = new Map();
+    this.accessStats = new Map();
     this._manifestMemCache = null;
     this._manifestCacheTime = 0;
     this._configMemCache = new Map();
@@ -493,7 +448,6 @@ class RuntimeLoader {
 
   _setMemConfigCache(configId, data) {
     this._configMemCache.set(configId, { data, time: Date.now() });
-    // LRU：限制100个
     if (this._configMemCache.size > 100) {
       const firstKey = this._configMemCache.keys().next().value;
       this._configMemCache.delete(firstKey);
@@ -504,13 +458,11 @@ class RuntimeLoader {
     const cacheKey = 'vip_manifest_v20';
     const cacheTimeKey = `${cacheKey}_time`;
     
-    // 1. 内存缓存
     if (!force && this._manifestMemCache && this._isMemCacheValid(this._manifestCacheTime, CONFIG.CACHE_TTL)) {
       if (CONFIG.DEBUG) console.log(`[Loader] Manifest memory cache`);
       return this._manifestMemCache;
     }
 
-    // 2. Storage 缓存
     if (!force) {
       const cached = Storage.read(cacheKey);
       const cacheTime = parseInt(Storage.read(cacheTimeKey) || '0');
@@ -526,7 +478,6 @@ class RuntimeLoader {
       }
     }
 
-    // 3. 网络请求
     const url = `${CONFIG.REMOTE_BASE}/manifest.json?t=${Date.now()}`;
     if (CONFIG.DEBUG) console.log(`[Loader] Fetching manifest...`);
 
@@ -559,7 +510,6 @@ class RuntimeLoader {
     }
   }
 
-  // 优化：建立域名索引
   compilePatterns() {
     this.patterns.clear();
     this.domainIndex.clear();
@@ -572,7 +522,6 @@ class RuntimeLoader {
           const regex = new RegExp(info.urlPattern);
           this.patterns.set(id, regex);
           
-          // 建立域名索引
           if (CONFIG.DOMAIN_INDEX_ENABLED) {
             const domainMatch = info.urlPattern.match(/(?:\^?https?\\?:\\/\\/)?([^\\/\\s]+)/);
             if (domainMatch) {
@@ -595,7 +544,6 @@ class RuntimeLoader {
     if (CONFIG.DEBUG) console.log(`[Loader] Compiled ${this.patterns.size} patterns, ${this.domainIndex.size} domains`);
   }
 
-  // 优化：域名索引加速匹配
   findMatch(url) {
     let candidates = [];
     
@@ -604,10 +552,8 @@ class RuntimeLoader {
         const urlObj = new URL(url);
         const hostname = urlObj.hostname;
         
-        // 精确匹配
         candidates = this.domainIndex.get(hostname) || [];
         
-        // 通配符匹配
         if (candidates.length === 0) {
           const parts = hostname.split('.');
           for (let i = 1; i < parts.length; i++) {
@@ -618,12 +564,9 @@ class RuntimeLoader {
             }
           }
         }
-      } catch (e) {
-        // URL解析失败，使用全量匹配
-      }
+      } catch (e) {}
     }
     
-    // 测试候选集
     for (const id of candidates) {
       try {
         if (this.patterns.get(id).test(url)) {
@@ -636,7 +579,6 @@ class RuntimeLoader {
       }
     }
     
-    // 兜底：全量匹配
     for (const [id, pattern] of this.patterns) {
       if (!candidates.includes(id)) {
         try {
@@ -651,7 +593,6 @@ class RuntimeLoader {
     return null;
   }
 
-  // 新增：访问统计
   _updateAccessStats(configId) {
     const stats = this.accessStats.get(configId) || { count: 0, lastAccess: 0 };
     stats.count++;
@@ -659,11 +600,9 @@ class RuntimeLoader {
     this.accessStats.set(configId, stats);
   }
 
-  // 优化：智能预加载（基于访问频率）
   _triggerPreload(configIds) {
     if (!CONFIG.PRELOAD_ENABLED) return;
     
-    // 按访问频率排序
     const sortedIds = configIds
       .filter(id => !this._getMemConfigCache(id) && !this._preloading.has(id))
       .sort((a, b) => {
@@ -675,30 +614,29 @@ class RuntimeLoader {
     
     for (const id of sortedIds) {
       this._preloading.add(id);
-      // 使用调度器，低优先级
-      this.scheduler.schedule(() => this.loadConfig(id), 1)
-        .finally(() => this._preloading.delete(id));
+      setTimeout(() => {
+        this.loadConfig(id).finally(() => {
+          this._preloading.delete(id);
+        });
+      }, 100);
     }
   }
 
   async loadConfig(configId, force = false) {
-    // 热更新检查：版本号不一致则强制刷新
     if (!force && CONFIG.HOT_RELOAD && this.manifest?.configVersions?.[configId]) {
       const remoteVersion = this.manifest.configVersions[configId];
       const cachedVersion = Storage.read(`vip_cfg_version_${configId}`);
       if (cachedVersion !== remoteVersion) {
         force = true;
-        if (CONFIG.DEBUG) console.log(`[Loader] Version changed for ${configId}: ${cachedVersion} -> ${remoteVersion}`);
+        if (CONFIG.DEBUG) console.log(`[Loader] Version changed for ${configId}`);
       }
     }
     
-    // 1. 内存缓存
     if (!force) {
       const memCache = this._getMemConfigCache(configId);
       if (memCache) return memCache;
     }
 
-    // 2. Storage 缓存
     const cacheKey = `vip_cfg_v20_${configId}`;
     const cacheTimeKey = `${cacheKey}_time`;
     
@@ -713,17 +651,15 @@ class RuntimeLoader {
       }
     }
 
-    // 3. 网络请求（使用调度器，高优先级）
     const url = `${CONFIG.REMOTE_BASE}/configs/${configId}.json?t=${Date.now()}`;
     if (CONFIG.DEBUG) console.log(`[Loader] Fetch: ${configId}`);
 
     try {
-      const res = await this.scheduler.schedule(() => HTTP.get(url), 10);
+      const res = await HTTP.get(url);
       if (res.status === 200 && res.body) {
         Storage.write(cacheKey, res.body);
         Storage.write(cacheTimeKey, Date.now().toString());
         
-        // 保存版本号
         if (this.manifest?.configVersions?.[configId]) {
           Storage.write(`vip_cfg_version_${configId}`, this.manifest.configVersions[configId]);
         }
@@ -756,7 +692,6 @@ class RuntimeLoader {
       }
     }
     
-    // 惰性编译：不立即编译 processor，延迟到首次使用
     if (!CONFIG.LAZY_COMPILE && raw.processor && raw.mode === 'json') {
       config.customProcessor = compileProcessor(raw.processor);
     }
@@ -782,7 +717,7 @@ class RuntimeLoader {
 }
 
 // ==========================================
-// 环境和引擎（优化版）
+// 环境和引擎
 // ==========================================
 class Environment {
   constructor(name) {
@@ -823,11 +758,9 @@ class VipEngine {
   constructor(env) {
     this.env = env;
   }
-  
   process(body, config) {
     if (!body) return { body: '{}' };
     
-    // 惰性编译检查
     if (CONFIG.LAZY_COMPILE && config.processor && !config.customProcessor && config.mode === 'json') {
       config.customProcessor = compileProcessor(config.processor);
     }
@@ -847,7 +780,6 @@ class VipEngine {
         return { body };
     }
   }
-  
   processJson(body, config) {
     let obj = Utils.safeJsonParse(body);
     if (!obj) return { body };
@@ -860,13 +792,7 @@ class VipEngine {
     }
     return { body: Utils.safeJsonStringify(obj) };
   }
-  
   processRegex(body, config) {
-    // 流式处理：大数据量时分段
-    if (CONFIG.STREAM_THRESHOLD && body.length > CONFIG.STREAM_THRESHOLD) {
-      return this.processRegexStream(body, config);
-    }
-    
     let modified = body;
     let count = 0;
     for (const rule of config.regexReplacements || []) {
@@ -879,27 +805,6 @@ class VipEngine {
     if (count > 0) this.env.debug(`Regex: ${count}`);
     return { body: modified };
   }
-  
-  // 新增：流式正则处理（避免大文本内存占用）
-  processRegexStream(body, config) {
-    this.env.debug(`Stream processing: ${body.length} bytes`);
-    const CHUNK_SIZE = 50 * 1024; // 50KB 分片
-    const chunks = [];
-    const rules = config.regexReplacements || [];
-    
-    for (let i = 0; i < body.length; i += CHUNK_SIZE) {
-      let chunk = body.slice(i, i + CHUNK_SIZE);
-      for (const rule of rules) {
-        try {
-          chunk = chunk.replace(rule.pattern, rule.replacement);
-        } catch (e) {}
-      }
-      chunks.push(chunk);
-    }
-    
-    return { body: chunks.join('') };
-  }
-  
   processGame(body, config) {
     let modified = body;
     for (const res of config.gameResources || []) {
@@ -910,7 +815,6 @@ class VipEngine {
     }
     return { body: modified };
   }
-  
   processHybrid(body, config) {
     let result = this.processJson(body, config);
     if (config.regexReplacements) {
@@ -918,7 +822,6 @@ class VipEngine {
     }
     return result;
   }
-  
   processHtml(body, config) {
     let modified = body;
     for (const rule of config.htmlReplacements || []) {
@@ -947,7 +850,6 @@ async function main() {
 
     const loader = new RuntimeLoader();
 
-    // 加载清单（自动使用内存/Storage缓存）
     let manifest;
     try {
       manifest = await loader.loadManifest();
@@ -959,7 +861,6 @@ async function main() {
     const stats = loader.getStats();
     env.debug(`Apps: ${stats.manifest}, Mem: ${stats.memCached}, Domains: ${stats.domains}`);
 
-    // 查找匹配（自动触发预加载）
     const configId = loader.findMatch(url);
     if (!configId) {
       env.warn(`No match for: ${url.substring(0, 40)}...`);
@@ -967,7 +868,6 @@ async function main() {
     }
     env.info(`Match: ${configId}`);
 
-    // 加载配置（优先使用60分钟内存缓存）
     let config;
     try {
       config = await loader.loadConfig(configId);
@@ -978,7 +878,6 @@ async function main() {
 
     env.debug(`${config.name} [${config.mode}]`);
 
-    // 执行
     const engine = new VipEngine(env);
     const result = engine.process(env.getBody(), config);
 
