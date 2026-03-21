@@ -76,8 +76,8 @@ const releaseLock = () => {
 // ==========================================
 const CONFIG = {
  REMOTE_BASE: 'https://joeshu.github.io/vip-unlock-configs',
- CACHE_TTL: 6 * 60 * 60 * 1000,
- CONFIG_CACHE_TTL: 60 * 60 * 1000,
+ CACHE_TTL: 0 * 60 * 60 * 1000,
+ CONFIG_CACHE_TTL: 0 * 60 * 1000,
  PRELOAD_ENABLED: true,
  PRELOAD_CONCURRENT: 3,
  DOMAIN_INDEX_ENABLED: true,
