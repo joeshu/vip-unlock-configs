@@ -6,7 +6,7 @@
   "htmlReplacements": [
     {
       "pattern": "<head>",
-      "replacement": "<head><style>.sidebar_units,.sidebar_compliance,ins.adsbygoogle,.Rightbar > .box,div[class="wwads-cn wwads-horizontal"],div[class="wwads-img"],div[class="wwads-content"]{display: none !important;}</style>",
+      "replacement": "<head><style>.sidebar_units,.sidebar_compliance,.pro-unitins,.adsbygoogle,.Rightbar > .box,div[class="wwads-cn wwads-horizontal"],div[class="wwads-img"],div[class="wwads-content"]{display:none!important}</style>",
       "flags": "i"
     },
     {
@@ -16,3 +16,4 @@
     }
   ]
 }
+
