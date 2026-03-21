@@ -1,9 +1,9 @@
 /**
  * ==========================================
- * Unified VIP Unlock Manager v20.2.0
- * 统一 VIP 解锁管理器 - 高性能优化版
- * @version 20.2.0
- * @description 支持智能预加载、域名索引、惰性编译、热更新、流式处理
+ * Unified VIP Unlock Manager v20.2.1
+ * 统一 VIP 解锁管理器 - 高性能优化修复版
+ * @version 20.2.1
+ * @description 支持智能预加载、域名索引、惰性编译、热更新
  * ==========================================
  
 [rewrite_local]
