@@ -17,7 +17,7 @@
               "processor": "setFields",
               "params": {
                 "fields": {
-                  "objects[0].value": "{\"coin\":999988990,\"coupon\":999988990,\"gem\":999988990}"
+                  "objects[0].value": "{\"coin\":9999880,\"coupon\":9999880,\"gem\":9999880}"
                 }
               }
             }
