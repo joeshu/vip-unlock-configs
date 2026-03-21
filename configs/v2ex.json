@@ -6,8 +6,8 @@
   "mode": "html",
   "htmlReplacements": [
     {
-      "pattern": "<head>",
-      "replacement": "<head><style>.sidebar_units,.sidebar_compliance,.pro-unitins,.adsbygoogle,#pro-campaign-container,.wwads-img,.wwads-content{display:none!important}</style>",
+      "pattern": "</head>",
+      "replacement": "</head><style>.sidebar_units,.sidebar_compliance,.pro-unitins,.adsbygoogle,#pro-campaign-container,.wwads-img,.wwads-content{display:none!important}</style>",
       "flags": "i"
     },
     {
