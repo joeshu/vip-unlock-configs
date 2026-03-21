@@ -49,15 +49,12 @@
 // ==========================================
 // 配置区域（修改为你的服务器地址）
 // ==========================================
-
 const CONFIG = {
   REMOTE_BASE: 'https://joeshu.github.io/vip-unlock-configs',
-  //CACHE_TTL: 1 * 20 * 60 * 1000,
-  CACHE_TTL: 6 * 60 * 60* 1000,
-  DEBUG: false,
+  CACHE_TTL: 24 * 60 * 60 * 1000,
+  DEBUG: false,  // 改为 false 关闭日志
   TIMEOUT: 10
 };
-
 const META = { 
   name: 'UnifiedVIP', 
   version: '20.1.1'
@@ -426,7 +423,6 @@ class RuntimeLoader {
   constructor() {
     this.cache = new Map();
     this.manifest = null;
-    // 添加：存储编译后的配置信息用于匹配
     this.patterns = new Map();
   }
 
@@ -442,7 +438,6 @@ class RuntimeLoader {
       if (cached && age < CONFIG.CACHE_TTL) {
         this.manifest = Utils.safeJsonParse(cached);
         if (this.manifest) {
-          // 预编译所有正则（关键修复）
           this.compilePatterns();
           if (CONFIG.DEBUG) console.log(`[Loader] Cached manifest (${(age/1000/60).toFixed(1)}min)`);
           return this.manifest;
@@ -460,7 +455,6 @@ class RuntimeLoader {
         if (this.manifest) {
           Storage.write(cacheKey, res.body);
           Storage.write(cacheTimeKey, Date.now().toString());
-          // 预编译所有正则
           this.compilePatterns();
           if (CONFIG.DEBUG) console.log(`[Loader] Manifest updated`);
           return this.manifest;
@@ -479,14 +473,12 @@ class RuntimeLoader {
     }
   }
 
-  // 新增：预编译所有正则模式
   compilePatterns() {
     this.patterns.clear();
     if (!this.manifest || !this.manifest.configs) return;
     
     for (const [id, info] of Object.entries(this.manifest.configs)) {
       try {
-        // 将字符串转为 RegExp 对象
         if (info.urlPattern) {
           this.patterns.set(id, new RegExp(info.urlPattern));
         }
@@ -499,7 +491,6 @@ class RuntimeLoader {
   }
 
   findMatch(url) {
-    // 使用预编译的正则
     for (const [id, pattern] of this.patterns) {
       try {
         if (pattern.test(url)) return id;
@@ -617,9 +608,22 @@ class Environment {
   }
 
   debug(m) { this.log('debug', m); }
-  info(m) { this.log('info', m); }
-  warn(m) { this.log('warn', m); }
-  error(m) { this.log('error', m); }
+  
+  // 修改：info 和 warn 也受 DEBUG 控制
+  info(m) { 
+    if (!CONFIG.DEBUG) return;
+    this.log('info', m); 
+  }
+  
+  warn(m) { 
+    if (!CONFIG.DEBUG) return;
+    this.log('warn', m); 
+  }
+  
+  error(m) { 
+   if (!CONFIG.DEBUG) return;
+   this.log('error', m); 
+  }
 
   done(result) {
     if (typeof $done === 'function') $done(result);
@@ -705,7 +709,7 @@ class VipEngine {
     let modified = body;
     for (const rule of config.htmlReplacements || []) {
       try {
-        const regex = new RegExp(rule.pattern, 'i');
+        const regex = new RegExp(rule.pattern, rule.flags || 'i');
         modified = modified.replace(regex, rule.replacement);
       } catch (e) {}
     }
@@ -732,7 +736,6 @@ async function main() {
     
     const loader = new RuntimeLoader();
     
-    // 加载清单（会自动编译正则）
     let manifest;
     try {
       manifest = await loader.loadManifest();
@@ -744,7 +747,6 @@ async function main() {
     const stats = loader.getStats();
     env.debug(`Apps: ${stats.manifest}, Cached: ${stats.cached}`);
     
-    // 查找匹配（现在使用预编译的正则）
     const configId = loader.findMatch(url);
     if (!configId) {
       env.warn(`No match for: ${url.substring(0, 40)}...`);
@@ -752,7 +754,6 @@ async function main() {
     }
     env.info(`Match: ${configId}`);
     
-    // 加载配置
     let config;
     try {
       config = await loader.loadConfig(configId);
@@ -763,7 +764,6 @@ async function main() {
     
     env.debug(`${config.name} [${config.mode}]`);
     
-    // 执行
     const engine = new VipEngine(env);
     const result = engine.process(env.getBody(), config);
     
