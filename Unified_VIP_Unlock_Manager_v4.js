@@ -1,44 +1,44 @@
 /**
  * ==========================================
- * Unified VIP Unlock Manager v20.2.6-final-A3
- * 统一 VIP 解锁管理器 - 并发安全最终版
- * @version 20.2.6-final-A3
- * @description 请求完全隔离 + 并发安全 + 响应体保护
+ * Unified VIP Unlock Manager v20.2.6-final-A4
+ * 统一 VIP 解锁管理器 - P0-1正则缓存优化版
+ * @version 20.2.6-final-A4
+ * @description 正则编译缓存 + 请求隔离 + 响应体保护
  * ==========================================
 [rewrite_local]
  # iAppDaily - 余额查询接口（JSON模式-声明式字段设置）
- ^https:\/\/api\.iappdaily\.com\/my\/balance url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v4.js
- ^https?:\/\/(?:api[23]\.tophub\.(?:xyz|today|app)|tophub(?:2)?\.(?:tophubdata\.com|idaily\.today|remai\.today|iappdaiy\.com|ipadown\.com))\/account\/sync url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v4.js
+ ^https:\/\/api\.iappdaily\.com\/my\/balance url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v3.js
+ ^https?:\/\/(?:api[23]\.tophub\.(?:xyz|today|app)|tophub(?:2)?\.(?:tophubdata\.com|idaily\.today|remai\.today|iappdaiy\.com|ipadown\.com))\/account\/sync url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v3.js
  # gps - GPS工具箱（JSON模式-声明式字段设置）
- ^https:\/\/service\.gpstool\.com\/app\/index\/getUserInfo url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v4.js
- ^https?:\/\/mapi\.kouyuxingqiu\.com\/api\/v2 url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v4.js
+ ^https:\/\/service\.gpstool\.com\/app\/index\/getUserInfo url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v3.js
+ ^https?:\/\/mapi\.kouyuxingqiu\.com\/api\/v2 url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v3.js
  # mhlz - 魔幻粒子（JSON模式-声明式前缀处理）
- ^https?:\/\/ss\.landintheair\.com\/storage\/ url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v4.js
+ ^https?:\/\/ss\.landintheair\.com\/storage\/ url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v3.js
  # v2ex - V2EX去广告（HTML替换模式）
- ^https?:\/\/.*v2ex\.com\/(?!(?:.*(?:api|login|cdn-cgi|verify|auth|captch|\.(js|css|jpg|jpeg|png|webp|gif|zip|woff|woff2|m3u8|mp4|mov|m4v|avi|mkv|flv|rmvb|wmv|rm|asf|asx|mp3|json|ico|otf|ttf)))).+$ url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v4.js
+ ^https?:\/\/.*v2ex\.com\/(?!(?:.*(?:api|login|cdn-cgi|verify|auth|captch|\.(js|css|jpg|jpeg|png|webp|gif|zip|woff|woff2|m3u8|mp4|mov|m4v|avi|mkv|flv|rmvb|wmv|rm|asf|asx|mp3|json|ico|otf|ttf)))).+$ url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v3.js
  # foday - 复游会去广告（多路径模式-声明式过滤）
- ^https?:\/\/apis\.folidaymall\.com\/online\/capi\/component\/getPageComponents url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v4.js
+ ^https?:\/\/apis\.folidaymall\.com\/online\/capi\/component\/getPageComponents url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v3.js
  # qiujingapp - 球竞APP去广告（多路径模式-声明式清空）
- ^https?:\/\/gateway-api\.yizhilive\.com\/api\/v2\/index\/carouses\/(3|6|8|11)(\?.*)?$ url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v4.js
- ^https?:\/\/gateway-api\.yizhilive\.com\/api\/v3\/index\/all\?.*position=2.*$ url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v4.js
+ ^https?:\/\/gateway-api\.yizhilive\.com\/api\/v2\/index\/carouses\/(3|6|8|11)(\?.*)?$ url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v3.js
+ ^https?:\/\/gateway-api\.yizhilive\.com\/api\/v3\/index\/all\?.*position=2.*$ url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v3.js
  # Keep - 课程/会员接口（正则替换模式）
- ^https?:\/\/(api|kit)\.gotokeep\.com\/(nuocha|gerudo|athena|nuocha\/plans|suit\/v5\/smart|kprime\/v4\/suit\/sales)\/ url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v4.js
+ ^https?:\/\/(api|kit)\.gotokeep\.com\/(nuocha|gerudo|athena|nuocha\/plans|suit\/v5\/smart|kprime\/v4\/suit\/sales)\/ url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v3.js
  # bqwz - 标枪王者游戏数据接口（游戏数值模式）
- ^https?:\/\/javelin\.mandrillvr\.com\/api\/data\/get_game_data url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v4.js
+ ^https?:\/\/javelin\.mandrillvr\.com\/api\/data\/get_game_data url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v3.js
  # bxkt - 伴学课堂接口（混合模式-声明式组合）
- ^https?:\/\/api\.banxueketang\.com\/api\/classpal\/app\/v1 url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v4.js
+ ^https?:\/\/api\.banxueketang\.com\/api\/classpal\/app\/v1 url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v3.js
  # tv - 影视去广告接口（多路径模式-完全声明式）
- ^https?:\/\/(yzy0916|yz1018|yz250907|yz0320|cfvip)\..+\.com\/(v2|v1)\/api\/(basic\/init|home\/firstScreen|adInfo\/getPageAd|home\/body) url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v4.js
+ ^https?:\/\/(yzy0916|yz1018|yz250907|yz0320|cfvip)\..+\.com\/(v2|v1)\/api\/(basic\/init|home\/firstScreen|adInfo\/getPageAd|home\/body) url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v3.js
  ^https?:\/\/(yz\w{4,6}|cfvip)\..+\.com\/(v2|v1)\/api\/(adInfo|vodInfo)\/(getPageAd|getTextAd|getSearchAd|getVodBodyAd|getVodPauseAd|getUserCenterAd) url reject-dict
  ^https?:\/\/(yz\w{4,6}|cfvip)\..+\.com\/(v2|v1)\/api\/(home\/notice|gameCenter\/gameDetailList) url reject-dict
  # 成语来解压 - 微信小程序无限金币（游戏数值模式）
- ^https?:\/\/yr-game-api\.feigo\.fun\/api\/user\/get-game-user-value url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v4.js
+ ^https?:\/\/yr-game-api\.feigo\.fun\/api\/user\/get-game-user-value url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v3.js
  # 星际使命 - 微信小程序游戏数据修改（JSON声明式处理器-完全重构）
- ^https?:\/\/star\.jvplay\.cn\/v2\/storage url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v4.js
+ ^https?:\/\/star\.jvplay\.cn\/v2\/storage url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v3.js
 # wohome - 联通智家去广告（条件删除模式）
- ^https:\/\/iotpservice\.smartont\.net\/wohome\/dispatcher url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v4.js
+ ^https:\/\/iotpservice\.smartont\.net\/wohome\/dispatcher url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v3.js
 # 思朗月影视 - 用户信息VIP解锁
-^https?:\/\/theater-api\.sylangyue\.xyz\/api\/user\/info url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v4.js
+^https?:\/\/theater-api\.sylangyue\.xyz\/api\/user\/info url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v3.js
  [mitm]
  hostname = theater-api.sylangyue.xyz, api.iappdaily.com, api2.tophub.today, api2.tophub.app, api3.tophub.xyz, api3.tophub.today, api3.tophub.app, tophub.tophubdata.com, tophub2.tophubdata.com, tophub.idaily.today, tophub2.idaily.today, tophub.remai.today, tophub.iappdaiy.com, tophub.ipadown.com,service.gpstool.com, mapi.kouyuxingqiu.com, ss.landintheair.com, *.v2ex.com, apis.folidaymall.com, gateway-api.yizhilive.com, pagead*.googlesyndication.com, api.gotokeep.com, kit.gotokeep.com, *.gotokeep.*, 120.53.74.*, 162.14.5.*, 42.187.199.*, 101.42.124.*, javelin.mandrillvr.com,api.banxueketang.com, yzy0916.*.com, yz1018.*.com, yz250907.*.com, yz0320.*.com, cfvip.*.com,yr-game-api.feigo.fun,star.jvplay.cn,iotpservice.smartont.net
 */
@@ -86,7 +86,7 @@ const CONFIG = {
 
 const META = {
  name: 'UnifiedVIP',
- version: '20.2.6-final-A3'
+ version: '20.2.6-final-A4'
 };
 
 // ==========================================
@@ -160,7 +160,7 @@ const Logger = (() => {
 })();
 
 // ==========================================
-// HTTP 请求（优化：错误处理增强）
+// HTTP 请求
 // ==========================================
 const HTTP = {
  get: (url, timeout = CONFIG.TIMEOUT) => new Promise((resolve, reject) => {
@@ -168,7 +168,6 @@ const HTTP = {
  
  const handleResponse = (error, response, body) => {
  if (error) {
- // 优化：错误对象序列化
  let errorMsg;
  if (typeof error === 'string') {
  errorMsg = error;
@@ -311,7 +310,113 @@ const Utils = {
 };
 
 // ==========================================
-// 处理器工厂（关键修复：请求级隔离，无全局缓存）
+// P0-1: 正则编译缓存系统（核心优化）
+// ==========================================
+const RegexCache = {
+  _key: 'vip_regex_cache_v4',
+  _maxAge: 6 * 60 * 60 * 1000, // 6小时，与CONFIG.CACHE_TTL一致
+  
+  // 生成缓存键（基于manifest内容哈希）
+  _getCacheKey(manifest) {
+    if (!manifest || !manifest.configs) return null;
+    // 使用配置数量和版本信息生成键
+    const configIds = Object.keys(manifest.configs).sort().join(',');
+    const versions = Object.entries(manifest.configVersions || {})
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([k, v]) => `${k}:${v}`)
+      .join(',');
+    return Utils.simpleHash(configIds + versions);
+  },
+  
+  // 加载缓存
+  load(manifest) {
+    try {
+      const cacheKey = this._getCacheKey(manifest);
+      if (!cacheKey) return null;
+      
+      const stored = Storage.read(this._key);
+      if (!stored) return null;
+      
+      const data = Utils.safeJsonParse(stored);
+      if (!data || data.cacheKey !== cacheKey) {
+        Logger.debug('RegexCache', `Cache miss: key mismatch or expired`);
+        return null;
+      }
+      
+      // 检查时间戳
+      if (Date.now() - data.timestamp > this._maxAge) {
+        Logger.debug('RegexCache', `Cache expired: ${(Date.now() - data.timestamp) / 1000}s old`);
+        return null;
+      }
+      
+      // 重建 RegExp 对象
+      const patterns = new Map();
+      for (const [id, regexData] of Object.entries(data.patterns || {})) {
+        try {
+          patterns.set(id, new RegExp(regexData.source, regexData.flags));
+        } catch (e) {
+          Logger.debug('RegexCache', `Failed to restore regex: ${id}`);
+        }
+      }
+      
+      // 重建 domainIndex
+      const domainIndex = new Map();
+      for (const [domain, ids] of Object.entries(data.domainIndex || {})) {
+        domainIndex.set(domain, ids);
+      }
+      
+      Logger.debug('RegexCache', `Loaded ${patterns.size} patterns, ${domainIndex.size} domains`);
+      return { patterns, domainIndex, timestamp: data.timestamp };
+    } catch (e) {
+      Logger.debug('RegexCache', `Load failed: ${e.message}`);
+      return null;
+    }
+  },
+  
+  // 保存缓存
+  save(patterns, domainIndex, manifest) {
+    try {
+      const cacheKey = this._getCacheKey(manifest);
+      if (!cacheKey) return;
+      
+      // 序列化 RegExp
+      const serializablePatterns = {};
+      for (const [id, regex] of patterns) {
+        serializablePatterns[id] = {
+          source: regex.source,
+          flags: regex.flags
+        };
+      }
+      
+      // 序列化 domainIndex
+      const serializableDomainIndex = {};
+      for (const [domain, ids] of domainIndex) {
+        serializableDomainIndex[domain] = ids;
+      }
+      
+      const data = {
+        cacheKey,
+        timestamp: Date.now(),
+        patterns: serializablePatterns,
+        domainIndex: serializableDomainIndex
+      };
+      
+      Storage.write(this._key, Utils.safeJsonStringify(data));
+      Logger.debug('RegexCache', `Saved ${patterns.size} patterns to cache`);
+    } catch (e) {
+      Logger.debug('RegexCache', `Save failed: ${e.message}`);
+    }
+  },
+  
+  // 清除缓存
+  clear() {
+    Storage.remove(this._key);
+    Logger.debug('RegexCache', 'Cleared');
+  }
+};
+
+// ==========================================
+// 处理器工厂（请求级隔离）
 // ==========================================
 function createProcessorFactory(requestId) {
  let processorCount = 0;
@@ -616,21 +721,26 @@ function createCompiler(factory) {
 }
 
 // ==========================================
-// 运行时加载器（请求级完全隔离）
+// 运行时加载器（P0-1: 集成正则缓存）
 // ==========================================
 class RuntimeLoader {
  constructor(requestId) {
  this._requestId = requestId;
  this.cache = new Map();
  this.manifest = null;
- this.patterns = new Map();
- this.domainIndex = new Map();
+ 
+ // P0-1: 尝试从缓存加载正则
+ const cachedRegex = RegexCache.load(null); // 先尝试加载，manifest后验证
+ this.patterns = cachedRegex?.patterns || new Map();
+ this.domainIndex = cachedRegex?.domainIndex || new Map();
+ this._regexCached = cachedRegex !== null;
+ 
  this.accessStats = new Map();
  this._manifestMemCache = null;
  this._manifestCacheTime = 0;
  this._configMemCache = new Map();
  
- Logger.debug('Loader', `[${requestId}] Created loader instance`);
+ Logger.debug('Loader', `[${requestId}] Created loader instance${this._regexCached ? ' (regex cached)' : ''}`);
  }
 
  _isMemCacheValid(cacheTime, ttl = CONFIG.CONFIG_CACHE_TTL) {
@@ -672,8 +782,27 @@ class RuntimeLoader {
  if (this.manifest) {
  this._manifestMemCache = this.manifest;
  this._manifestCacheTime = Date.now();
+ 
+ // P0-1: 验证正则缓存是否匹配当前manifest
+ if (this._regexCached) {
+ const validationCache = RegexCache.load(this.manifest);
+ if (validationCache) {
+ // 缓存有效，直接使用
+ Logger.debug('Loader', `[${this._requestId}] Regex cache validated`);
+ this.patterns = validationCache.patterns;
+ this.domainIndex = validationCache.domainIndex;
+ } else {
+ // 缓存失效，需要重新编译
+ Logger.debug('Loader', `[${this._requestId}] Regex cache invalid, recompiling`);
+ this.patterns = new Map();
+ this.domainIndex = new Map();
+ this._regexCached = false;
  this.compilePatterns();
- Logger.debug('Loader', `[${this._requestId}] Using storage cached manifest`);
+ }
+ } else {
+ this.compilePatterns();
+ }
+ 
  return this.manifest;
  }
  }
@@ -691,7 +820,13 @@ class RuntimeLoader {
  Storage.write(cacheTimeKey, Date.now().toString());
  this._manifestMemCache = this.manifest;
  this._manifestCacheTime = Date.now();
+ 
+ // P0-1: 清除旧缓存，编译新正则
+ RegexCache.clear();
+ this.patterns = new Map();
+ this.domainIndex = new Map();
  this.compilePatterns();
+ 
  Logger.debug('Loader', `[${this._requestId}] Manifest updated: ${Object.keys(this.manifest.configs).length} apps`);
  return this.manifest;
  }
@@ -711,7 +846,15 @@ class RuntimeLoader {
  }
  }
 
+ // P0-1: 优化的编译方法
  compilePatterns() {
+ // 如果已有缓存，跳过编译
+ if (this._regexCached && this.patterns.size > 0) {
+ Logger.debug('Loader', `[${this._requestId}] Using cached patterns (${this.patterns.size})`);
+ return;
+ }
+
+ const startTime = Date.now();
  this.patterns.clear();
  this.domainIndex.clear();
 
@@ -742,7 +885,11 @@ class RuntimeLoader {
  }
  }
 
- Logger.debug('Loader', `[${this._requestId}] Compiled ${this.patterns.size} patterns, ${this.domainIndex.size} domains`);
+ // P0-1: 保存到缓存
+ RegexCache.save(this.patterns, this.domainIndex, this.manifest);
+ 
+ const duration = Date.now() - startTime;
+ Logger.debug('Loader', `[${this._requestId}] Compiled ${this.patterns.size} patterns, ${this.domainIndex.size} domains in ${duration}ms`);
  }
 
  findMatch(url) {
@@ -957,7 +1104,6 @@ class VipEngine {
  return { body };
  }
 
- // 创建请求级处理器工厂和编译器
  const factory = createProcessorFactory(this._requestId);
  const compile = createCompiler(factory);
  const customProcessor = config.processor ? compile(config.processor) : null;
@@ -1030,10 +1176,9 @@ class VipEngine {
 }
 
 // ==========================================
-// 主函数（请求级完全隔离）
+// 主函数
 // ==========================================
 async function main() {
- // 生成唯一请求ID
  const requestId = Math.random().toString(36).substr(2, 6).toUpperCase();
  const env = new Environment(META.name);
  const loader = new RuntimeLoader(requestId);
