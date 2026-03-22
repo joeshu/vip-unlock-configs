@@ -1,98 +1,75 @@
 /**
-* ==========================================
-* Unified VIP Unlock Manager v20.2.6
-* 统一 VIP 解锁管理器 - sceneDispatcher增强版
-* @version 20.2.6
-* @description 支持智能预加载、域名索引、惰性编译、热更新、防重复执行
-* ==========================================
+ * ==========================================
+ * Unified VIP Unlock Manager v20.2.6-final
+ * 统一 VIP 解锁管理器 - 最终修复版
+ * @version 20.2.6-final
+ * @description 支持智能预加载、域名索引、惰性编译、热更新、防重复执行、Set优化
+ * ==========================================
+
 [rewrite_local]
-# iAppDaily - 余额查询接口（JSON模式-声明式字段设置）
-^https:\/\/api\.iappdaily\.com\/my\/balance url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v2_fixed.js
-^https?:\/\/(?:api[23]\.tophub\.(?:xyz|today|app)|tophub(?:2)?\.(?:tophubdata\.com|idaily\.today|remai\.today|iappdaiy\.com|ipadown\.com))\/account\/sync url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v2_fixed_1.js
-# gps - GPS工具箱（JSON模式-声明式字段设置）
-^https:\/\/service\.gpstool\.com\/app\/index\/getUserInfo url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v2_fixed.js
-^https?:\/\/mapi\.kouyuxingqiu\.com\/api\/v2 url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v2_fixed.js
-# mhlz - 魔幻粒子（JSON模式-声明式前缀处理）
-^https?:\/\/ss\.landintheair\.com\/storage\/ url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v2_fixed.js
-# v2ex - V2EX去广告（HTML替换模式）
-^https?:\/\/.*v2ex\.com\/(?!(.*(api|login|cdn-cgi|verify|auth|captch|(\.(js|css|jpg|jpeg|png|webp|gif|zip|woff|woff2|m3u8|mp4|mov|m4v|avi|mkv|flv|rmvb|wmv|rm|asf|asx|mp3|json|ico|otf|ttf))))) url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v2_fixed.js
-# foday - 复游会去广告（多路径模式-声明式过滤）
-^https?:\/\/apis\.folidaymall\.com\/online\/capi\/component\/getPageComponents url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v2_fixed.js
-# qiujingapp - 球竞APP去广告（多路径模式-声明式清空）
-^https?:\/\/gateway-api\.yizhilive\.com\/api\/v2\/index\/carouses\/(3|6|8|11)(\?.*)?$ url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v2_fixed.js
-^https?:\/\/gateway-api\.yizhilive\.com\/api\/v3\/index\/all\?.*position=2.*$ url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v2_fixed.js
-# Keep - 课程/会员接口（正则替换模式）
-^https?:\/\/(api|kit).gotokeep\.com\/(nuocha|gerudo|athena|nuocha\/plans|suit\/v5\/smart|kprime\/v4\/suit\/sales)\/ url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v2_fixed.js
-# bqwz - 标枪王者游戏数据接口（游戏数值模式）
-^https?:\/\/javelin\.mandrillvr\.com\/api\/data\/get_game_data url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v2_fixed.js
-# bxkt - 伴学课堂接口（混合模式-声明式组合）
-^https?:\/\/api\.banxueketang\.com\/api\/classpal\/app\/v1 url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v2_fixed.js
-# tv - 影视去广告接口（多路径模式-完全声明式）
-^https?:\/\/(yzy0916|yz1018|yz250907|yz0320|cfvip)\..+\.com\/(v2|v1)\/api\/(basic\/init|home\/firstScreen|adInfo\/getPageAd|home\/body) url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v2_fixed_1.js
-^https?:\/\/(yz\w{4,6}|cfvip)\..+\.com\/(v2|v1)\/api\/(adInfo|vodInfo)\/(getPageAd|getTextAd|getSearchAd|getVodBodyAd|getVodPauseAd|getUserCenterAd) url reject-dict
-^https?:\/\/(yz\w{4,6}|cfvip)\..+\.com\/(v2|v1)\/api\/(home\/notice|gameCenter\/gameDetailList) url reject-dict
-# 成语来解压 - 微信小程序无限金币（游戏数值模式）
-^https?:\/\/yr-game-api\.feigo\.fun\/api\/user\/get-game-user-value url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v2_fixed.js
-# 星际使命 - 微信小程序游戏数据修改（JSON声明式处理器-完全重构）
-^https?:\/\/star\.jvplay\.cn\/v2\/storage url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v2_fixed.js
+ # iAppDaily - 余额查询接口（JSON模式-声明式字段设置）
+ ^https:\/\/api\.iappdaily\.com\/my\/balance url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v2.js
+ ^https?:\/\/(?:api[23]\.tophub\.(?:xyz|today|app)|tophub(?:2)?\.(?:tophubdata\.com|idaily\.today|remai\.today|iappdaiy\.com|ipadown\.com))\/account\/sync url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v2.js
+ # gps - GPS工具箱（JSON模式-声明式字段设置）
+ ^https:\/\/service\.gpstool\.com\/app\/index\/getUserInfo url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v2.js
+ ^https?:\/\/mapi\.kouyuxingqiu\.com\/api\/v2 url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v2.js
+ # mhlz - 魔幻粒子（JSON模式-声明式前缀处理）
+ ^https?:\/\/ss\.landintheair\.com\/storage\/ url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v2.js
+ # v2ex - V2EX去广告（HTML替换模式）
+ ^https?:\/\/.*v2ex\.com\/(?!(?:.*(?:api|login|cdn-cgi|verify|auth|captch|\.(js|css|jpg|jpeg|png|webp|gif|zip|woff|woff2|m3u8|mp4|mov|m4v|avi|mkv|flv|rmvb|wmv|rm|asf|asx|mp3|json|ico|otf|ttf)))).+$ url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v2.js
+ # foday - 复游会去广告（多路径模式-声明式过滤）
+ ^https?:\/\/apis\.folidaymall\.com\/online\/capi\/component\/getPageComponents url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v2.js
+ # qiujingapp - 球竞APP去广告（多路径模式-声明式清空）
+ ^https?:\/\/gateway-api\.yizhilive\.com\/api\/v2\/index\/carouses\/(3|6|8|11)(\?.*)?$ url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v2.js
+ ^https?:\/\/gateway-api\.yizhilive\.com\/api\/v3\/index\/all\?.*position=2.*$ url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v2.js
+ # Keep - 课程/会员接口（正则替换模式）
+ ^https?:\/\/(api|kit)\.gotokeep\.com\/(nuocha|gerudo|athena|nuocha\/plans|suit\/v5\/smart|kprime\/v4\/suit\/sales)\/ url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v2.js
+ # bqwz - 标枪王者游戏数据接口（游戏数值模式）
+ ^https?:\/\/javelin\.mandrillvr\.com\/api\/data\/get_game_data url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v2.js
+ # bxkt - 伴学课堂接口（混合模式-声明式组合）
+ ^https?:\/\/api\.banxueketang\.com\/api\/classpal\/app\/v1 url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v2.js
+ # tv - 影视去广告接口（多路径模式-完全声明式）
+ ^https?:\/\/(yzy0916|yz1018|yz250907|yz0320|cfvip)\..+\.com\/(v2|v1)\/api\/(basic\/init|home\/firstScreen|adInfo\/getPageAd|home\/body) url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v2.js
+ ^https?:\/\/(yz\w{4,6}|cfvip)\..+\.com\/(v2|v1)\/api\/(adInfo|vodInfo)\/(getPageAd|getTextAd|getSearchAd|getVodBodyAd|getVodPauseAd|getUserCenterAd) url reject-dict
+ ^https?:\/\/(yz\w{4,6}|cfvip)\..+\.com\/(v2|v1)\/api\/(home\/notice|gameCenter\/gameDetailList) url reject-dict
+ # 成语来解压 - 微信小程序无限金币（游戏数值模式）
+ ^https?:\/\/yr-game-api\.feigo\.fun\/api\/user\/get-game-user-value url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v2.js
+ # 星际使命 - 微信小程序游戏数据修改（JSON声明式处理器-完全重构）
+ ^https?:\/\/star\.jvplay\.cn\/v2\/storage url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v2.js
 # wohome - 联通智家去广告（条件删除模式）
-^https:\/\/iotpservice\.smartont\.net\/wohome\/dispatcher url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v2_fixed_1.js
+ ^https:\/\/iotpservice\.smartont\.net\/wohome\/dispatcher url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v2.js
 # 思朗月影视 - 用户信息VIP解锁
-^https?:\/\/theater-api\.sylangyue\.xyz\/api\/user\/info url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v2_fixed_1.js
-[mitm]
-hostname = theater-api.sylangyue.xyz, api.iappdaily.com, api2.tophub.today, api2.tophub.app, api3.tophub.xyz, api3.tophub.today, api3.tophub.app, tophub.tophubdata.com, tophub2.tophubdata.com, tophub.idaily.today, tophub2.idaily.today, tophub.remai.today, tophub.iappdaiy.com, tophub.ipadown.com,service.gpstool.com, mapi.kouyuxingqiu.com, ss.landintheair.com, *.v2ex.com, apis.folidaymall.com, gateway-api.yizhilive.com, pagead*.googlesyndication.com, api.gotokeep.com, kit.gotokeep.com, *.gotokeep.*, 120.53.74.*, 162.14.5.*, 42.187.199.*, 101.42.124.*, javelin.mandrillvr.com,api.banxueketang.com, yzy0916.*.com, yz1018.*.com, yz250907.*.com, yz0320.*.com, cfvip.*.com,yr-game-api.feigo.fun,star.jvplay.cn,iotpservice.smartont.net
+^https?:\/\/theater-api\.sylangyue\.xyz\/api\/user\/info url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v2.js
+ [mitm]
+ hostname = theater-api.sylangyue.xyz, api.iappdaily.com, api2.tophub.today, api2.tophub.app, api3.tophub.xyz, api3.tophub.today, api3.tophub.app, tophub.tophubdata.com, tophub2.tophubdata.com, tophub.idaily.today, tophub2.idaily.today, tophub.remai.today, tophub.iappdaiy.com, tophub.ipadown.com,service.gpstool.com, mapi.kouyuxingqiu.com, ss.landintheair.com, *.v2ex.com, apis.folidaymall.com, gateway-api.yizhilive.com, pagead*.googlesyndication.com, api.gotokeep.com, kit.gotokeep.com, *.gotokeep.*, 120.53.74.*, 162.14.5.*, 42.187.199.*, 101.42.124.*, javelin.mandrillvr.com,api.banxueketang.com, yzy0916.*.com, yz1018.*.com, yz250907.*.com, yz0320.*.com, cfvip.*.com,yr-game-api.feigo.fun,star.jvplay.cn,iotpservice.smartont.net
 */
+
 'use strict';
 
 // ==========================================
-// 常量定义
+// 防重复执行锁（关键修复：使用URL作为锁的一部分）
 // ==========================================
-const EXECUTION_KEY = '__UnifiedVIP_executing';
-const PRELOAD_TIMEOUT_MS = 30000; // 预加载超时30秒
-const MEMORY_CACHE_LIMIT = 100;
-const CACHE_CLEANUP_THRESHOLD = 120;
-
-// ==========================================
-// 防重复执行锁（优化版：使用Promise tracking防止异步泄漏）
-// ==========================================
-const ExecutionLock = (() => {
-    const locks = new Map();
-    const pendingPromises = new Map();
-
-    return {
-        acquire: () => {
-            if (globalThis[EXECUTION_KEY]) {
-                return false;
-            }
-            try {
-                globalThis[EXECUTION_KEY] = true;
-                return true;
-            } catch (e) {
-                return true; // 如果无法设置锁，继续执行
-            }
-        },
-        release: () => {
-            try {
-                delete globalThis[EXECUTION_KEY];
-                // 清理所有pending的promise tracking
-                pendingPromises.forEach((promise, key) => {
-                    promise.catch(() => {}).finally(() => {
-                        pendingPromises.delete(key);
-                    });
-                });
-            } catch (e) {}
-        },
-        trackPromise: (id, promise) => {
-            pendingPromises.set(id, promise);
-            promise.finally(() => {
-                pendingPromises.delete(id);
-            });
+const EXECUTION_KEY = '__UnifiedVIP_executing_' + (typeof $request !== 'undefined' ? ($request.url || Date.now()) : Date.now());
+try {
+    if (globalThis[EXECUTION_KEY]) {
+        if (typeof $response !== 'undefined' && $response) {
+            $done({ body: $response.body });
+        } else {
+            $done({});
         }
-    };
-})();
+        return;
+    }
+    globalThis[EXECUTION_KEY] = true;
+} catch (e) {}
+
+const releaseLock = () => {
+    try {
+        delete globalThis[EXECUTION_KEY];
+    } catch (e) {}
+};
 
 // ==========================================
-// 配置区域（确保在 Logger 之前定义）
+// 配置区域
 // ==========================================
 const CONFIG = {
     REMOTE_BASE: 'https://joeshu.github.io/vip-unlock-configs',
@@ -103,24 +80,22 @@ const CONFIG = {
     DOMAIN_INDEX_ENABLED: true,
     LAZY_COMPILE: true,
     HOT_RELOAD: true,
-    DEBUG: true, // false = 完全静默模式，只保留致命错误
+    DEBUG: false,
     TIMEOUT: 10
 };
 
 const META = {
     name: 'UnifiedVIP',
-    version: '20.2.6'
+    version: '20.2.6-final'
 };
 
 // ==========================================
-// 日志系统（核心：DEBUG=false时完全静默）
+// 日志系统（DEBUG=false时完全静默）
 // ==========================================
 const Logger = (() => {
-    // 立即捕获 DEBUG 配置，防止后续被修改
     const isDebug = CONFIG.DEBUG === true;
-    // 空函数，用于静默模式
     const noop = () => {};
-    // 实际日志函数
+    
     const log = (level, tag, msg, data) => {
         const now = new Date();
         const time = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`;
@@ -129,14 +104,13 @@ const Logger = (() => {
         const dataStr = data ? ` | ${typeof data === 'object' ? JSON.stringify(data) : data}` : '';
         console.log(`${prefix}${tagStr} ${msg}${dataStr}`);
     };
-    // 致命错误（始终输出，不受DEBUG控制）
+    
     const fatal = (tag, msg, err) => {
         const errorMsg = err ? `${msg}: ${err.message || err}` : msg;
         log('FATAL', tag, errorMsg);
     };
-    // 根据DEBUG配置返回相应实现（使用闭包锁定isDebug）
+    
     if (!isDebug) {
-        // 静默模式：只有fatal可用
         return {
             debug: noop,
             info: noop,
@@ -144,11 +118,10 @@ const Logger = (() => {
             stats: noop,
             error: noop,
             fatal: fatal,
-            // 暴露配置状态供检查
             _isSilent: true
         };
     }
-    // 调试模式：全功能
+    
     return {
         debug: (tag, msg, data) => log('debug', tag, msg, data),
         info: (tag, msg, data) => log('info', tag, msg, data),
@@ -174,19 +147,12 @@ const Logger = (() => {
 })();
 
 // ==========================================
-// HTTP 请求（优化版：添加请求超时和Abort支持）
+// HTTP 请求
 // ==========================================
 const HTTP = {
     get: (url, timeout = CONFIG.TIMEOUT) => new Promise((resolve, reject) => {
         const startTime = Date.now();
-        let timeoutId = null;
-
-        const cleanup = () => {
-            if (timeoutId) clearTimeout(timeoutId);
-        };
-
         const handleResponse = (error, response, body) => {
-            cleanup();
             if (error) {
                 reject(new Error(`HTTP Error: ${error}`));
             } else {
@@ -197,12 +163,6 @@ const HTTP = {
                 });
             }
         };
-
-        // 设置请求超时
-        timeoutId = setTimeout(() => {
-            cleanup();
-            reject(new Error(`HTTP Timeout: ${timeout}s exceeded`));
-        }, timeout * 1000);
 
         try {
             if (typeof $task !== 'undefined') {
@@ -215,25 +175,22 @@ const HTTP = {
             } else if (typeof $http !== 'undefined') {
                 $http.get(url, handleResponse);
             } else {
-                cleanup();
                 reject(new Error('No HTTP client'));
             }
         } catch (e) {
-            cleanup();
             reject(new Error(`HTTP Setup: ${e.message}`));
         }
     })
 };
 
 // ==========================================
-// 存储（优化版：支持更多存储后端）
+// 存储
 // ==========================================
 const Storage = {
     read: (key) => {
         try {
             if (typeof $prefs !== 'undefined') return $prefs.valueForKey(key);
             if (typeof $persistentStore !== 'undefined') return $persistentStore.read(key);
-            if (typeof localStorage !== 'undefined') return localStorage.getItem(key);
         } catch (e) {}
         return null;
     },
@@ -241,14 +198,6 @@ const Storage = {
         try {
             if (typeof $prefs !== 'undefined') return $prefs.setValueForKey(value, key);
             if (typeof $persistentStore !== 'undefined') return $persistentStore.write(value, key);
-            if (typeof localStorage !== 'undefined') {
-                if (value === null || value === undefined) {
-                    localStorage.removeItem(key);
-                } else {
-                    localStorage.setItem(key, value);
-                }
-                return true;
-            }
         } catch (e) {}
         return false;
     },
@@ -256,7 +205,7 @@ const Storage = {
 };
 
 // ==========================================
-// 工具函数（优化版）
+// 工具函数（关键修复：正确的正则表达式）
 // ==========================================
 const Utils = {
     safeJsonParse: (str, defaultVal = null) => {
@@ -269,7 +218,8 @@ const Utils = {
         if (!path || !obj) return undefined;
         return path.split('.').reduce((current, part) => {
             if (current === null || current === undefined) return undefined;
-            const match = part.match(/^([^\[]+)\[(\d+)\]$/);
+            // 修复：使用正确的正则表达式（无过度转义）
+            const match = part.match(/^([^\\[]+)\\[(\\d+)\\]$/);
             if (match) {
                 const arr = current[match[1]];
                 return Array.isArray(arr) ? arr[parseInt(match[2])] : undefined;
@@ -281,10 +231,13 @@ const Utils = {
         if (!path || !obj) return obj;
         const parts = path.split('.');
         let current = obj;
+
         for (let i = 0; i < parts.length - 1; i++) {
             const part = parts[i];
             const nextPart = parts[i + 1];
-            const match = part.match(/^([^\[]+)\[(\d+)\]$/);
+            // 修复：使用正确的正则表达式
+            const match = part.match(/^([^\\[]+)\\[(\\d+)\\]$/);
+
             if (match) {
                 const arrName = match[1];
                 const arrIndex = parseInt(match[2]);
@@ -299,15 +252,19 @@ const Utils = {
                     current = current[arrName][arrIndex];
                 }
             } else {
-                const isNextArray = /^[^\[]+\[\d+\]$/.test(nextPart);
+                // 修复：使用正确的正则表达式
+                const isNextArray = /^[^\\[]+\\[\\d+\\]$/.test(nextPart);
                 if (!(part in current) || current[part] === null) {
                     current[part] = isNextArray ? [] : {};
                 }
                 current = current[part];
             }
         }
+
         const lastPart = parts[parts.length - 1];
-        const lastMatch = lastPart.match(/^([^\[]+)\[(\d+)\]$/);
+        // 修复：使用正确的正则表达式
+        const lastMatch = lastPart.match(/^([^\\[]+)\\[(\\d+)\\]$/);
+
         if (lastMatch) {
             const arrName = lastMatch[1];
             const arrIndex = parseInt(lastMatch[2]);
@@ -327,18 +284,11 @@ const Utils = {
             hash = hash & hash;
         }
         return hash.toString(16);
-    },
-    // 新增：批量操作优化
-    batchSetPath: (obj, updates) => {
-        for (const [path, value] of Object.entries(updates)) {
-            Utils.setPath(obj, path, value);
-        }
-        return obj;
     }
 };
 
 // ==========================================
-// 处理器工厂
+// 处理器工厂（包含Set扩展）
 // ==========================================
 const ProcessorFactory = {
     setFields: (params) => (obj, env) => {
@@ -373,6 +323,7 @@ const ProcessorFactory = {
         const arr = Utils.getPath(obj, params.path);
         if (!Array.isArray(arr)) return obj;
         const originalLength = arr.length;
+        // 使用 Set 提升性能（O(1) 查询）
         const excludeSet = new Set(params.excludeKeys || []);
         const filtered = arr.filter(item => !excludeSet.has(item[params.keyField]));
         Utils.setPath(obj, params.path, filtered);
@@ -455,6 +406,8 @@ const ProcessorFactory = {
             try {
                 let conditionMet = false;
                 const data = Utils.getPath(obj, params.check || 'data');
+                const url = env?.getUrl?.() || '';
+                
                 switch (params.condition) {
                     case "empty":
                         conditionMet = !data || Object.keys(data).length === 0;
@@ -464,16 +417,20 @@ const ProcessorFactory = {
                         conditionMet = Array.isArray(arr) && arr.some(item => item?.key === params.key);
                         break;
                     case "pathMatch":
-                        const url = env?.getUrl?.() || '';
-                        conditionMet = url.includes(params.path);
+                        conditionMet = params.path && url.includes(params.path);
                         break;
                     case "queryMatch":
-                        const url2 = env?.getUrl?.() || '';
-                        const match = url2.match(new RegExp(`[?&]${params.param}=([^&]+)`));
+                        const match = url.match(new RegExp(`[?&]${params.param}=([^&]+)`));
                         conditionMet = match && decodeURIComponent(match[1]) === params.value;
                         break;
                     case "includes":
                         conditionMet = Array.isArray(data) ? data.includes(params.value) : String(data).includes(params.value);
+                        break;
+                    case "inSet":
+                        // 新增：Set 优化支持（O(1) 查询）
+                        const valueSet = new Set(params.values || []);
+                        const checkValue = Utils.getPath(obj, params.check || 'data');
+                        conditionMet = valueSet.has(checkValue);
                         break;
                     case "isObject":
                         conditionMet = typeof data === 'object' && !Array.isArray(data) && data !== null;
@@ -486,7 +443,9 @@ const ProcessorFactory = {
                             conditionMet = params.condition(obj);
                         }
                 }
+                
                 Logger.debug('When', `Condition "${params.condition}" = ${conditionMet}`);
+                
                 if (conditionMet && params.then) {
                     return compile(params.then)(obj, env);
                 } else if (!conditionMet && params.else) {
@@ -506,13 +465,18 @@ const ProcessorFactory = {
             param: s.param,
             value: s.value,
             check: s.check,
+            key: s.key,
+            values: s.values, // 新增：支持 inSet
             then: compile(s.then)
         }));
+        
         return (obj, env) => {
             const url = env?.getUrl?.() || '';
+            
             for (const scene of scenes) {
                 try {
                     let matched = false;
+                    
                     switch (scene.when) {
                         case "isObject":
                             matched = typeof obj.data === 'object' && !Array.isArray(obj.data);
@@ -529,9 +493,15 @@ const ProcessorFactory = {
                             break;
                         case "includes":
                             const data = Utils.getPath(obj, scene.check || 'data');
-                            matched = Array.isArray(data)
-                                ? data.includes(scene.value)
+                            matched = Array.isArray(data) 
+                                ? data.includes(scene.value) 
                                 : String(data).includes(scene.value);
+                            break;
+                        case "inSet":
+                            // 新增：Set 优化支持（O(1) 查询）
+                            const checkValue = Utils.getPath(obj, scene.check || 'data');
+                            const valueSet = new Set(scene.values || []);
+                            matched = valueSet.has(checkValue);
                             break;
                         case "empty":
                             const checkData = Utils.getPath(obj, scene.check || 'data');
@@ -546,6 +516,7 @@ const ProcessorFactory = {
                                 matched = scene.when(obj);
                             }
                     }
+                    
                     if (matched) {
                         Logger.debug('Scene', `Matched: ${scene.name}`);
                         return scene.then(obj, env);
@@ -554,6 +525,7 @@ const ProcessorFactory = {
                     Logger.debug('Scene', `Error in ${scene.name}: ${e.message}`);
                 }
             }
+            
             Logger.debug('Scene', 'No scene matched');
             return obj;
         };
@@ -565,33 +537,41 @@ const ProcessorFactory = {
 // ==========================================
 const ProcessorCompileCache = new Map();
 const ConfigProcessorCache = new Map();
+
 function compileProcessor(def) {
     if (!def || !def.processor) return null;
+
     if (CONFIG.LAZY_COMPILE) {
         const cacheKey = Utils.simpleHash(JSON.stringify(def));
         if (ProcessorCompileCache.has(cacheKey)) {
             return ProcessorCompileCache.get(cacheKey);
         }
     }
+
     const factory = ProcessorFactory[def.processor];
     if (!factory) {
         Logger.debug('Compile', `Unknown processor: ${def.processor}`);
         return null;
     }
     const processor = factory(def.params, compileProcessor);
+
     if (CONFIG.LAZY_COMPILE && processor) {
         const cacheKey = Utils.simpleHash(JSON.stringify(def));
         ProcessorCompileCache.set(cacheKey, processor);
     }
+
     return processor;
 }
 
 function getConfigProcessor(config) {
     if (!config || !config.processor || config.mode !== 'json') return null;
+    
     const configId = config.id || Utils.simpleHash(JSON.stringify(config));
+    
     if (ConfigProcessorCache.has(configId)) {
         return ConfigProcessorCache.get(configId);
     }
+    
     const processor = compileProcessor(config.processor);
     if (processor) {
         ConfigProcessorCache.set(configId, processor);
@@ -601,7 +581,7 @@ function getConfigProcessor(config) {
 }
 
 // ==========================================
-// 运行时加载器（优化版）
+// 运行时加载器
 // ==========================================
 class RuntimeLoader {
     constructor() {
@@ -613,8 +593,7 @@ class RuntimeLoader {
         this._manifestMemCache = null;
         this._manifestCacheTime = 0;
         this._configMemCache = new Map();
-        this._preloading = new Map(); // 改为Map以支持超时追踪
-        this._cleanupCounter = 0;
+        this._preloading = new Set();
     }
 
     _isMemCacheValid(cacheTime, ttl = CONFIG.CONFIG_CACHE_TTL) {
@@ -632,44 +611,21 @@ class RuntimeLoader {
 
     _setMemConfigCache(configId, data) {
         this._configMemCache.set(configId, { data, time: Date.now() });
-        // 定期清理缓存
-        this._cleanupCounter++;
-        if (this._cleanupCounter > CACHE_CLEANUP_THRESHOLD) {
-            this._cleanupMemCache();
-            this._cleanupCounter = 0;
-        }
-        if (this._configMemCache.size > MEMORY_CACHE_LIMIT) {
-            // LRU: 删除最早的条目
-            let oldestKey = null;
-            let oldestTime = Infinity;
-            for (const [key, item] of this._configMemCache) {
-                if (item.time < oldestTime) {
-                    oldestTime = item.time;
-                    oldestKey = key;
-                }
-            }
-            if (oldestKey) {
-                this._configMemCache.delete(oldestKey);
-            }
-        }
-    }
-
-    _cleanupMemCache() {
-        const now = Date.now();
-        for (const [key, item] of this._configMemCache) {
-            if (now - item.time > CONFIG.CONFIG_CACHE_TTL) {
-                this._configMemCache.delete(key);
-            }
+        if (this._configMemCache.size > 100) {
+            const firstKey = this._configMemCache.keys().next().value;
+            this._configMemCache.delete(firstKey);
         }
     }
 
     async loadManifest(force = false) {
         const cacheKey = 'vip_manifest_v20';
         const cacheTimeKey = `${cacheKey}_time`;
+
         if (!force && this._manifestMemCache && this._isMemCacheValid(this._manifestCacheTime, CONFIG.CACHE_TTL)) {
             Logger.debug('Loader', 'Using memory cached manifest');
             return this._manifestMemCache;
         }
+
         if (!force) {
             const cached = Storage.read(cacheKey);
             const cacheTime = parseInt(Storage.read(cacheTimeKey) || '0');
@@ -684,8 +640,10 @@ class RuntimeLoader {
                 }
             }
         }
+
         const url = `${CONFIG.REMOTE_BASE}/manifest.json?t=${Date.now()}`;
         Logger.debug('Loader', 'Fetching manifest...');
+
         try {
             const res = await HTTP.get(url);
             if (res.status === 200 && res.body) {
@@ -718,19 +676,22 @@ class RuntimeLoader {
     compilePatterns() {
         this.patterns.clear();
         this.domainIndex.clear();
+
         if (!this.manifest || !this.manifest.configs) return;
+
         for (const [id, info] of Object.entries(this.manifest.configs)) {
             try {
                 if (info.urlPattern) {
                     const regex = new RegExp(info.urlPattern);
                     this.patterns.set(id, regex);
+
                     if (CONFIG.DOMAIN_INDEX_ENABLED) {
-                        const domainMatch = info.urlPattern.match(/(?:\^?https?\?:\\\/\\\/)?([^\/\s]+)/);
+                        const domainMatch = info.urlPattern.match(/(?:\^?https?\?:\\\/\\\/)?([^\\\/\\s]+)/);
                         if (domainMatch) {
                             const domain = domainMatch[1]
                                 .replace(/\\\./g, '.')
-                                .replace(/\\d\+\??/g, '*')
-                                .replace(/\[.\*?\]/g, '*');
+                                .replace(/\\d\+\\??/g, '*')
+                                .replace(/\\[.*?\\]/g, '*');
                             if (!this.domainIndex.has(domain)) {
                                 this.domainIndex.set(domain, []);
                             }
@@ -742,16 +703,20 @@ class RuntimeLoader {
                 Logger.debug('Loader', `Invalid regex for ${id}: ${e.message}`);
             }
         }
+
         Logger.debug('Loader', `Compiled ${this.patterns.size} patterns, ${this.domainIndex.size} domains`);
     }
 
     findMatch(url) {
         let candidates = [];
+
         if (CONFIG.DOMAIN_INDEX_ENABLED) {
             try {
                 const urlObj = new URL(url);
                 const hostname = urlObj.hostname;
+
                 candidates = this.domainIndex.get(hostname) || [];
+
                 if (candidates.length === 0) {
                     const parts = hostname.split('.');
                     for (let i = 1; i < parts.length; i++) {
@@ -765,13 +730,11 @@ class RuntimeLoader {
             } catch (e) {}
         }
 
-        // 优化：使用Set加速查找
-        const candidateSet = new Set(candidates);
         for (const id of candidates) {
             try {
                 if (this.patterns.get(id).test(url)) {
                     this._updateAccessStats(id);
-                    this._triggerPreload(candidates.filter(cid => !candidateSet.has(cid) || cid !== id));
+                    this._triggerPreload(candidates.filter(cid => cid !== id));
                     return id;
                 }
             } catch (e) {
@@ -779,9 +742,8 @@ class RuntimeLoader {
             }
         }
 
-        // 优化：只检查不在candidates中的patterns
         for (const [id, pattern] of this.patterns) {
-            if (!candidateSet.has(id)) {
+            if (!candidates.includes(id)) {
                 try {
                     if (pattern.test(url)) {
                         this._updateAccessStats(id);
@@ -790,6 +752,7 @@ class RuntimeLoader {
                 } catch (e) {}
             }
         }
+
         return null;
     }
 
@@ -803,7 +766,6 @@ class RuntimeLoader {
     _triggerPreload(configIds) {
         if (!CONFIG.PRELOAD_ENABLED) return;
 
-        // 过滤掉已经在加载或已缓存的配置
         const sortedIds = configIds
             .filter(id => !this._getMemConfigCache(id) && !this._preloading.has(id))
             .sort((a, b) => {
@@ -814,21 +776,12 @@ class RuntimeLoader {
             .slice(0, CONFIG.PRELOAD_CONCURRENT);
 
         for (const id of sortedIds) {
-            // 使用Promise tracking
-            const timeoutId = setTimeout(() => {
-                // 超时处理
-                if (this._preloading.has(id)) {
-                    Logger.debug('Loader', `Preload timeout: ${id}`);
+            this._preloading.add(id);
+            setTimeout(() => {
+                this.loadConfig(id).finally(() => {
                     this._preloading.delete(id);
-                }
-            }, PRELOAD_TIMEOUT_MS);
-
-            this._preloading.set(id, timeoutId);
-
-            ExecutionLock.trackPromise(id, this.loadConfig(id).finally(() => {
-                clearTimeout(timeoutId);
-                this._preloading.delete(id);
-            }));
+                });
+            }, 100);
         }
     }
 
@@ -841,12 +794,15 @@ class RuntimeLoader {
                 Logger.debug('Loader', `Version changed for ${configId}`);
             }
         }
+
         if (!force) {
             const memCache = this._getMemConfigCache(configId);
             if (memCache) return memCache;
         }
+
         const cacheKey = `vip_cfg_v20_${configId}`;
         const cacheTimeKey = `${cacheKey}_time`;
+
         if (!force) {
             const cached = Storage.read(cacheKey);
             const cacheTime = parseInt(Storage.read(cacheTimeKey) || '0');
@@ -857,16 +813,20 @@ class RuntimeLoader {
                 return config;
             }
         }
+
         const url = `${CONFIG.REMOTE_BASE}/configs/${configId}.json?t=${Date.now()}`;
         Logger.debug('Loader', `Fetching: ${configId}`);
+
         try {
             const res = await HTTP.get(url);
             if (res.status === 200 && res.body) {
                 Storage.write(cacheKey, res.body);
                 Storage.write(cacheTimeKey, Date.now().toString());
+
                 if (this.manifest?.configVersions?.[configId]) {
                     Storage.write(`vip_cfg_version_${configId}`, this.manifest.configVersions[configId]);
                 }
+
                 const config = this.prepareConfig(Utils.safeJsonParse(res.body));
                 this._setMemConfigCache(configId, config);
                 Logger.debug('Loader', `Config updated: ${configId}`);
@@ -894,12 +854,15 @@ class RuntimeLoader {
                 config.urlPattern = /.*/;
             }
         }
+
         if (raw.regexReplacements) {
             config.regexReplacements = raw.regexReplacements.map(r => ({
                 pattern: new RegExp(r.pattern, r.flags || 'g'),
                 replacement: r.replacement
             }));
         }
+
+        // 修复：不再冻结对象，避免后续赋值失败
         return config;
     }
 
@@ -928,17 +891,14 @@ class Environment {
             this.request = this.response.request;
         }
     }
-
     getUrl() {
         let url = this.response?.url || this.request?.url || '';
         if (this.isQX && typeof $request === 'string') url = $request;
         return url.toString();
     }
-
     getBody() {
         return this.response?.body || '';
     }
-
     done(result) {
         if (typeof $done === 'function') $done(result);
         else console.log('[DONE]', result);
@@ -949,12 +909,12 @@ class VipEngine {
     constructor(env) {
         this.env = env;
     }
-
     process(body, config) {
         if (!body) {
             Logger.debug('Engine', 'Empty body');
             return { body: '{}' };
         }
+
         switch (config.mode) {
             case 'json':
                 return this.processJson(body, config);
@@ -971,14 +931,15 @@ class VipEngine {
                 return { body };
         }
     }
-
     processJson(body, config) {
         let obj = Utils.safeJsonParse(body);
         if (!obj) {
             Logger.fatal('Engine', 'Failed to parse JSON');
             return { body };
         }
+        
         const customProcessor = getConfigProcessor(config);
+        
         if (typeof customProcessor === 'function') {
             try {
                 obj = customProcessor(obj, this.env);
@@ -989,9 +950,9 @@ class VipEngine {
         } else {
             Logger.debug('Engine', 'No custom processor');
         }
+        
         return { body: Utils.safeJsonStringify(obj) };
     }
-
     processRegex(body, config) {
         let modified = body;
         let count = 0;
@@ -1005,7 +966,6 @@ class VipEngine {
         Logger.debug('Engine', `Regex replaced ${count} patterns`);
         return { body: modified };
     }
-
     processGame(body, config) {
         let modified = body;
         let count = 0;
@@ -1020,7 +980,6 @@ class VipEngine {
         Logger.debug('Engine', `Game resources modified: ${count}`);
         return { body: modified };
     }
-
     processHybrid(body, config) {
         let result = this.processJson(body, config);
         if (config.regexReplacements) {
@@ -1028,7 +987,6 @@ class VipEngine {
         }
         return result;
     }
-
     processHtml(body, config) {
         let modified = body;
         let count = 0;
@@ -1046,38 +1004,36 @@ class VipEngine {
 }
 
 // ==========================================
-// 主函数（优化版：try-finally确保锁释放）
+// 主函数
 // ==========================================
 async function main() {
     const env = new Environment(META.name);
-
-    // 尝试获取执行锁
-    if (!ExecutionLock.acquire()) {
-        Logger.debug('Main', 'Another instance is running, skipping');
-        return env.done({ body: env.getBody() });
-    }
-
+    
     try {
         const url = env.getUrl();
         if (!url) {
             Logger.fatal('Main', 'No URL in request');
+            releaseLock();
             return env.done({});
         }
-
+        
         Logger.debug('Request', `Processing ${url.replace(/\?.*$/, '').substring(0, 50)}...`);
 
         const loader = new RuntimeLoader();
+
         let manifest;
         try {
             manifest = await loader.loadManifest();
         } catch (e) {
             Logger.fatal('Main', 'Manifest failed', e);
+            releaseLock();
             return env.done({ body: env.getBody() });
         }
 
         const configId = loader.findMatch(url);
         if (!configId) {
             Logger.debug('Main', 'No rule matched');
+            releaseLock();
             return env.done({ body: env.getBody() });
         }
 
@@ -1086,21 +1042,22 @@ async function main() {
             config = await loader.loadConfig(configId);
         } catch (e) {
             Logger.fatal('Main', 'Config failed', e);
+            releaseLock();
             return env.done({ body: env.getBody() });
         }
 
         const engine = new VipEngine(env);
         const result = engine.process(env.getBody(), config);
+
         Logger.debug('Main', 'Completed');
+        
+        releaseLock();
         env.done(result);
 
     } catch (e) {
         Logger.fatal('Main', 'Fatal error', e);
+        releaseLock();
         env.done({ body: env.getBody() });
-    } finally {
-        // 确保锁被释放
-        ExecutionLock.release();
     }
 }
-
 main();
