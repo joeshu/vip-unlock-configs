@@ -401,56 +401,55 @@ class SimpleManifestLoader {
 }
 
 // ==========================================
-// P0-2: 修复版配置加载器（缓存键对齐参考实现）
+// 优化版配置加载器（合并存储，单次 I/O）
 // ==========================================
 class SimpleConfigLoader {
     constructor(requestId) {
         this._requestId = requestId;
-        this._memCache = new Map(); // L1: 请求级内存缓存
+        // 仅用于同请求内缓存（防止一个请求中重复加载同一配置）
+        this._memCache = new Map();
     }
     
     async load(configId, remoteVersion) {
-        // L1: 请求级内存缓存（同请求内多次加载）
+        // L1: 同请求内存缓存
         if (this._memCache.has(configId)) {
             const cached = this._memCache.get(configId);
-            // 检查内存缓存版本是否匹配
             if (cached._version === remoteVersion) {
                 Logger.debug('Config', `[${this._requestId}] ${configId} L1 hit v${remoteVersion}`);
                 return cached;
             }
         }
         
-        // 修复：使用与参考代码一致的缓存键名
+        // L2: 合并存储（单次读取替代原来的3次读取）
         const cacheKey = `vip_cfg_v20_${configId}`;
-        const cacheTimeKey = `${cacheKey}_time`;
-        const verKey = `vip_cfg_version_${configId}`;
+        const stored = Storage.read(cacheKey);
         
-        // L2: 持久化存储（跨请求）
-        const localVer = Storage.read(verKey);
-        const localData = Storage.read(cacheKey);
-        const cacheTime = parseInt(Storage.read(cacheTimeKey) || '0');
-        
-        // 修复：检查缓存是否有效：版本匹配且未过期
-        const isCacheValid = localVer === remoteVersion && 
-                           localData && 
-                           (Date.now() - cacheTime < CONFIG.CONFIG_CACHE_TTL);
-        
-        if (isCacheValid) {
-            Logger.info('Config', `[${this._requestId}] ${configId} L2 hit v${remoteVersion}`);
-            const config = this._prepareConfig(Utils.safeJsonParse(localData));
-            config._version = remoteVersion; // 标记版本
-            this._memCache.set(configId, config);
-            return config;
+        if (stored) {
+            try {
+                const { v, t, d } = JSON.parse(stored);
+                // 检查版本匹配且未过期
+                if (v === remoteVersion && (Date.now() - t) < CONFIG.CONFIG_CACHE_TTL) {
+                    Logger.info('Config', `[${this._requestId}] ${configId} L2 hit v${remoteVersion}`);
+                    const config = this._prepareConfig(d);
+                    config._version = remoteVersion;
+                    this._memCache.set(configId, config);
+                    return config;
+                }
+            } catch (e) {
+                Logger.debug('Config', `[${this._requestId}] ${configId} cache parse error, will refetch`);
+            }
         }
         
-        // 版本不匹配、无缓存或已过期 → 下载
+        // 远程下载
         Logger.info('Config', `[${this._requestId}] ${configId} fetch v${remoteVersion}`);
         const fresh = await this._fetch(configId);
         
-        // 修复：保存到 L2（包含时间戳）
-        Storage.write(cacheKey, JSON.stringify(fresh));
-        Storage.write(cacheTimeKey, Date.now().toString());
-        Storage.write(verKey, remoteVersion);
+        // 合并写入（单次存储替代原来的3次存储）
+        Storage.write(cacheKey, JSON.stringify({
+            v: remoteVersion,
+            t: Date.now(),
+            d: fresh
+        }));
         
         const config = this._prepareConfig(fresh);
         config._version = remoteVersion;
@@ -472,7 +471,7 @@ class SimpleConfigLoader {
     _prepareConfig(raw) {
         const config = { ...raw };
         
-        // 修复：预处理 urlPattern（参考代码有此逻辑）
+        // 预编译 urlPattern
         if (raw.urlPattern) {
             try {
                 config.urlPattern = new RegExp(raw.urlPattern);
@@ -482,7 +481,7 @@ class SimpleConfigLoader {
             }
         }
         
-        // 预编译正则，避免运行时重复编译
+        // 预编译正则替换规则
         if (raw.regexReplacements) {
             config._regexReplacements = raw.regexReplacements.map(r => ({
                 pattern: new RegExp(r.pattern, r.flags || 'g'),
@@ -490,7 +489,7 @@ class SimpleConfigLoader {
             }));
         }
         
-        // 修复：预处理 gameResources 的正则（如果有）
+        // 预编译游戏资源规则
         if (raw.gameResources) {
             config._gameResources = raw.gameResources.map(r => ({
                 field: r.field,
@@ -877,7 +876,7 @@ class VipEngine {
         let modified = body;
         let count = 0;
         
-        // 修复：优先使用预编译的 _regexReplacements
+        // 优先使用预编译的 _regexReplacements
         const replacements = config._regexReplacements || config.regexReplacements || [];
         for (const rule of replacements) {
             try {
@@ -896,7 +895,7 @@ class VipEngine {
         let modified = body;
         let count = 0;
         
-        // 修复：优先使用预编译的 _gameResources
+        // 优先使用预编译的 _gameResources
         const resources = config._gameResources || config.gameResources || [];
         for (const res of resources) {
             try {
@@ -967,7 +966,7 @@ async function main() {
         // 3. 获取远程版本号
         const remoteVersion = mLoader.getConfigVersion(configId);
         
-        // 4. 加载配置（修复：L1 + L2 激进缓存，键名对齐）
+        // 4. 加载配置（优化版：L1 + L2 合并存储）
         const cLoader = new SimpleConfigLoader(requestId);
         const config = await cLoader.load(configId, remoteVersion);
         
