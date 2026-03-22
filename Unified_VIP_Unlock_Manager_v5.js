@@ -1,9 +1,9 @@
 /**
  * ==========================================
- * Unified VIP Unlock Manager v20.2.6-final-A4-fixed
- * 统一 VIP 解锁管理器 - A4修复版（解决正则双重转义）
- * @version 20.2.6-final-A4-fixed
- * @description 正则缓存 + 转义保护 + 请求隔离
+ * Unified VIP Unlock Manager v20.2.6-final-A3
+ * 统一 VIP 解锁管理器 - 并发安全最终版
+ * @version 20.2.6-final-A3
+ * @description 请求完全隔离 + 并发安全 + 响应体保护
  * ==========================================
 
 [rewrite_local]
