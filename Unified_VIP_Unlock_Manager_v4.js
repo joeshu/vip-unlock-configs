@@ -1,12 +1,11 @@
 /**
  * ==========================================
  * Unified VIP Unlock Manager v20.2.6-final-A
- * 统一 VIP 解锁管理器 - 方案A优化版（保守稳定）
+ * 统一 VIP 解锁管理器 - 方案A优化版（保守稳定 + 单例修复）
  * @version 20.2.6-final-A
- * @description 修复内存泄漏 + 响应体保护
+ * @description 修复内存泄漏 + 响应体保护 + 单例模式
  * ==========================================
-
-
+ 
 [rewrite_local]
  # iAppDaily - 余额查询接口（JSON模式-声明式字段设置）
  ^https:\/\/api\.iappdaily\.com\/my\/balance url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v4.js
@@ -70,7 +69,7 @@ const releaseLock = () => {
 };
 
 // ==========================================
-// 配置区域（新增：响应体大小限制）
+// 配置区域（新增：响应体大小限制 + 内存清理配置）
 // ==========================================
 const CONFIG = {
  REMOTE_BASE: 'https://joeshu.github.io/vip-unlock-configs',
@@ -88,7 +87,7 @@ const CONFIG = {
  // 优化A-1: 内存清理间隔（30分钟）
  CLEANUP_INTERVAL: 30 * 60 * 1000,
  // 优化A-1: 访问统计过期时间（24小时）
- STATS_EXPIRE: 24 * 60 * 60 * 1000,
+ STATS_EXPIRE: 1 * 60 * 60 * 1000,
  // 优化A-1: 预加载超时时间（5分钟）
  PRELOAD_TIMEOUT: 5 * 60 * 1000
 };
@@ -590,589 +589,627 @@ function getConfigProcessor(config) {
 }
 
 // ==========================================
-// 运行时加载器（优化A-1: 内存泄漏修复）
+// 全局单例管理（关键修复：防止重复初始化）
+// ==========================================
+const GlobalStore = {
+  _store: globalThis.__UnifiedVIP_Global || {},
+  
+  get(key) {
+    return this._store[key];
+  },
+  
+  set(key, value) {
+    this._store[key] = value;
+    globalThis.__UnifiedVIP_Global = this._store;
+    return value;
+  },
+  
+  has(key) {
+    return key in this._store;
+  }
+};
+
+// ==========================================
+// 运行时加载器（优化A-1: 内存泄漏修复 + 单例模式）
 // ==========================================
 class RuntimeLoader {
- constructor() {
- this.cache = new Map();
- this.manifest = null;
- this.patterns = new Map();
- this.domainIndex = new Map();
- // 优化A-1: 访问统计添加元数据
- this.accessStats = new Map();
- this._manifestMemCache = null;
- this._manifestCacheTime = 0;
- this._configMemCache = new Map();
- // 优化A-1: 预加载集合添加时间戳
- this._preloading = new Map(); // Map<id, {start: timestamp}>
- this._lastCleanup = Date.now();
- 
- // 优化A-1: 启动定时清理（如果环境支持）
- this._startCleanupTimer();
- }
+  constructor() {
+    // 单例检查：如果全局已有实例，直接返回
+    if (GlobalStore.has('loader')) {
+      const existing = GlobalStore.get('loader');
+      Logger.debug('Loader', 'Reusing global loader instance');
+      return existing;
+    }
+    
+    this.cache = new Map();
+    this.manifest = null;
+    this.patterns = new Map();
+    this.domainIndex = new Map();
+    this.accessStats = new Map();
+    this._manifestMemCache = null;
+    this._manifestCacheTime = 0;
+    this._configMemCache = new Map();
+    this._preloading = new Map();
+    this._lastCleanup = Date.now();
+    this._cleanupTimer = null;
+    
+    // 只有首次创建才启动定时器
+    this._startCleanupTimer();
+    
+    // 存入全局单例
+    GlobalStore.set('loader', this);
+    Logger.debug('Loader', 'Created new loader instance');
+  }
 
- // 优化A-1: 启动定时清理
- _startCleanupTimer() {
- if (typeof setInterval !== 'undefined') {
- setInterval(() => this._cleanup(), CONFIG.CLEANUP_INTERVAL);
- Logger.debug('Loader', `Cleanup timer started: ${CONFIG.CLEANUP_INTERVAL}ms`);
- }
- }
+  // 优化：确保只有一个定时器在运行
+  _startCleanupTimer() {
+    // 检查是否已有定时器在运行
+    if (GlobalStore.has('cleanupTimer')) {
+      Logger.debug('Loader', 'Cleanup timer already running');
+      return;
+    }
+    
+    if (typeof setInterval !== 'undefined') {
+      const timer = setInterval(() => {
+        const loader = GlobalStore.get('loader');
+        if (loader) {
+          loader._cleanup();
+        }
+      }, CONFIG.CLEANUP_INTERVAL);
+      
+      GlobalStore.set('cleanupTimer', timer);
+      Logger.debug('Loader', `Cleanup timer started: ${CONFIG.CLEANUP_INTERVAL}ms`);
+    }
+  }
 
- // 优化A-1: 内存清理逻辑
- _cleanup() {
- const now = Date.now();
- let cleanedStats = 0;
- let cleanedPreload = 0;
+  // 优化A-1: 内存清理逻辑
+  _cleanup() {
+    const now = Date.now();
+    let cleanedStats = 0;
+    let cleanedPreload = 0;
 
- // 清理过期访问统计（24小时未访问）
- for (const [id, stats] of this.accessStats) {
- if (now - stats.lastAccess > CONFIG.STATS_EXPIRE) {
- this.accessStats.delete(id);
- cleanedStats++;
- }
- }
+    // 清理过期访问统计（24小时未访问）
+    for (const [id, stats] of this.accessStats) {
+      if (now - stats.lastAccess > CONFIG.STATS_EXPIRE) {
+        this.accessStats.delete(id);
+        cleanedStats++;
+      }
+    }
 
- // 清理异常预加载标记（超过5分钟）
- for (const [id, meta] of this._preloading) {
- if (now - meta.start > CONFIG.PRELOAD_TIMEOUT) {
- this._preloading.delete(id);
- cleanedPreload++;
- }
- }
+    // 清理异常预加载标记（超过5分钟）
+    for (const [id, meta] of this._preloading) {
+      if (now - meta.start > CONFIG.PRELOAD_TIMEOUT) {
+        this._preloading.delete(id);
+        cleanedPreload++;
+      }
+    }
 
- // 限制内存缓存大小（超过100条清理最旧的20%）
- if (this._configMemCache.size > 100) {
- const entriesToDelete = Math.floor(this._configMemCache.size * 0.2);
- const entries = Array.from(this._configMemCache.entries())
- .sort((a, b) => a[1].time - b[1].time);
- for (let i = 0; i < entriesToDelete; i++) {
- this._configMemCache.delete(entries[i][0]);
- }
- Logger.debug('Cleanup', `Trimmed mem cache: ${entriesToDelete} items`);
- }
+    // 限制内存缓存大小（超过100条清理最旧的20%）
+    if (this._configMemCache.size > 100) {
+      const entriesToDelete = Math.floor(this._configMemCache.size * 0.2);
+      const entries = Array.from(this._configMemCache.entries())
+        .sort((a, b) => a[1].time - b[1].time);
+      for (let i = 0; i < entriesToDelete; i++) {
+        this._configMemCache.delete(entries[i][0]);
+      }
+      Logger.debug('Cleanup', `Trimmed mem cache: ${entriesToDelete} items`);
+    }
 
- if (cleanedStats > 0 || cleanedPreload > 0) {
- Logger.debug('Cleanup', `Stats: ${cleanedStats}, Preload: ${cleanedPreload}, Remaining: ${this.accessStats.size}`);
- }
+    if (cleanedStats > 0 || cleanedPreload > 0) {
+      Logger.debug('Cleanup', `Stats: ${cleanedStats}, Preload: ${cleanedPreload}, Remaining: ${this.accessStats.size}`);
+    }
 
- this._lastCleanup = now;
- }
+    this._lastCleanup = now;
+  }
 
- _isMemCacheValid(cacheTime, ttl = CONFIG.CONFIG_CACHE_TTL) {
- return cacheTime && (Date.now() - cacheTime < ttl);
- }
+  _isMemCacheValid(cacheTime, ttl = CONFIG.CONFIG_CACHE_TTL) {
+    return cacheTime && (Date.now() - cacheTime < ttl);
+  }
 
- _getMemConfigCache(configId) {
- const item = this._configMemCache.get(configId);
- if (item && this._isMemCacheValid(item.time)) {
- Logger.debug('Loader', `Memory cache hit: ${configId}`);
- return item.data;
- }
- return null;
- }
+  _getMemConfigCache(configId) {
+    const item = this._configMemCache.get(configId);
+    if (item && this._isMemCacheValid(item.time)) {
+      Logger.debug('Loader', `Memory cache hit: ${configId}`);
+      return item.data;
+    }
+    return null;
+  }
 
- _setMemConfigCache(configId, data) {
- this._configMemCache.set(configId, { data, time: Date.now() });
- // 优化A-1: 超过限制时主动清理，而非仅删除第一个
- if (this._configMemCache.size > 100) {
- const entries = Array.from(this._configMemCache.entries())
- .sort((a, b) => a[1].time - b[1].time);
- // 删除最旧的10%
- const toDelete = Math.max(1, Math.floor(entries.length * 0.1));
- for (let i = 0; i < toDelete && i < entries.length; i++) {
- this._configMemCache.delete(entries[i][0]);
- }
- Logger.debug('Cache', `Auto-trimmed: ${toDelete} oldest entries`);
- }
- }
+  _setMemConfigCache(configId, data) {
+    this._configMemCache.set(configId, { data, time: Date.now() });
+    // 优化A-1: 超过限制时主动清理，而非仅删除第一个
+    if (this._configMemCache.size > 100) {
+      const entries = Array.from(this._configMemCache.entries())
+        .sort((a, b) => a[1].time - b[1].time);
+      // 删除最旧的10%
+      const toDelete = Math.max(1, Math.floor(entries.length * 0.1));
+      for (let i = 0; i < toDelete && i < entries.length; i++) {
+        this._configMemCache.delete(entries[i][0]);
+      }
+      Logger.debug('Cache', `Auto-trimmed: ${toDelete} oldest entries`);
+    }
+  }
 
- async loadManifest(force = false) {
- const cacheKey = 'vip_manifest_v20';
- const cacheTimeKey = `${cacheKey}_time`;
+  async loadManifest(force = false) {
+    const cacheKey = 'vip_manifest_v20';
+    const cacheTimeKey = `${cacheKey}_time`;
 
- if (!force && this._manifestMemCache && this._isMemCacheValid(this._manifestCacheTime, CONFIG.CACHE_TTL)) {
- Logger.debug('Loader', 'Using memory cached manifest');
- return this._manifestMemCache;
- }
+    if (!force && this._manifestMemCache && this._isMemCacheValid(this._manifestCacheTime, CONFIG.CACHE_TTL)) {
+      Logger.debug('Loader', 'Using memory cached manifest');
+      return this._manifestMemCache;
+    }
 
- if (!force) {
- const cached = Storage.read(cacheKey);
- const cacheTime = parseInt(Storage.read(cacheTimeKey) || '0');
- if (cached && this._isMemCacheValid(cacheTime, CONFIG.CACHE_TTL)) {
- this.manifest = Utils.safeJsonParse(cached);
- if (this.manifest) {
- this._manifestMemCache = this.manifest;
- this._manifestCacheTime = Date.now();
- this.compilePatterns();
- Logger.debug('Loader', 'Using storage cached manifest');
- return this.manifest;
- }
- }
- }
+    if (!force) {
+      const cached = Storage.read(cacheKey);
+      const cacheTime = parseInt(Storage.read(cacheTimeKey) || '0');
+      if (cached && this._isMemCacheValid(cacheTime, CONFIG.CACHE_TTL)) {
+        this.manifest = Utils.safeJsonParse(cached);
+        if (this.manifest) {
+          this._manifestMemCache = this.manifest;
+          this._manifestCacheTime = Date.now();
+          this.compilePatterns();
+          Logger.debug('Loader', 'Using storage cached manifest');
+          return this.manifest;
+        }
+      }
+    }
 
- const url = `${CONFIG.REMOTE_BASE}/manifest.json?t=${Date.now()}`;
- Logger.debug('Loader', 'Fetching manifest...');
+    const url = `${CONFIG.REMOTE_BASE}/manifest.json?t=${Date.now()}`;
+    Logger.debug('Loader', 'Fetching manifest...');
 
- try {
- const res = await HTTP.get(url);
- if (res.status === 200 && res.body) {
- this.manifest = Utils.safeJsonParse(res.body);
- if (this.manifest) {
- Storage.write(cacheKey, res.body);
- Storage.write(cacheTimeKey, Date.now().toString());
- this._manifestMemCache = this.manifest;
- this._manifestCacheTime = Date.now();
- this.compilePatterns();
- Logger.debug('Loader', `Manifest updated: ${Object.keys(this.manifest.configs).length} apps`);
- return this.manifest;
- }
- }
- throw new Error(`HTTP ${res.status}`);
- } catch (e) {
- Logger.fatal('Loader', 'Manifest fetch failed', e);
- const expired = Storage.read(cacheKey);
- if (expired) {
- this.manifest = Utils.safeJsonParse(expired);
- this._manifestMemCache = this.manifest;
- this._manifestCacheTime = Date.now();
- this.compilePatterns();
- return this.manifest;
- }
- throw e;
- }
- }
+    try {
+      const res = await HTTP.get(url);
+      if (res.status === 200 && res.body) {
+        this.manifest = Utils.safeJsonParse(res.body);
+        if (this.manifest) {
+          Storage.write(cacheKey, res.body);
+          Storage.write(cacheTimeKey, Date.now().toString());
+          this._manifestMemCache = this.manifest;
+          this._manifestCacheTime = Date.now();
+          this.compilePatterns();
+          Logger.debug('Loader', `Manifest updated: ${Object.keys(this.manifest.configs).length} apps`);
+          return this.manifest;
+        }
+      }
+      throw new Error(`HTTP ${res.status}`);
+    } catch (e) {
+      Logger.fatal('Loader', 'Manifest fetch failed', e);
+      const expired = Storage.read(cacheKey);
+      if (expired) {
+        this.manifest = Utils.safeJsonParse(expired);
+        this._manifestMemCache = this.manifest;
+        this._manifestCacheTime = Date.now();
+        this.compilePatterns();
+        return this.manifest;
+      }
+      throw e;
+    }
+  }
 
- compilePatterns() {
- this.patterns.clear();
- this.domainIndex.clear();
+  compilePatterns() {
+    this.patterns.clear();
+    this.domainIndex.clear();
 
- if (!this.manifest || !this.manifest.configs) return;
+    if (!this.manifest || !this.manifest.configs) return;
 
- for (const [id, info] of Object.entries(this.manifest.configs)) {
- try {
- if (info.urlPattern) {
- const regex = new RegExp(info.urlPattern);
- this.patterns.set(id, regex);
+    for (const [id, info] of Object.entries(this.manifest.configs)) {
+      try {
+        if (info.urlPattern) {
+          const regex = new RegExp(info.urlPattern);
+          this.patterns.set(id, regex);
 
- if (CONFIG.DOMAIN_INDEX_ENABLED) {
- const domainMatch = info.urlPattern.match(/(?:\^?https?\?:\\\/\\\/)?([^\\\/\\\s]+)/);
- if (domainMatch) {
- const domain = domainMatch[1]
- .replace(/\\\./g, '.')
- .replace(/\d+\??/g, '*')
- .replace(/\\[.*?\\]/g, '*');
- if (!this.domainIndex.has(domain)) {
- this.domainIndex.set(domain, []);
- }
- this.domainIndex.get(domain).push(id);
- }
- }
- }
- } catch (e) {
- Logger.debug('Loader', `Invalid regex for ${id}: ${e.message}`);
- }
- }
+          if (CONFIG.DOMAIN_INDEX_ENABLED) {
+            const domainMatch = info.urlPattern.match(/(?:\^?https?\?:\\\/\\\/)?([^\\\/\\\s]+)/);
+            if (domainMatch) {
+              const domain = domainMatch[1]
+                .replace(/\\\./g, '.')
+                .replace(/\d+\??/g, '*')
+                .replace(/\\[.*?\\]/g, '*');
+              if (!this.domainIndex.has(domain)) {
+                this.domainIndex.set(domain, []);
+              }
+              this.domainIndex.get(domain).push(id);
+            }
+          }
+        }
+      } catch (e) {
+        Logger.debug('Loader', `Invalid regex for ${id}: ${e.message}`);
+      }
+    }
 
- Logger.debug('Loader', `Compiled ${this.patterns.size} patterns, ${this.domainIndex.size} domains`);
- }
+    Logger.debug('Loader', `Compiled ${this.patterns.size} patterns, ${this.domainIndex.size} domains`);
+  }
 
- findMatch(url) {
- let candidates = [];
+  findMatch(url) {
+    let candidates = [];
 
- if (CONFIG.DOMAIN_INDEX_ENABLED) {
- try {
- const urlObj = new URL(url);
- const hostname = urlObj.hostname;
+    if (CONFIG.DOMAIN_INDEX_ENABLED) {
+      try {
+        const urlObj = new URL(url);
+        const hostname = urlObj.hostname;
 
- candidates = this.domainIndex.get(hostname) || [];
+        candidates = this.domainIndex.get(hostname) || [];
 
- if (candidates.length === 0) {
- const parts = hostname.split('.');
- for (let i = 1; i < parts.length; i++) {
- const wildcard = `*.${parts.slice(i).join('.')}`;
- if (this.domainIndex.has(wildcard)) {
- candidates = this.domainIndex.get(wildcard);
- break;
- }
- }
- }
- } catch (e) {}
- }
+        if (candidates.length === 0) {
+          const parts = hostname.split('.');
+          for (let i = 1; i < parts.length; i++) {
+            const wildcard = `*.${parts.slice(i).join('.')}`;
+            if (this.domainIndex.has(wildcard)) {
+              candidates = this.domainIndex.get(wildcard);
+              break;
+            }
+          }
+        }
+      } catch (e) {}
+    }
 
- for (const id of candidates) {
- try {
- if (this.patterns.get(id).test(url)) {
- this._updateAccessStats(id);
- this._triggerPreload(candidates.filter(cid => cid !== id));
- return id;
- }
- } catch (e) {
- Logger.debug('Loader', `Pattern test error: ${id}`);
- }
- }
+    for (const id of candidates) {
+      try {
+        if (this.patterns.get(id).test(url)) {
+          this._updateAccessStats(id);
+          this._triggerPreload(candidates.filter(cid => cid !== id));
+          return id;
+        }
+      } catch (e) {
+        Logger.debug('Loader', `Pattern test error: ${id}`);
+      }
+    }
 
- for (const [id, pattern] of this.patterns) {
- if (!candidates.includes(id)) {
- try {
- if (pattern.test(url)) {
- this._updateAccessStats(id);
- return id;
- }
- } catch (e) {}
- }
- }
+    for (const [id, pattern] of this.patterns) {
+      if (!candidates.includes(id)) {
+        try {
+          if (pattern.test(url)) {
+            this._updateAccessStats(id);
+            return id;
+          }
+        } catch (e) {}
+      }
+    }
 
- return null;
- }
+    return null;
+  }
 
- // 优化A-1: 更新访问统计时确保元数据完整
- _updateAccessStats(configId) {
- const now = Date.now();
- const stats = this.accessStats.get(configId);
- if (stats) {
- stats.count++;
- stats.lastAccess = now;
- } else {
- this.accessStats.set(configId, { count: 1, lastAccess: now, firstAccess: now });
- }
- }
+  _updateAccessStats(configId) {
+    const now = Date.now();
+    const stats = this.accessStats.get(configId);
+    if (stats) {
+      stats.count++;
+      stats.lastAccess = now;
+    } else {
+      this.accessStats.set(configId, { count: 1, lastAccess: now, firstAccess: now });
+    }
+  }
 
- // 优化A-1: 预加载使用 Map 存储元数据
- _triggerPreload(configIds) {
- if (!CONFIG.PRELOAD_ENABLED) return;
+  _triggerPreload(configIds) {
+    if (!CONFIG.PRELOAD_ENABLED) return;
 
- const now = Date.now();
- const sortedIds = configIds
- .filter(id => {
- // 检查是否已在预加载或已缓存
- if (this._preloading.has(id)) {
- const meta = this._preloading.get(id);
- // 如果超时，允许重新触发
- if (now - meta.start > CONFIG.PRELOAD_TIMEOUT) {
- this._preloading.delete(id);
- return true;
- }
- return false;
- }
- return !this._getMemConfigCache(id);
- })
- .sort((a, b) => {
- const statsA = this.accessStats.get(a) || { count: 0 };
- const statsB = this.accessStats.get(b) || { count: 0 };
- return statsB.count - statsA.count;
- })
- .slice(0, CONFIG.PRELOAD_CONCURRENT);
+    const now = Date.now();
+    const sortedIds = configIds
+      .filter(id => {
+        if (this._preloading.has(id)) {
+          const meta = this._preloading.get(id);
+          if (now - meta.start > CONFIG.PRELOAD_TIMEOUT) {
+            this._preloading.delete(id);
+            return true;
+          }
+          return false;
+        }
+        return !this._getMemConfigCache(id);
+      })
+      .sort((a, b) => {
+        const statsA = this.accessStats.get(a) || { count: 0 };
+        const statsB = this.accessStats.get(b) || { count: 0 };
+        return statsB.count - statsA.count;
+      })
+      .slice(0, CONFIG.PRELOAD_CONCURRENT);
 
- for (const id of sortedIds) {
- this._preloading.set(id, { start: Date.now() });
- setTimeout(() => {
- this.loadConfig(id).finally(() => {
- this._preloading.delete(id);
- });
- }, 100);
- }
- }
+    for (const id of sortedIds) {
+      this._preloading.set(id, { start: Date.now() });
+      setTimeout(() => {
+        this.loadConfig(id).finally(() => {
+          this._preloading.delete(id);
+        });
+      }, 100);
+    }
+  }
 
- async loadConfig(configId, force = false) {
- if (!force && CONFIG.HOT_RELOAD && this.manifest?.configVersions?.[configId]) {
- const remoteVersion = this.manifest.configVersions[configId];
- const cachedVersion = Storage.read(`vip_cfg_version_${configId}`);
- if (cachedVersion !== remoteVersion) {
- force = true;
- Logger.debug('Loader', `Version changed for ${configId}`);
- }
- }
+  async loadConfig(configId, force = false) {
+    if (!force && CONFIG.HOT_RELOAD && this.manifest?.configVersions?.[configId]) {
+      const remoteVersion = this.manifest.configVersions[configId];
+      const cachedVersion = Storage.read(`vip_cfg_version_${configId}`);
+      if (cachedVersion !== remoteVersion) {
+        force = true;
+        Logger.debug('Loader', `Version changed for ${configId}`);
+      }
+    }
 
- if (!force) {
- const memCache = this._getMemConfigCache(configId);
- if (memCache) return memCache;
- }
+    if (!force) {
+      const memCache = this._getMemConfigCache(configId);
+      if (memCache) return memCache;
+    }
 
- const cacheKey = `vip_cfg_v20_${configId}`;
- const cacheTimeKey = `${cacheKey}_time`;
+    const cacheKey = `vip_cfg_v20_${configId}`;
+    const cacheTimeKey = `${cacheKey}_time`;
 
- if (!force) {
- const cached = Storage.read(cacheKey);
- const cacheTime = parseInt(Storage.read(cacheTimeKey) || '0');
- if (cached && this._isMemCacheValid(cacheTime)) {
- const config = this.prepareConfig(Utils.safeJsonParse(cached));
- this._setMemConfigCache(configId, config);
- Logger.debug('Loader', `Storage cache: ${configId}`);
- return config;
- }
- }
+    if (!force) {
+      const cached = Storage.read(cacheKey);
+      const cacheTime = parseInt(Storage.read(cacheTimeKey) || '0');
+      if (cached && this._isMemCacheValid(cacheTime)) {
+        const config = this.prepareConfig(Utils.safeJsonParse(cached));
+        this._setMemConfigCache(configId, config);
+        Logger.debug('Loader', `Storage cache: ${configId}`);
+        return config;
+      }
+    }
 
- const url = `${CONFIG.REMOTE_BASE}/configs/${configId}.json?t=${Date.now()}`;
- Logger.debug('Loader', `Fetching: ${configId}`);
+    const url = `${CONFIG.REMOTE_BASE}/configs/${configId}.json?t=${Date.now()}`;
+    Logger.debug('Loader', `Fetching: ${configId}`);
 
- try {
- const res = await HTTP.get(url);
- if (res.status === 200 && res.body) {
- Storage.write(cacheKey, res.body);
- Storage.write(cacheTimeKey, Date.now().toString());
+    try {
+      const res = await HTTP.get(url);
+      if (res.status === 200 && res.body) {
+        Storage.write(cacheKey, res.body);
+        Storage.write(cacheTimeKey, Date.now().toString());
 
- if (this.manifest?.configVersions?.[configId]) {
- Storage.write(`vip_cfg_version_${configId}`, this.manifest.configVersions[configId]);
- }
+        if (this.manifest?.configVersions?.[configId]) {
+          Storage.write(`vip_cfg_version_${configId}`, this.manifest.configVersions[configId]);
+        }
 
- const config = this.prepareConfig(Utils.safeJsonParse(res.body));
- this._setMemConfigCache(configId, config);
- Logger.debug('Loader', `Config updated: ${configId}`);
- return config;
- }
- throw new Error(`HTTP ${res.status}`);
- } catch (e) {
- Logger.fatal('Loader', `Config fetch failed: ${configId}`, e);
- const expired = Storage.read(cacheKey);
- if (expired) {
- const config = this.prepareConfig(Utils.safeJsonParse(expired));
- this._setMemConfigCache(configId, config);
- return config;
- }
- throw e;
- }
- }
+        const config = this.prepareConfig(Utils.safeJsonParse(res.body));
+        this._setMemConfigCache(configId, config);
+        Logger.debug('Loader', `Config updated: ${configId}`);
+        return config;
+      }
+      throw new Error(`HTTP ${res.status}`);
+    } catch (e) {
+      Logger.fatal('Loader', `Config fetch failed: ${configId}`, e);
+      const expired = Storage.read(cacheKey);
+      if (expired) {
+        const config = this.prepareConfig(Utils.safeJsonParse(expired));
+        this._setMemConfigCache(configId, config);
+        return config;
+      }
+      throw e;
+    }
+  }
 
- prepareConfig(raw) {
- const config = { ...raw };
- if (raw.urlPattern) {
- try {
- config.urlPattern = new RegExp(raw.urlPattern);
- } catch (e) {
- config.urlPattern = /.*/;
- }
- }
+  prepareConfig(raw) {
+    const config = { ...raw };
+    if (raw.urlPattern) {
+      try {
+        config.urlPattern = new RegExp(raw.urlPattern);
+      } catch (e) {
+        config.urlPattern = /.*/;
+      }
+    }
 
- if (raw.regexReplacements) {
- config.regexReplacements = raw.regexReplacements.map(r => ({
- pattern: new RegExp(r.pattern, r.flags || 'g'),
- replacement: r.replacement
- }));
- }
+    if (raw.regexReplacements) {
+      config.regexReplacements = raw.regexReplacements.map(r => ({
+        pattern: new RegExp(r.pattern, r.flags || 'g'),
+        replacement: r.replacement
+      }));
+    }
 
- // 修复：不再冻结对象，避免后续赋值失败
- return config;
- }
+    return config;
+  }
 
- getStats() {
- return {
- manifest: this.manifest ? Object.keys(this.manifest.configs).length : 0,
- cached: this.cache.size,
- memCached: this._configMemCache.size,
- domains: this.domainIndex.size,
- // 优化A-1: 添加清理相关统计
- accessStats: this.accessStats.size,
- preloading: this._preloading.size,
- lastCleanup: new Date(this._lastCleanup).toLocaleTimeString()
- };
- }
+  getStats() {
+    return {
+      manifest: this.manifest ? Object.keys(this.manifest.configs).length : 0,
+      cached: this.cache.size,
+      memCached: this._configMemCache.size,
+      domains: this.domainIndex.size,
+      accessStats: this.accessStats.size,
+      preloading: this._preloading.size,
+      lastCleanup: new Date(this._lastCleanup).toLocaleTimeString()
+    };
+  }
 }
 
 // ==========================================
 // 环境和引擎（优化A-2: 响应体大小限制）
 // ==========================================
 class Environment {
- constructor(name) {
- this.name = name;
- this.isQX = typeof $task !== 'undefined';
- this.isSurge = typeof $httpClient !== 'undefined' && !this.isQX;
- this.isLoon = typeof $loon !== 'undefined';
- this.response = typeof $response !== 'undefined' ? $response : {};
- this.request = typeof $request !== 'undefined' ? $request : {};
- if (!this.request.url && this.response.request?.url) {
- this.request = this.response.request;
- }
- }
- getUrl() {
- let url = this.response?.url || this.request?.url || '';
- if (this.isQX && typeof $request === 'string') url = $request;
- return url.toString();
- }
- getBody() {
- return this.response?.body || '';
- }
- done(result) {
- if (typeof $done === 'function') $done(result);
- else console.log('[DONE]', result);
- }
+  constructor(name) {
+    this.name = name;
+    this.isQX = typeof $task !== 'undefined';
+    this.isSurge = typeof $httpClient !== 'undefined' && !this.isQX;
+    this.isLoon = typeof $loon !== 'undefined';
+    this.response = typeof $response !== 'undefined' ? $response : {};
+    this.request = typeof $request !== 'undefined' ? $request : {};
+    if (!this.request.url && this.response.request?.url) {
+      this.request = this.response.request;
+    }
+  }
+  getUrl() {
+    let url = this.response?.url || this.request?.url || '';
+    if (this.isQX && typeof $request === 'string') url = $request;
+    return url.toString();
+  }
+  getBody() {
+    return this.response?.body || '';
+  }
+  done(result) {
+    if (typeof $done === 'function') $done(result);
+    else console.log('[DONE]', result);
+  }
 }
 
 class VipEngine {
- constructor(env) {
- this.env = env;
- }
- 
- // 优化A-2: 添加响应体大小检查
- process(body, config) {
- // 优化A-2: 空响应检查
- if (!body) {
- Logger.debug('Engine', 'Empty body');
- return { body: '{}' };
- }
- 
- // 优化A-2: 响应体大小限制（5MB）
- const bodySize = typeof body === 'string' ? body.length : JSON.stringify(body).length;
- if (bodySize > CONFIG.MAX_BODY_SIZE) {
- Logger.warn('Engine', `Body too large: ${(bodySize/1024/1024).toFixed(2)}MB > ${(CONFIG.MAX_BODY_SIZE/1024/1024)}MB, skipping processing`);
- // 超大响应直接返回，避免内存溢出
- return { body: typeof body === 'string' ? body : JSON.stringify(body) };
- }
+  constructor(env) {
+    this.env = env;
+  }
+  
+  // 优化A-2: 添加响应体大小检查
+  process(body, config) {
+    // 优化A-2: 空响应检查
+    if (!body) {
+      Logger.debug('Engine', 'Empty body');
+      return { body: '{}' };
+    }
+    
+    // 优化A-2: 响应体大小限制（5MB）
+    const bodySize = typeof body === 'string' ? body.length : JSON.stringify(body).length;
+    if (bodySize > CONFIG.MAX_BODY_SIZE) {
+      Logger.warn('Engine', `Body too large: ${(bodySize/1024/1024).toFixed(2)}MB > ${(CONFIG.MAX_BODY_SIZE/1024/1024)}MB, skipping processing`);
+      // 超大响应直接返回，避免内存溢出
+      return { body: typeof body === 'string' ? body : JSON.stringify(body) };
+    }
 
- switch (config.mode) {
- case 'json':
- return this.processJson(body, config);
- case 'regex':
- return this.processRegex(body, config);
- case 'game':
- return this.processGame(body, config);
- case 'hybrid':
- return this.processHybrid(body, config);
- case 'html':
- return this.processHtml(body, config);
- default:
- Logger.debug('Engine', `Unknown mode: ${config.mode}`);
- return { body };
- }
- }
- 
- processJson(body, config) {
- // 优化A-2: 解析前检查大小
- if (typeof body === 'string' && body.length > CONFIG.MAX_BODY_SIZE) {
- Logger.warn('Engine', `JSON body too large, skipping parse`);
- return { body };
- }
- 
- let obj = Utils.safeJsonParse(body);
- if (!obj) {
- Logger.fatal('Engine', 'Failed to parse JSON');
- return { body };
- }
+    switch (config.mode) {
+      case 'json':
+        return this.processJson(body, config);
+      case 'regex':
+        return this.processRegex(body, config);
+      case 'game':
+        return this.processGame(body, config);
+      case 'hybrid':
+        return this.processHybrid(body, config);
+      case 'html':
+        return this.processHtml(body, config);
+      default:
+        Logger.debug('Engine', `Unknown mode: ${config.mode}`);
+        return { body };
+    }
+  }
+  
+  processJson(body, config) {
+    // 优化A-2: 解析前检查大小
+    if (typeof body === 'string' && body.length > CONFIG.MAX_BODY_SIZE) {
+      Logger.warn('Engine', `JSON body too large, skipping parse`);
+      return { body };
+    }
+    
+    let obj = Utils.safeJsonParse(body);
+    if (!obj) {
+      Logger.fatal('Engine', 'Failed to parse JSON');
+      return { body };
+    }
 
- const customProcessor = getConfigProcessor(config);
+    const customProcessor = getConfigProcessor(config);
 
- if (typeof customProcessor === 'function') {
- try {
- obj = customProcessor(obj, this.env);
- Logger.debug('Engine', `${config.name} VIP unlocked`);
- } catch (e) {
- Logger.fatal('Engine', `Processor error`, e);
- }
- } else {
- Logger.debug('Engine', 'No custom processor');
- }
+    if (typeof customProcessor === 'function') {
+      try {
+        obj = customProcessor(obj, this.env);
+        Logger.debug('Engine', `${config.name} VIP unlocked`);
+      } catch (e) {
+        Logger.fatal('Engine', `Processor error`, e);
+      }
+    } else {
+      Logger.debug('Engine', 'No custom processor');
+    }
 
- return { body: Utils.safeJsonStringify(obj) };
- }
- 
- processRegex(body, config) {
- let modified = body;
- let count = 0;
- for (const rule of config.regexReplacements || []) {
- try {
- const original = modified;
- modified = modified.replace(rule.pattern, rule.replacement);
- if (original !== modified) count++;
- } catch (e) {}
- }
- Logger.debug('Engine', `Regex replaced ${count} patterns`);
- return { body: modified };
- }
- 
- processGame(body, config) {
- let modified = body;
- let count = 0;
- for (const res of config.gameResources || []) {
- try {
- const pattern = new RegExp(`"${res.field}":\\d+`, 'g');
- const original = modified;
- modified = modified.replace(pattern, `"${res.field}":${res.value}`);
- if (original !== modified) count++;
- } catch (e) {}
- }
- Logger.debug('Engine', `Game resources modified: ${count}`);
- return { body: modified };
- }
- 
- processHybrid(body, config) {
- let result = this.processJson(body, config);
- if (config.regexReplacements) {
- result = this.processRegex(result.body, config);
- }
- return result;
- }
- 
- processHtml(body, config) {
- let modified = body;
- let count = 0;
- for (const rule of config.htmlReplacements || []) {
- try {
- const regex = new RegExp(rule.pattern, rule.flags || 'i');
- const original = modified;
- modified = modified.replace(regex, rule.replacement);
- if (original !== modified) count++;
- } catch (e) {}
- }
- Logger.debug('Engine', `HTML replaced ${count} patterns`);
- return { body: modified };
- }
+    return { body: Utils.safeJsonStringify(obj) };
+  }
+  
+  processRegex(body, config) {
+    let modified = body;
+    let count = 0;
+    for (const rule of config.regexReplacements || []) {
+      try {
+        const original = modified;
+        modified = modified.replace(rule.pattern, rule.replacement);
+        if (original !== modified) count++;
+      } catch (e) {}
+    }
+    Logger.debug('Engine', `Regex replaced ${count} patterns`);
+    return { body: modified };
+  }
+  
+  processGame(body, config) {
+    let modified = body;
+    let count = 0;
+    for (const res of config.gameResources || []) {
+      try {
+        const pattern = new RegExp(`"${res.field}":\\d+`, 'g');
+        const original = modified;
+        modified = modified.replace(pattern, `"${res.field}":${res.value}`);
+        if (original !== modified) count++;
+      } catch (e) {}
+    }
+    Logger.debug('Engine', `Game resources modified: ${count}`);
+    return { body: modified };
+  }
+  
+  processHybrid(body, config) {
+    let result = this.processJson(body, config);
+    if (config.regexReplacements) {
+      result = this.processRegex(result.body, config);
+    }
+    return result;
+  }
+  
+  processHtml(body, config) {
+    let modified = body;
+    let count = 0;
+    for (const rule of config.htmlReplacements || []) {
+      try {
+        const regex = new RegExp(rule.pattern, rule.flags || 'i');
+        const original = modified;
+        modified = modified.replace(regex, rule.replacement);
+        if (original !== modified) count++;
+      } catch (e) {}
+    }
+    Logger.debug('Engine', `HTML replaced ${count} patterns`);
+    return { body: modified };
+  }
 }
 
 // ==========================================
 // 主函数
 // ==========================================
 async function main() {
- const env = new Environment(META.name);
+  const env = new Environment(META.name);
 
- try {
- const url = env.getUrl();
- if (!url) {
- Logger.fatal('Main', 'No URL in request');
- releaseLock();
- return env.done({});
- }
+  try {
+    const url = env.getUrl();
+    if (!url) {
+      Logger.fatal('Main', 'No URL in request');
+      releaseLock();
+      return env.done({});
+    }
 
- Logger.debug('Request', `Processing ${url.replace(/\\?.*$/, '').substring(0, 50)}...`);
+    Logger.debug('Request', `Processing ${url.replace(/\\?.*$/, '').substring(0, 50)}...`);
 
- const loader = new RuntimeLoader();
+    const loader = new RuntimeLoader();
 
- let manifest;
- try {
- manifest = await loader.loadManifest();
- } catch (e) {
- Logger.fatal('Main', 'Manifest failed', e);
- releaseLock();
- return env.done({ body: env.getBody() });
- }
+    let manifest;
+    try {
+      manifest = await loader.loadManifest();
+    } catch (e) {
+      Logger.fatal('Main', 'Manifest failed', e);
+      releaseLock();
+      return env.done({ body: env.getBody() });
+    }
 
- const configId = loader.findMatch(url);
- if (!configId) {
- Logger.debug('Main', 'No rule matched');
- releaseLock();
- return env.done({ body: env.getBody() });
- }
+    const configId = loader.findMatch(url);
+    if (!configId) {
+      Logger.debug('Main', 'No rule matched');
+      releaseLock();
+      return env.done({ body: env.getBody() });
+    }
 
- let config;
- try {
- config = await loader.loadConfig(configId);
- } catch (e) {
- Logger.fatal('Main', 'Config failed', e);
- releaseLock();
- return env.done({ body: env.getBody() });
- }
+    let config;
+    try {
+      config = await loader.loadConfig(configId);
+    } catch (e) {
+      Logger.fatal('Main', 'Config failed', e);
+      releaseLock();
+      return env.done({ body: env.getBody() });
+    }
 
- const engine = new VipEngine(env);
- const result = engine.process(env.getBody(), config);
+    const engine = new VipEngine(env);
+    const result = engine.process(env.getBody(), config);
 
- Logger.debug('Main', 'Completed');
+    Logger.debug('Main', 'Completed');
 
- releaseLock();
- env.done(result);
+    releaseLock();
+    env.done(result);
 
- } catch (e) {
- Logger.fatal('Main', 'Fatal error', e);
- releaseLock();
- env.done({ body: env.getBody() });
- }
+  } catch (e) {
+    Logger.fatal('Main', 'Fatal error', e);
+    releaseLock();
+    env.done({ body: env.getBody() });
+  }
 }
 main();
