@@ -248,7 +248,7 @@ const CONFIG = {
     DOMAIN_INDEX_ENABLED: true,
     LAZY_COMPILE: true,
     HOT_RELOAD: true,
-    DEBUG: false,
+    DEBUG: true,
     TIMEOUT: 10,
     PERF_STATS: true  // 新增：性能统计开关
 };
