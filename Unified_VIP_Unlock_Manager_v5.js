@@ -5,7 +5,6 @@
  * @version 20.2.6-final-A4-fixed
  * @description 正则缓存 + 转义保护 + 请求隔离
  * ==========================================
- */
 
 [rewrite_local]
  # iAppDaily - 余额查询接口（JSON模式-声明式字段设置）
