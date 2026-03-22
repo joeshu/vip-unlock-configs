@@ -1,45 +1,44 @@
 /**
  * ==========================================
- * Unified VIP Unlock Manager v20.2.6-final-A
- * 统一 VIP 解锁管理器 - 方案A优化版（保守稳定 + 单例修复）
- * @version 20.2.6-final-A
- * @description 修复内存泄漏 + 响应体保护 + 单例模式
+ * Unified VIP Unlock Manager v20.2.6-final-A2
+ * 统一 VIP 解锁管理器 - 现实优化版（请求级轻量模式）
+ * @version 20.2.6-final-A2
+ * @description 响应体保护 + 请求级内存管理（适配Surge/QuanX独立上下文）
  * ==========================================
- 
 [rewrite_local]
  # iAppDaily - 余额查询接口（JSON模式-声明式字段设置）
- ^https:\/\/api\.iappdaily\.com\/my\/balance url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v4.js
- ^https?:\/\/(?:api[23]\.tophub\.(?:xyz|today|app)|tophub(?:2)?\.(?:tophubdata\.com|idaily\.today|remai\.today|iappdaiy\.com|ipadown\.com))\/account\/sync url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v4.js
+ ^https:\/\/api\.iappdaily\.com\/my\/balance url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v3.js
+ ^https?:\/\/(?:api[23]\.tophub\.(?:xyz|today|app)|tophub(?:2)?\.(?:tophubdata\.com|idaily\.today|remai\.today|iappdaiy\.com|ipadown\.com))\/account\/sync url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v3.js
  # gps - GPS工具箱（JSON模式-声明式字段设置）
- ^https:\/\/service\.gpstool\.com\/app\/index\/getUserInfo url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v4.js
- ^https?:\/\/mapi\.kouyuxingqiu\.com\/api\/v2 url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v4.js
+ ^https:\/\/service\.gpstool\.com\/app\/index\/getUserInfo url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v3.js
+ ^https?:\/\/mapi\.kouyuxingqiu\.com\/api\/v2 url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v3.js
  # mhlz - 魔幻粒子（JSON模式-声明式前缀处理）
- ^https?:\/\/ss\.landintheair\.com\/storage\/ url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v4.js
+ ^https?:\/\/ss\.landintheair\.com\/storage\/ url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v3.js
  # v2ex - V2EX去广告（HTML替换模式）
- ^https?:\/\/.*v2ex\.com\/(?!(?:.*(?:api|login|cdn-cgi|verify|auth|captch|\.(js|css|jpg|jpeg|png|webp|gif|zip|woff|woff2|m3u8|mp4|mov|m4v|avi|mkv|flv|rmvb|wmv|rm|asf|asx|mp3|json|ico|otf|ttf)))).+$ url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v4.js
+ ^https?:\/\/.*v2ex\.com\/(?!(?:.*(?:api|login|cdn-cgi|verify|auth|captch|\.(js|css|jpg|jpeg|png|webp|gif|zip|woff|woff2|m3u8|mp4|mov|m4v|avi|mkv|flv|rmvb|wmv|rm|asf|asx|mp3|json|ico|otf|ttf)))).+$ url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v3.js
  # foday - 复游会去广告（多路径模式-声明式过滤）
- ^https?:\/\/apis\.folidaymall\.com\/online\/capi\/component\/getPageComponents url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v4.js
+ ^https?:\/\/apis\.folidaymall\.com\/online\/capi\/component\/getPageComponents url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v3.js
  # qiujingapp - 球竞APP去广告（多路径模式-声明式清空）
- ^https?:\/\/gateway-api\.yizhilive\.com\/api\/v2\/index\/carouses\/(3|6|8|11)(\?.*)?$ url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v4.js
- ^https?:\/\/gateway-api\.yizhilive\.com\/api\/v3\/index\/all\?.*position=2.*$ url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v4.js
+ ^https?:\/\/gateway-api\.yizhilive\.com\/api\/v2\/index\/carouses\/(3|6|8|11)(\?.*)?$ url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v3.js
+ ^https?:\/\/gateway-api\.yizhilive\.com\/api\/v3\/index\/all\?.*position=2.*$ url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v3.js
  # Keep - 课程/会员接口（正则替换模式）
- ^https?:\/\/(api|kit)\.gotokeep\.com\/(nuocha|gerudo|athena|nuocha\/plans|suit\/v5\/smart|kprime\/v4\/suit\/sales)\/ url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v4.js
+ ^https?:\/\/(api|kit)\.gotokeep\.com\/(nuocha|gerudo|athena|nuocha\/plans|suit\/v5\/smart|kprime\/v4\/suit\/sales)\/ url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v3.js
  # bqwz - 标枪王者游戏数据接口（游戏数值模式）
- ^https?:\/\/javelin\.mandrillvr\.com\/api\/data\/get_game_data url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v4.js
+ ^https?:\/\/javelin\.mandrillvr\.com\/api\/data\/get_game_data url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v3.js
  # bxkt - 伴学课堂接口（混合模式-声明式组合）
- ^https?:\/\/api\.banxueketang\.com\/api\/classpal\/app\/v1 url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v4.js
+ ^https?:\/\/api\.banxueketang\.com\/api\/classpal\/app\/v1 url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v3.js
  # tv - 影视去广告接口（多路径模式-完全声明式）
- ^https?:\/\/(yzy0916|yz1018|yz250907|yz0320|cfvip)\..+\.com\/(v2|v1)\/api\/(basic\/init|home\/firstScreen|adInfo\/getPageAd|home\/body) url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v4.js
+ ^https?:\/\/(yzy0916|yz1018|yz250907|yz0320|cfvip)\..+\.com\/(v2|v1)\/api\/(basic\/init|home\/firstScreen|adInfo\/getPageAd|home\/body) url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v3.js
  ^https?:\/\/(yz\w{4,6}|cfvip)\..+\.com\/(v2|v1)\/api\/(adInfo|vodInfo)\/(getPageAd|getTextAd|getSearchAd|getVodBodyAd|getVodPauseAd|getUserCenterAd) url reject-dict
  ^https?:\/\/(yz\w{4,6}|cfvip)\..+\.com\/(v2|v1)\/api\/(home\/notice|gameCenter\/gameDetailList) url reject-dict
  # 成语来解压 - 微信小程序无限金币（游戏数值模式）
- ^https?:\/\/yr-game-api\.feigo\.fun\/api\/user\/get-game-user-value url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v4.js
+ ^https?:\/\/yr-game-api\.feigo\.fun\/api\/user\/get-game-user-value url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v3.js
  # 星际使命 - 微信小程序游戏数据修改（JSON声明式处理器-完全重构）
- ^https?:\/\/star\.jvplay\.cn\/v2\/storage url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v4.js
+ ^https?:\/\/star\.jvplay\.cn\/v2\/storage url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v3.js
 # wohome - 联通智家去广告（条件删除模式）
- ^https:\/\/iotpservice\.smartont\.net\/wohome\/dispatcher url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v4.js
+ ^https:\/\/iotpservice\.smartont\.net\/wohome\/dispatcher url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v3.js
 # 思朗月影视 - 用户信息VIP解锁
-^https?:\/\/theater-api\.sylangyue\.xyz\/api\/user\/info url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v4.js
+^https?:\/\/theater-api\.sylangyue\.xyz\/api\/user\/info url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v3.js
  [mitm]
  hostname = theater-api.sylangyue.xyz, api.iappdaily.com, api2.tophub.today, api2.tophub.app, api3.tophub.xyz, api3.tophub.today, api3.tophub.app, tophub.tophubdata.com, tophub2.tophubdata.com, tophub.idaily.today, tophub2.idaily.today, tophub.remai.today, tophub.iappdaiy.com, tophub.ipadown.com,service.gpstool.com, mapi.kouyuxingqiu.com, ss.landintheair.com, *.v2ex.com, apis.folidaymall.com, gateway-api.yizhilive.com, pagead*.googlesyndication.com, api.gotokeep.com, kit.gotokeep.com, *.gotokeep.*, 120.53.74.*, 162.14.5.*, 42.187.199.*, 101.42.124.*, javelin.mandrillvr.com,api.banxueketang.com, yzy0916.*.com, yz1018.*.com, yz250907.*.com, yz0320.*.com, cfvip.*.com,yr-game-api.feigo.fun,star.jvplay.cn,iotpservice.smartont.net
 */
@@ -69,14 +68,13 @@ const releaseLock = () => {
 };
 
 // ==========================================
-// 配置区域（新增：响应体大小限制 + 内存清理配置）
+// 配置区域（优化：响应体大小限制）
 // ==========================================
 const CONFIG = {
  REMOTE_BASE: 'https://joeshu.github.io/vip-unlock-configs',
  CACHE_TTL: 6 * 60 * 60 * 1000,
  CONFIG_CACHE_TTL: 60 * 60 * 1000,
- PRELOAD_ENABLED: true,
- PRELOAD_CONCURRENT: 3,
+ PRELOAD_ENABLED: false,  // 关闭预加载（独立上下文无效）
  DOMAIN_INDEX_ENABLED: true,
  LAZY_COMPILE: true,
  HOT_RELOAD: true,
@@ -84,17 +82,13 @@ const CONFIG = {
  TIMEOUT: 10,
  // 优化A-2: 响应体大小限制（5MB）
  MAX_BODY_SIZE: 5 * 1024 * 1024,
- // 优化A-1: 内存清理间隔（30分钟）
- CLEANUP_INTERVAL: 30 * 60 * 1000,
- // 优化A-1: 访问统计过期时间（24小时）
- STATS_EXPIRE: 1 * 60 * 60 * 1000,
- // 优化A-1: 预加载超时时间（5分钟）
- PRELOAD_TIMEOUT: 5 * 60 * 1000
+ // 优化: 单次请求处理器数量限制（防止内存堆积）
+ MAX_PROCESSORS_PER_REQUEST: 50
 };
 
 const META = {
  name: 'UnifiedVIP',
- version: '20.2.6-final-A'
+ version: '20.2.6-final-A2'
 };
 
 // ==========================================
@@ -213,7 +207,7 @@ const Storage = {
 };
 
 // ==========================================
-// 工具函数（关键修复：正确的正则表达式）
+// 工具函数
 // ==========================================
 const Utils = {
  safeJsonParse: (str, defaultVal = null) => {
@@ -226,7 +220,6 @@ const Utils = {
  if (!path || !obj) return undefined;
  return path.split('.').reduce((current, part) => {
  if (current === null || current === undefined) return undefined;
- // 修复：使用正确的正则表达式（无过度转义）
  const match = part.match(/^([^\\[]+)\\[(\\d+)\\]$/);
  if (match) {
  const arr = current[match[1]];
@@ -243,7 +236,6 @@ const Utils = {
  for (let i = 0; i < parts.length - 1; i++) {
  const part = parts[i];
  const nextPart = parts[i + 1];
- // 修复：使用正确的正则表达式
  const match = part.match(/^([^\\[]+)\\[(\\d+)\\]$/);
 
  if (match) {
@@ -260,7 +252,6 @@ const Utils = {
  current = current[arrName][arrIndex];
  }
  } else {
- // 修复：使用正确的正则表达式
  const isNextArray = /^[^\\[]+\\[\\d+\\]$/.test(nextPart);
  if (!(part in current) || current[part] === null) {
  current[part] = isNextArray ? [] : {};
@@ -270,7 +261,6 @@ const Utils = {
  }
 
  const lastPart = parts[parts.length - 1];
- // 修复：使用正确的正则表达式
  const lastMatch = lastPart.match(/^([^\\[]+)\\[(\\d+)\\]$/);
 
  if (lastMatch) {
@@ -296,10 +286,20 @@ const Utils = {
 };
 
 // ==========================================
-// 处理器工厂（包含Set扩展）
+// 处理器工厂（优化：限制单次请求处理器数量）
 // ==========================================
+let processorCount = 0; // 单次请求计数器
+
 const ProcessorFactory = {
+ _checkLimit() {
+ processorCount++;
+ if (processorCount > CONFIG.MAX_PROCESSORS_PER_REQUEST) {
+ throw new Error(`Processor limit exceeded: ${processorCount}`);
+ }
+ },
+ 
  setFields: (params) => (obj, env) => {
+ ProcessorFactory._checkLimit();
  let modified = 0;
  for (const [path, value] of Object.entries(params.fields || {})) {
  Utils.setPath(obj, path, value);
@@ -309,36 +309,48 @@ const ProcessorFactory = {
  return obj;
  },
  mapArray: (params) => (obj, env) => {
+ ProcessorFactory._checkLimit();
  const arr = Utils.getPath(obj, params.path);
  if (!Array.isArray(arr)) {
  Logger.debug('Processor', `${params.path} is not an array`);
  return obj;
  }
  let modified = 0;
- arr.forEach((item) => {
- if (!item) return;
+ // 优化：使用普通for循环替代forEach，性能更好
+ for (let i = 0; i < arr.length; i++) {
+ const item = arr[i];
+ if (!item) continue;
  for (const [field, value] of Object.entries(params.fields || {})) {
  if (item[field] !== undefined || value !== undefined) {
  item[field] = value;
  }
  modified++;
  }
- });
+ }
  Logger.debug('Processor', `MapArray processed ${modified} items`);
  return obj;
  },
  filterArray: (params) => (obj, env) => {
+ ProcessorFactory._checkLimit();
  const arr = Utils.getPath(obj, params.path);
  if (!Array.isArray(arr)) return obj;
  const originalLength = arr.length;
- // 使用 Set 提升性能（O(1) 查询）
  const excludeSet = new Set(params.excludeKeys || []);
- const filtered = arr.filter(item => !excludeSet.has(item[params.keyField]));
+ // 优化：预分配数组大小
+ const filtered = new Array(arr.length);
+ let idx = 0;
+ for (let i = 0; i < arr.length; i++) {
+ if (!excludeSet.has(arr[i][params.keyField])) {
+ filtered[idx++] = arr[i];
+ }
+ }
+ filtered.length = idx; // 截断到实际大小
  Utils.setPath(obj, params.path, filtered);
  Logger.debug('Processor', `Filtered ${params.path}: ${originalLength} → ${filtered.length}`);
  return obj;
  },
  clearArray: (params) => (obj, env) => {
+ ProcessorFactory._checkLimit();
  const arr = Utils.getPath(obj, params.path);
  if (Array.isArray(arr)) {
  const count = arr.length;
@@ -348,6 +360,7 @@ const ProcessorFactory = {
  return obj;
  },
  deleteFields: (params) => (obj, env) => {
+ ProcessorFactory._checkLimit();
  let deleted = 0;
  for (const path of params.paths || []) {
  const parts = path.split('.');
@@ -365,6 +378,7 @@ const ProcessorFactory = {
  return obj;
  },
  sliceArray: (params) => (obj, env) => {
+ ProcessorFactory._checkLimit();
  const arr = Utils.getPath(obj, params.path);
  if (Array.isArray(arr) && arr.length > params.keepCount) {
  Utils.setPath(obj, params.path, arr.slice(0, params.keepCount));
@@ -373,6 +387,7 @@ const ProcessorFactory = {
  return obj;
  },
  shiftArray: (params) => (obj, env) => {
+ ProcessorFactory._checkLimit();
  const arr = Utils.getPath(obj, params.path);
  if (Array.isArray(arr) && arr.length > 0) {
  arr.shift();
@@ -381,11 +396,14 @@ const ProcessorFactory = {
  return obj;
  },
  processByKeyPrefix: (params) => (obj, env) => {
+ ProcessorFactory._checkLimit();
  const target = Utils.getPath(obj, params.objPath);
  if (!target || typeof target !== 'object') return obj;
  let modified = 0;
+ // 优化：缓存prefixRules条目
+ const rules = Object.entries(params.prefixRules || {});
  for (const [key, value] of Object.entries(target)) {
- for (const [prefix, handler] of Object.entries(params.prefixRules || {})) {
+ for (const [prefix, handler] of rules) {
  if (prefix === '*') continue;
  if (key.startsWith(prefix)) {
  Object.assign(value, handler);
@@ -398,7 +416,12 @@ const ProcessorFactory = {
  return obj;
  },
  compose: (params, compile) => {
- const processors = (params.steps || []).map(step => compile(step));
+ ProcessorFactory._checkLimit();
+ const steps = params.steps || [];
+ if (steps.length > 10) {
+ Logger.warn('Compose', `Too many steps: ${steps.length}, may impact performance`);
+ }
+ const processors = steps.map(step => compile(step));
  return (obj, env) => {
  let result = obj;
  for (let i = 0; i < processors.length; i++) {
@@ -410,6 +433,7 @@ const ProcessorFactory = {
  };
  },
  when: (params, compile) => {
+ ProcessorFactory._checkLimit();
  return (obj, env) => {
  try {
  let conditionMet = false;
@@ -435,7 +459,6 @@ const ProcessorFactory = {
  conditionMet = Array.isArray(data) ? data.includes(params.value) : String(data).includes(params.value);
  break;
  case "inSet":
- // 新增：Set 优化支持（O(1) 查询）
  const valueSet = new Set(params.values || []);
  const checkValue = Utils.getPath(obj, params.check || 'data');
  conditionMet = valueSet.has(checkValue);
@@ -466,6 +489,7 @@ const ProcessorFactory = {
  };
  },
  sceneDispatcher: (params, compile) => {
+ ProcessorFactory._checkLimit();
  const scenes = (params.scenes || []).map(s => ({
  name: s.name,
  when: s.when,
@@ -474,7 +498,7 @@ const ProcessorFactory = {
  value: s.value,
  check: s.check,
  key: s.key,
- values: s.values, // 新增：支持 inSet
+ values: s.values,
  then: compile(s.then)
  }));
 
@@ -506,7 +530,6 @@ const ProcessorFactory = {
  : String(data).includes(scene.value);
  break;
  case "inSet":
- // 新增：Set 优化支持（O(1) 查询）
  const checkValue = Utils.getPath(obj, scene.check || 'data');
  const valueSet = new Set(scene.values || []);
  matched = valueSet.has(checkValue);
@@ -541,10 +564,11 @@ const ProcessorFactory = {
 };
 
 // ==========================================
-// 处理器编译缓存
+// 处理器编译缓存（优化：限制缓存大小）
 // ==========================================
 const ProcessorCompileCache = new Map();
 const ConfigProcessorCache = new Map();
+let compileCacheSize = 0;
 
 function compileProcessor(def) {
  if (!def || !def.processor) return null;
@@ -554,6 +578,13 @@ function compileProcessor(def) {
  if (ProcessorCompileCache.has(cacheKey)) {
  return ProcessorCompileCache.get(cacheKey);
  }
+ }
+
+ // 优化：检查缓存大小，防止无限增长
+ if (compileCacheSize > 100) {
+ Logger.warn('Compile', 'Cache full, clearing old entries');
+ ProcessorCompileCache.clear();
+ compileCacheSize = 0;
  }
 
  const factory = ProcessorFactory[def.processor];
@@ -566,6 +597,7 @@ function compileProcessor(def) {
  if (CONFIG.LAZY_COMPILE && processor) {
  const cacheKey = Utils.simpleHash(JSON.stringify(def));
  ProcessorCompileCache.set(cacheKey, processor);
+ compileCacheSize++;
  }
 
  return processor;
@@ -589,627 +621,486 @@ function getConfigProcessor(config) {
 }
 
 // ==========================================
-// 全局单例管理（关键修复：防止重复初始化）
-// ==========================================
-const GlobalStore = {
-  _store: globalThis.__UnifiedVIP_Global || {},
-  
-  get(key) {
-    return this._store[key];
-  },
-  
-  set(key, value) {
-    this._store[key] = value;
-    globalThis.__UnifiedVIP_Global = this._store;
-    return value;
-  },
-  
-  has(key) {
-    return key in this._store;
-  }
-};
-
-// ==========================================
-// 运行时加载器（优化A-1: 内存泄漏修复 + 单例模式）
+// 运行时加载器（优化：请求级轻量模式）
 // ==========================================
 class RuntimeLoader {
-  constructor() {
-    // 单例检查：如果全局已有实例，直接返回
-    if (GlobalStore.has('loader')) {
-      const existing = GlobalStore.get('loader');
-      Logger.debug('Loader', 'Reusing global loader instance');
-      return existing;
-    }
-    
-    this.cache = new Map();
-    this.manifest = null;
-    this.patterns = new Map();
-    this.domainIndex = new Map();
-    this.accessStats = new Map();
-    this._manifestMemCache = null;
-    this._manifestCacheTime = 0;
-    this._configMemCache = new Map();
-    this._preloading = new Map();
-    this._lastCleanup = Date.now();
-    this._cleanupTimer = null;
-    
-    // 只有首次创建才启动定时器
-    this._startCleanupTimer();
-    
-    // 存入全局单例
-    GlobalStore.set('loader', this);
-    Logger.debug('Loader', 'Created new loader instance');
-  }
+ constructor() {
+ this.cache = new Map();
+ this.manifest = null;
+ this.patterns = new Map();
+ this.domainIndex = new Map();
+ this.accessStats = new Map();
+ this._manifestMemCache = null;
+ this._manifestCacheTime = 0;
+ this._configMemCache = new Map();
+ 
+ Logger.debug('Loader', 'Created new loader instance (request scope)');
+ }
 
-  // 优化：确保只有一个定时器在运行
-  _startCleanupTimer() {
-    // 检查是否已有定时器在运行
-    if (GlobalStore.has('cleanupTimer')) {
-      Logger.debug('Loader', 'Cleanup timer already running');
-      return;
-    }
-    
-    if (typeof setInterval !== 'undefined') {
-      const timer = setInterval(() => {
-        const loader = GlobalStore.get('loader');
-        if (loader) {
-          loader._cleanup();
-        }
-      }, CONFIG.CLEANUP_INTERVAL);
-      
-      GlobalStore.set('cleanupTimer', timer);
-      Logger.debug('Loader', `Cleanup timer started: ${CONFIG.CLEANUP_INTERVAL}ms`);
-    }
-  }
+ _isMemCacheValid(cacheTime, ttl = CONFIG.CONFIG_CACHE_TTL) {
+ return cacheTime && (Date.now() - cacheTime < ttl);
+ }
 
-  // 优化A-1: 内存清理逻辑
-  _cleanup() {
-    const now = Date.now();
-    let cleanedStats = 0;
-    let cleanedPreload = 0;
+ _getMemConfigCache(configId) {
+ const item = this._configMemCache.get(configId);
+ if (item && this._isMemCacheValid(item.time)) {
+ Logger.debug('Loader', `Memory cache hit: ${configId}`);
+ return item.data;
+ }
+ return null;
+ }
 
-    // 清理过期访问统计（24小时未访问）
-    for (const [id, stats] of this.accessStats) {
-      if (now - stats.lastAccess > CONFIG.STATS_EXPIRE) {
-        this.accessStats.delete(id);
-        cleanedStats++;
-      }
-    }
+ _setMemConfigCache(configId, data) {
+ this._configMemCache.set(configId, { data, time: Date.now() });
+ // 优化：限制单次请求的内存缓存大小
+ if (this._configMemCache.size > 20) {
+ // 删除最旧的
+ const firstKey = this._configMemCache.keys().next().value;
+ this._configMemCache.delete(firstKey);
+ Logger.debug('Cache', 'Trimmed mem cache (request scope)');
+ }
+ }
 
-    // 清理异常预加载标记（超过5分钟）
-    for (const [id, meta] of this._preloading) {
-      if (now - meta.start > CONFIG.PRELOAD_TIMEOUT) {
-        this._preloading.delete(id);
-        cleanedPreload++;
-      }
-    }
+ async loadManifest(force = false) {
+ const cacheKey = 'vip_manifest_v20';
+ const cacheTimeKey = `${cacheKey}_time`;
 
-    // 限制内存缓存大小（超过100条清理最旧的20%）
-    if (this._configMemCache.size > 100) {
-      const entriesToDelete = Math.floor(this._configMemCache.size * 0.2);
-      const entries = Array.from(this._configMemCache.entries())
-        .sort((a, b) => a[1].time - b[1].time);
-      for (let i = 0; i < entriesToDelete; i++) {
-        this._configMemCache.delete(entries[i][0]);
-      }
-      Logger.debug('Cleanup', `Trimmed mem cache: ${entriesToDelete} items`);
-    }
+ if (!force && this._manifestMemCache && this._isMemCacheValid(this._manifestCacheTime, CONFIG.CACHE_TTL)) {
+ Logger.debug('Loader', 'Using memory cached manifest');
+ return this._manifestMemCache;
+ }
 
-    if (cleanedStats > 0 || cleanedPreload > 0) {
-      Logger.debug('Cleanup', `Stats: ${cleanedStats}, Preload: ${cleanedPreload}, Remaining: ${this.accessStats.size}`);
-    }
+ if (!force) {
+ const cached = Storage.read(cacheKey);
+ const cacheTime = parseInt(Storage.read(cacheTimeKey) || '0');
+ if (cached && this._isMemCacheValid(cacheTime, CONFIG.CACHE_TTL)) {
+ this.manifest = Utils.safeJsonParse(cached);
+ if (this.manifest) {
+ this._manifestMemCache = this.manifest;
+ this._manifestCacheTime = Date.now();
+ this.compilePatterns();
+ Logger.debug('Loader', 'Using storage cached manifest');
+ return this.manifest;
+ }
+ }
+ }
 
-    this._lastCleanup = now;
-  }
+ const url = `${CONFIG.REMOTE_BASE}/manifest.json?t=${Date.now()}`;
+ Logger.debug('Loader', 'Fetching manifest...');
 
-  _isMemCacheValid(cacheTime, ttl = CONFIG.CONFIG_CACHE_TTL) {
-    return cacheTime && (Date.now() - cacheTime < ttl);
-  }
+ try {
+ const res = await HTTP.get(url);
+ if (res.status === 200 && res.body) {
+ this.manifest = Utils.safeJsonParse(res.body);
+ if (this.manifest) {
+ Storage.write(cacheKey, res.body);
+ Storage.write(cacheTimeKey, Date.now().toString());
+ this._manifestMemCache = this.manifest;
+ this._manifestCacheTime = Date.now();
+ this.compilePatterns();
+ Logger.debug('Loader', `Manifest updated: ${Object.keys(this.manifest.configs).length} apps`);
+ return this.manifest;
+ }
+ }
+ throw new Error(`HTTP ${res.status}`);
+ } catch (e) {
+ Logger.fatal('Loader', 'Manifest fetch failed', e);
+ const expired = Storage.read(cacheKey);
+ if (expired) {
+ this.manifest = Utils.safeJsonParse(expired);
+ this._manifestMemCache = this.manifest;
+ this._manifestCacheTime = Date.now();
+ this.compilePatterns();
+ return this.manifest;
+ }
+ throw e;
+ }
+ }
 
-  _getMemConfigCache(configId) {
-    const item = this._configMemCache.get(configId);
-    if (item && this._isMemCacheValid(item.time)) {
-      Logger.debug('Loader', `Memory cache hit: ${configId}`);
-      return item.data;
-    }
-    return null;
-  }
+ compilePatterns() {
+ this.patterns.clear();
+ this.domainIndex.clear();
 
-  _setMemConfigCache(configId, data) {
-    this._configMemCache.set(configId, { data, time: Date.now() });
-    // 优化A-1: 超过限制时主动清理，而非仅删除第一个
-    if (this._configMemCache.size > 100) {
-      const entries = Array.from(this._configMemCache.entries())
-        .sort((a, b) => a[1].time - b[1].time);
-      // 删除最旧的10%
-      const toDelete = Math.max(1, Math.floor(entries.length * 0.1));
-      for (let i = 0; i < toDelete && i < entries.length; i++) {
-        this._configMemCache.delete(entries[i][0]);
-      }
-      Logger.debug('Cache', `Auto-trimmed: ${toDelete} oldest entries`);
-    }
-  }
+ if (!this.manifest || !this.manifest.configs) return;
 
-  async loadManifest(force = false) {
-    const cacheKey = 'vip_manifest_v20';
-    const cacheTimeKey = `${cacheKey}_time`;
+ for (const [id, info] of Object.entries(this.manifest.configs)) {
+ try {
+ if (info.urlPattern) {
+ const regex = new RegExp(info.urlPattern);
+ this.patterns.set(id, regex);
 
-    if (!force && this._manifestMemCache && this._isMemCacheValid(this._manifestCacheTime, CONFIG.CACHE_TTL)) {
-      Logger.debug('Loader', 'Using memory cached manifest');
-      return this._manifestMemCache;
-    }
+ if (CONFIG.DOMAIN_INDEX_ENABLED) {
+ const domainMatch = info.urlPattern.match(/(?:\^?https?\?:\\\/\\\/)?([^\\\/\\\s]+)/);
+ if (domainMatch) {
+ const domain = domainMatch[1]
+ .replace(/\\\./g, '.')
+ .replace(/\d+\??/g, '*')
+ .replace(/\\[.*?\\]/g, '*');
+ if (!this.domainIndex.has(domain)) {
+ this.domainIndex.set(domain, []);
+ }
+ this.domainIndex.get(domain).push(id);
+ }
+ }
+ }
+ } catch (e) {
+ Logger.debug('Loader', `Invalid regex for ${id}: ${e.message}`);
+ }
+ }
 
-    if (!force) {
-      const cached = Storage.read(cacheKey);
-      const cacheTime = parseInt(Storage.read(cacheTimeKey) || '0');
-      if (cached && this._isMemCacheValid(cacheTime, CONFIG.CACHE_TTL)) {
-        this.manifest = Utils.safeJsonParse(cached);
-        if (this.manifest) {
-          this._manifestMemCache = this.manifest;
-          this._manifestCacheTime = Date.now();
-          this.compilePatterns();
-          Logger.debug('Loader', 'Using storage cached manifest');
-          return this.manifest;
-        }
-      }
-    }
+ Logger.debug('Loader', `Compiled ${this.patterns.size} patterns, ${this.domainIndex.size} domains`);
+ }
 
-    const url = `${CONFIG.REMOTE_BASE}/manifest.json?t=${Date.now()}`;
-    Logger.debug('Loader', 'Fetching manifest...');
+ findMatch(url) {
+ let candidates = [];
 
-    try {
-      const res = await HTTP.get(url);
-      if (res.status === 200 && res.body) {
-        this.manifest = Utils.safeJsonParse(res.body);
-        if (this.manifest) {
-          Storage.write(cacheKey, res.body);
-          Storage.write(cacheTimeKey, Date.now().toString());
-          this._manifestMemCache = this.manifest;
-          this._manifestCacheTime = Date.now();
-          this.compilePatterns();
-          Logger.debug('Loader', `Manifest updated: ${Object.keys(this.manifest.configs).length} apps`);
-          return this.manifest;
-        }
-      }
-      throw new Error(`HTTP ${res.status}`);
-    } catch (e) {
-      Logger.fatal('Loader', 'Manifest fetch failed', e);
-      const expired = Storage.read(cacheKey);
-      if (expired) {
-        this.manifest = Utils.safeJsonParse(expired);
-        this._manifestMemCache = this.manifest;
-        this._manifestCacheTime = Date.now();
-        this.compilePatterns();
-        return this.manifest;
-      }
-      throw e;
-    }
-  }
+ if (CONFIG.DOMAIN_INDEX_ENABLED) {
+ try {
+ const urlObj = new URL(url);
+ const hostname = urlObj.hostname;
 
-  compilePatterns() {
-    this.patterns.clear();
-    this.domainIndex.clear();
+ candidates = this.domainIndex.get(hostname) || [];
 
-    if (!this.manifest || !this.manifest.configs) return;
+ if (candidates.length === 0) {
+ const parts = hostname.split('.');
+ for (let i = 1; i < parts.length; i++) {
+ const wildcard = `*.${parts.slice(i).join('.')}`;
+ if (this.domainIndex.has(wildcard)) {
+ candidates = this.domainIndex.get(wildcard);
+ break;
+ }
+ }
+ }
+ } catch (e) {}
+ }
 
-    for (const [id, info] of Object.entries(this.manifest.configs)) {
-      try {
-        if (info.urlPattern) {
-          const regex = new RegExp(info.urlPattern);
-          this.patterns.set(id, regex);
+ for (const id of candidates) {
+ try {
+ if (this.patterns.get(id).test(url)) {
+ this._updateAccessStats(id);
+ return id;
+ }
+ } catch (e) {
+ Logger.debug('Loader', `Pattern test error: ${id}`);
+ }
+ }
 
-          if (CONFIG.DOMAIN_INDEX_ENABLED) {
-            const domainMatch = info.urlPattern.match(/(?:\^?https?\?:\\\/\\\/)?([^\\\/\\\s]+)/);
-            if (domainMatch) {
-              const domain = domainMatch[1]
-                .replace(/\\\./g, '.')
-                .replace(/\d+\??/g, '*')
-                .replace(/\\[.*?\\]/g, '*');
-              if (!this.domainIndex.has(domain)) {
-                this.domainIndex.set(domain, []);
-              }
-              this.domainIndex.get(domain).push(id);
-            }
-          }
-        }
-      } catch (e) {
-        Logger.debug('Loader', `Invalid regex for ${id}: ${e.message}`);
-      }
-    }
+ for (const [id, pattern] of this.patterns) {
+ if (!candidates.includes(id)) {
+ try {
+ if (pattern.test(url)) {
+ this._updateAccessStats(id);
+ return id;
+ }
+ } catch (e) {}
+ }
+ }
 
-    Logger.debug('Loader', `Compiled ${this.patterns.size} patterns, ${this.domainIndex.size} domains`);
-  }
+ return null;
+ }
 
-  findMatch(url) {
-    let candidates = [];
+ _updateAccessStats(configId) {
+ const stats = this.accessStats.get(configId) || { count: 0, lastAccess: 0 };
+ stats.count++;
+ stats.lastAccess = Date.now();
+ this.accessStats.set(configId, stats);
+ }
 
-    if (CONFIG.DOMAIN_INDEX_ENABLED) {
-      try {
-        const urlObj = new URL(url);
-        const hostname = urlObj.hostname;
+ async loadConfig(configId, force = false) {
+ if (!force && CONFIG.HOT_RELOAD && this.manifest?.configVersions?.[configId]) {
+ const remoteVersion = this.manifest.configVersions[configId];
+ const cachedVersion = Storage.read(`vip_cfg_version_${configId}`);
+ if (cachedVersion !== remoteVersion) {
+ force = true;
+ Logger.debug('Loader', `Version changed for ${configId}`);
+ }
+ }
 
-        candidates = this.domainIndex.get(hostname) || [];
+ if (!force) {
+ const memCache = this._getMemConfigCache(configId);
+ if (memCache) return memCache;
+ }
 
-        if (candidates.length === 0) {
-          const parts = hostname.split('.');
-          for (let i = 1; i < parts.length; i++) {
-            const wildcard = `*.${parts.slice(i).join('.')}`;
-            if (this.domainIndex.has(wildcard)) {
-              candidates = this.domainIndex.get(wildcard);
-              break;
-            }
-          }
-        }
-      } catch (e) {}
-    }
+ const cacheKey = `vip_cfg_v20_${configId}`;
+ const cacheTimeKey = `${cacheKey}_time`;
 
-    for (const id of candidates) {
-      try {
-        if (this.patterns.get(id).test(url)) {
-          this._updateAccessStats(id);
-          this._triggerPreload(candidates.filter(cid => cid !== id));
-          return id;
-        }
-      } catch (e) {
-        Logger.debug('Loader', `Pattern test error: ${id}`);
-      }
-    }
+ if (!force) {
+ const cached = Storage.read(cacheKey);
+ const cacheTime = parseInt(Storage.read(cacheTimeKey) || '0');
+ if (cached && this._isMemCacheValid(cacheTime)) {
+ const config = this.prepareConfig(Utils.safeJsonParse(cached));
+ this._setMemConfigCache(configId, config);
+ Logger.debug('Loader', `Storage cache: ${configId}`);
+ return config;
+ }
+ }
 
-    for (const [id, pattern] of this.patterns) {
-      if (!candidates.includes(id)) {
-        try {
-          if (pattern.test(url)) {
-            this._updateAccessStats(id);
-            return id;
-          }
-        } catch (e) {}
-      }
-    }
+ const url = `${CONFIG.REMOTE_BASE}/configs/${configId}.json?t=${Date.now()}`;
+ Logger.debug('Loader', `Fetching: ${configId}`);
 
-    return null;
-  }
+ try {
+ const res = await HTTP.get(url);
+ if (res.status === 200 && res.body) {
+ Storage.write(cacheKey, res.body);
+ Storage.write(cacheTimeKey, Date.now().toString());
 
-  _updateAccessStats(configId) {
-    const now = Date.now();
-    const stats = this.accessStats.get(configId);
-    if (stats) {
-      stats.count++;
-      stats.lastAccess = now;
-    } else {
-      this.accessStats.set(configId, { count: 1, lastAccess: now, firstAccess: now });
-    }
-  }
+ if (this.manifest?.configVersions?.[configId]) {
+ Storage.write(`vip_cfg_version_${configId}`, this.manifest.configVersions[configId]);
+ }
 
-  _triggerPreload(configIds) {
-    if (!CONFIG.PRELOAD_ENABLED) return;
+ const config = this.prepareConfig(Utils.safeJsonParse(res.body));
+ this._setMemConfigCache(configId, config);
+ Logger.debug('Loader', `Config updated: ${configId}`);
+ return config;
+ }
+ throw new Error(`HTTP ${res.status}`);
+ } catch (e) {
+ Logger.fatal('Loader', `Config fetch failed: ${configId}`, e);
+ const expired = Storage.read(cacheKey);
+ if (expired) {
+ const config = this.prepareConfig(Utils.safeJsonParse(expired));
+ this._setMemConfigCache(configId, config);
+ return config;
+ }
+ throw e;
+ }
+ }
 
-    const now = Date.now();
-    const sortedIds = configIds
-      .filter(id => {
-        if (this._preloading.has(id)) {
-          const meta = this._preloading.get(id);
-          if (now - meta.start > CONFIG.PRELOAD_TIMEOUT) {
-            this._preloading.delete(id);
-            return true;
-          }
-          return false;
-        }
-        return !this._getMemConfigCache(id);
-      })
-      .sort((a, b) => {
-        const statsA = this.accessStats.get(a) || { count: 0 };
-        const statsB = this.accessStats.get(b) || { count: 0 };
-        return statsB.count - statsA.count;
-      })
-      .slice(0, CONFIG.PRELOAD_CONCURRENT);
+ prepareConfig(raw) {
+ const config = { ...raw };
+ if (raw.urlPattern) {
+ try {
+ config.urlPattern = new RegExp(raw.urlPattern);
+ } catch (e) {
+ config.urlPattern = /.*/;
+ }
+ }
 
-    for (const id of sortedIds) {
-      this._preloading.set(id, { start: Date.now() });
-      setTimeout(() => {
-        this.loadConfig(id).finally(() => {
-          this._preloading.delete(id);
-        });
-      }, 100);
-    }
-  }
+ if (raw.regexReplacements) {
+ config.regexReplacements = raw.regexReplacements.map(r => ({
+ pattern: new RegExp(r.pattern, r.flags || 'g'),
+ replacement: r.replacement
+ }));
+ }
 
-  async loadConfig(configId, force = false) {
-    if (!force && CONFIG.HOT_RELOAD && this.manifest?.configVersions?.[configId]) {
-      const remoteVersion = this.manifest.configVersions[configId];
-      const cachedVersion = Storage.read(`vip_cfg_version_${configId}`);
-      if (cachedVersion !== remoteVersion) {
-        force = true;
-        Logger.debug('Loader', `Version changed for ${configId}`);
-      }
-    }
+ return config;
+ }
 
-    if (!force) {
-      const memCache = this._getMemConfigCache(configId);
-      if (memCache) return memCache;
-    }
-
-    const cacheKey = `vip_cfg_v20_${configId}`;
-    const cacheTimeKey = `${cacheKey}_time`;
-
-    if (!force) {
-      const cached = Storage.read(cacheKey);
-      const cacheTime = parseInt(Storage.read(cacheTimeKey) || '0');
-      if (cached && this._isMemCacheValid(cacheTime)) {
-        const config = this.prepareConfig(Utils.safeJsonParse(cached));
-        this._setMemConfigCache(configId, config);
-        Logger.debug('Loader', `Storage cache: ${configId}`);
-        return config;
-      }
-    }
-
-    const url = `${CONFIG.REMOTE_BASE}/configs/${configId}.json?t=${Date.now()}`;
-    Logger.debug('Loader', `Fetching: ${configId}`);
-
-    try {
-      const res = await HTTP.get(url);
-      if (res.status === 200 && res.body) {
-        Storage.write(cacheKey, res.body);
-        Storage.write(cacheTimeKey, Date.now().toString());
-
-        if (this.manifest?.configVersions?.[configId]) {
-          Storage.write(`vip_cfg_version_${configId}`, this.manifest.configVersions[configId]);
-        }
-
-        const config = this.prepareConfig(Utils.safeJsonParse(res.body));
-        this._setMemConfigCache(configId, config);
-        Logger.debug('Loader', `Config updated: ${configId}`);
-        return config;
-      }
-      throw new Error(`HTTP ${res.status}`);
-    } catch (e) {
-      Logger.fatal('Loader', `Config fetch failed: ${configId}`, e);
-      const expired = Storage.read(cacheKey);
-      if (expired) {
-        const config = this.prepareConfig(Utils.safeJsonParse(expired));
-        this._setMemConfigCache(configId, config);
-        return config;
-      }
-      throw e;
-    }
-  }
-
-  prepareConfig(raw) {
-    const config = { ...raw };
-    if (raw.urlPattern) {
-      try {
-        config.urlPattern = new RegExp(raw.urlPattern);
-      } catch (e) {
-        config.urlPattern = /.*/;
-      }
-    }
-
-    if (raw.regexReplacements) {
-      config.regexReplacements = raw.regexReplacements.map(r => ({
-        pattern: new RegExp(r.pattern, r.flags || 'g'),
-        replacement: r.replacement
-      }));
-    }
-
-    return config;
-  }
-
-  getStats() {
-    return {
-      manifest: this.manifest ? Object.keys(this.manifest.configs).length : 0,
-      cached: this.cache.size,
-      memCached: this._configMemCache.size,
-      domains: this.domainIndex.size,
-      accessStats: this.accessStats.size,
-      preloading: this._preloading.size,
-      lastCleanup: new Date(this._lastCleanup).toLocaleTimeString()
-    };
-  }
+ // 优化：请求结束时清理资源
+ dispose() {
+ Logger.debug('Loader', 'Disposing resources');
+ this.cache.clear();
+ this.patterns.clear();
+ this.domainIndex.clear();
+ this.accessStats.clear();
+ this._configMemCache.clear();
+ }
 }
 
 // ==========================================
 // 环境和引擎（优化A-2: 响应体大小限制）
 // ==========================================
 class Environment {
-  constructor(name) {
-    this.name = name;
-    this.isQX = typeof $task !== 'undefined';
-    this.isSurge = typeof $httpClient !== 'undefined' && !this.isQX;
-    this.isLoon = typeof $loon !== 'undefined';
-    this.response = typeof $response !== 'undefined' ? $response : {};
-    this.request = typeof $request !== 'undefined' ? $request : {};
-    if (!this.request.url && this.response.request?.url) {
-      this.request = this.response.request;
-    }
-  }
-  getUrl() {
-    let url = this.response?.url || this.request?.url || '';
-    if (this.isQX && typeof $request === 'string') url = $request;
-    return url.toString();
-  }
-  getBody() {
-    return this.response?.body || '';
-  }
-  done(result) {
-    if (typeof $done === 'function') $done(result);
-    else console.log('[DONE]', result);
-  }
+ constructor(name) {
+ this.name = name;
+ this.isQX = typeof $task !== 'undefined';
+ this.isSurge = typeof $httpClient !== 'undefined' && !this.isQX;
+ this.isLoon = typeof $loon !== 'undefined';
+ this.response = typeof $response !== 'undefined' ? $response : {};
+ this.request = typeof $request !== 'undefined' ? $request : {};
+ if (!this.request.url && this.response.request?.url) {
+ this.request = this.response.request;
+ }
+ }
+ getUrl() {
+ let url = this.response?.url || this.request?.url || '';
+ if (this.isQX && typeof $request === 'string') url = $request;
+ return url.toString();
+ }
+ getBody() {
+ return this.response?.body || '';
+ }
+ done(result) {
+ if (typeof $done === 'function') $done(result);
+ else console.log('[DONE]', result);
+ }
 }
 
 class VipEngine {
-  constructor(env) {
-    this.env = env;
-  }
-  
-  // 优化A-2: 添加响应体大小检查
-  process(body, config) {
-    // 优化A-2: 空响应检查
-    if (!body) {
-      Logger.debug('Engine', 'Empty body');
-      return { body: '{}' };
-    }
-    
-    // 优化A-2: 响应体大小限制（5MB）
-    const bodySize = typeof body === 'string' ? body.length : JSON.stringify(body).length;
-    if (bodySize > CONFIG.MAX_BODY_SIZE) {
-      Logger.warn('Engine', `Body too large: ${(bodySize/1024/1024).toFixed(2)}MB > ${(CONFIG.MAX_BODY_SIZE/1024/1024)}MB, skipping processing`);
-      // 超大响应直接返回，避免内存溢出
-      return { body: typeof body === 'string' ? body : JSON.stringify(body) };
-    }
+ constructor(env) {
+ this.env = env;
+ }
+ 
+ // 优化A-2: 添加响应体大小检查
+ process(body, config) {
+ // 优化A-2: 空响应检查
+ if (!body) {
+ Logger.debug('Engine', 'Empty body');
+ return { body: '{}' };
+ }
+ 
+ // 优化A-2: 响应体大小限制（5MB）
+ const bodySize = typeof body === 'string' ? body.length : JSON.stringify(body).length;
+ if (bodySize > CONFIG.MAX_BODY_SIZE) {
+ Logger.warn('Engine', `Body too large: ${(bodySize/1024/1024).toFixed(2)}MB > ${(CONFIG.MAX_BODY_SIZE/1024/1024)}MB, skipping processing`);
+ // 超大响应直接返回，避免内存溢出
+ return { body: typeof body === 'string' ? body : JSON.stringify(body) };
+ }
 
-    switch (config.mode) {
-      case 'json':
-        return this.processJson(body, config);
-      case 'regex':
-        return this.processRegex(body, config);
-      case 'game':
-        return this.processGame(body, config);
-      case 'hybrid':
-        return this.processHybrid(body, config);
-      case 'html':
-        return this.processHtml(body, config);
-      default:
-        Logger.debug('Engine', `Unknown mode: ${config.mode}`);
-        return { body };
-    }
-  }
-  
-  processJson(body, config) {
-    // 优化A-2: 解析前检查大小
-    if (typeof body === 'string' && body.length > CONFIG.MAX_BODY_SIZE) {
-      Logger.warn('Engine', `JSON body too large, skipping parse`);
-      return { body };
-    }
-    
-    let obj = Utils.safeJsonParse(body);
-    if (!obj) {
-      Logger.fatal('Engine', 'Failed to parse JSON');
-      return { body };
-    }
+ switch (config.mode) {
+ case 'json':
+ return this.processJson(body, config);
+ case 'regex':
+ return this.processRegex(body, config);
+ case 'game':
+ return this.processGame(body, config);
+ case 'hybrid':
+ return this.processHybrid(body, config);
+ case 'html':
+ return this.processHtml(body, config);
+ default:
+ Logger.debug('Engine', `Unknown mode: ${config.mode}`);
+ return { body };
+ }
+ }
+ 
+ processJson(body, config) {
+ // 优化A-2: 解析前检查大小
+ if (typeof body === 'string' && body.length > CONFIG.MAX_BODY_SIZE) {
+ Logger.warn('Engine', `JSON body too large, skipping parse`);
+ return { body };
+ }
+ 
+ let obj = Utils.safeJsonParse(body);
+ if (!obj) {
+ Logger.fatal('Engine', 'Failed to parse JSON');
+ return { body };
+ }
 
-    const customProcessor = getConfigProcessor(config);
+ const customProcessor = getConfigProcessor(config);
 
-    if (typeof customProcessor === 'function') {
-      try {
-        obj = customProcessor(obj, this.env);
-        Logger.debug('Engine', `${config.name} VIP unlocked`);
-      } catch (e) {
-        Logger.fatal('Engine', `Processor error`, e);
-      }
-    } else {
-      Logger.debug('Engine', 'No custom processor');
-    }
+ if (typeof customProcessor === 'function') {
+ try {
+ obj = customProcessor(obj, this.env);
+ Logger.debug('Engine', `${config.name} VIP unlocked`);
+ } catch (e) {
+ Logger.fatal('Engine', `Processor error`, e);
+ }
+ } else {
+ Logger.debug('Engine', 'No custom processor');
+ }
 
-    return { body: Utils.safeJsonStringify(obj) };
-  }
-  
-  processRegex(body, config) {
-    let modified = body;
-    let count = 0;
-    for (const rule of config.regexReplacements || []) {
-      try {
-        const original = modified;
-        modified = modified.replace(rule.pattern, rule.replacement);
-        if (original !== modified) count++;
-      } catch (e) {}
-    }
-    Logger.debug('Engine', `Regex replaced ${count} patterns`);
-    return { body: modified };
-  }
-  
-  processGame(body, config) {
-    let modified = body;
-    let count = 0;
-    for (const res of config.gameResources || []) {
-      try {
-        const pattern = new RegExp(`"${res.field}":\\d+`, 'g');
-        const original = modified;
-        modified = modified.replace(pattern, `"${res.field}":${res.value}`);
-        if (original !== modified) count++;
-      } catch (e) {}
-    }
-    Logger.debug('Engine', `Game resources modified: ${count}`);
-    return { body: modified };
-  }
-  
-  processHybrid(body, config) {
-    let result = this.processJson(body, config);
-    if (config.regexReplacements) {
-      result = this.processRegex(result.body, config);
-    }
-    return result;
-  }
-  
-  processHtml(body, config) {
-    let modified = body;
-    let count = 0;
-    for (const rule of config.htmlReplacements || []) {
-      try {
-        const regex = new RegExp(rule.pattern, rule.flags || 'i');
-        const original = modified;
-        modified = modified.replace(regex, rule.replacement);
-        if (original !== modified) count++;
-      } catch (e) {}
-    }
-    Logger.debug('Engine', `HTML replaced ${count} patterns`);
-    return { body: modified };
-  }
+ return { body: Utils.safeJsonStringify(obj) };
+ }
+ 
+ processRegex(body, config) {
+ let modified = body;
+ let count = 0;
+ for (const rule of config.regexReplacements || []) {
+ try {
+ const original = modified;
+ modified = modified.replace(rule.pattern, rule.replacement);
+ if (original !== modified) count++;
+ } catch (e) {}
+ }
+ Logger.debug('Engine', `Regex replaced ${count} patterns`);
+ return { body: modified };
+ }
+ 
+ processGame(body, config) {
+ let modified = body;
+ let count = 0;
+ for (const res of config.gameResources || []) {
+ try {
+ const pattern = new RegExp(`"${res.field}":\\d+`, 'g');
+ const original = modified;
+ modified = modified.replace(pattern, `"${res.field}":${res.value}`);
+ if (original !== modified) count++;
+ } catch (e) {}
+ }
+ Logger.debug('Engine', `Game resources modified: ${count}`);
+ return { body: modified };
+ }
+ 
+ processHybrid(body, config) {
+ let result = this.processJson(body, config);
+ if (config.regexReplacements) {
+ result = this.processRegex(result.body, config);
+ }
+ return result;
+ }
+ 
+ processHtml(body, config) {
+ let modified = body;
+ let count = 0;
+ for (const rule of config.htmlReplacements || []) {
+ try {
+ const regex = new RegExp(rule.pattern, rule.flags || 'i');
+ const original = modified;
+ modified = modified.replace(regex, rule.replacement);
+ if (original !== modified) count++;
+ } catch (e) {}
+ }
+ Logger.debug('Engine', `HTML replaced ${count} patterns`);
+ return { body: modified };
+ }
 }
 
 // ==========================================
-// 主函数
+// 主函数（优化：请求级资源管理）
 // ==========================================
 async function main() {
-  const env = new Environment(META.name);
+ const env = new Environment(META.name);
+ const loader = new RuntimeLoader(); // 创建实例
 
-  try {
-    const url = env.getUrl();
-    if (!url) {
-      Logger.fatal('Main', 'No URL in request');
-      releaseLock();
-      return env.done({});
-    }
+ try {
+ const url = env.getUrl();
+ if (!url) {
+ Logger.fatal('Main', 'No URL in request');
+ return env.done({});
+ }
 
-    Logger.debug('Request', `Processing ${url.replace(/\\?.*$/, '').substring(0, 50)}...`);
+ Logger.debug('Request', `Processing ${url.replace(/\\?.*$/, '').substring(0, 50)}...`);
 
-    const loader = new RuntimeLoader();
+ let manifest;
+ try {
+ manifest = await loader.loadManifest();
+ } catch (e) {
+ Logger.fatal('Main', 'Manifest failed', e);
+ return env.done({ body: env.getBody() });
+ }
 
-    let manifest;
-    try {
-      manifest = await loader.loadManifest();
-    } catch (e) {
-      Logger.fatal('Main', 'Manifest failed', e);
-      releaseLock();
-      return env.done({ body: env.getBody() });
-    }
+ const configId = loader.findMatch(url);
+ if (!configId) {
+ Logger.debug('Main', 'No rule matched');
+ return env.done({ body: env.getBody() });
+ }
 
-    const configId = loader.findMatch(url);
-    if (!configId) {
-      Logger.debug('Main', 'No rule matched');
-      releaseLock();
-      return env.done({ body: env.getBody() });
-    }
+ let config;
+ try {
+ config = await loader.loadConfig(configId);
+ } catch (e) {
+ Logger.fatal('Main', 'Config failed', e);
+ return env.done({ body: env.getBody() });
+ }
 
-    let config;
-    try {
-      config = await loader.loadConfig(configId);
-    } catch (e) {
-      Logger.fatal('Main', 'Config failed', e);
-      releaseLock();
-      return env.done({ body: env.getBody() });
-    }
+ const engine = new VipEngine(env);
+ const result = engine.process(env.getBody(), config);
 
-    const engine = new VipEngine(env);
-    const result = engine.process(env.getBody(), config);
+ Logger.debug('Main', 'Completed');
+ 
+ // 优化：请求结束前清理资源
+ loader.dispose();
 
-    Logger.debug('Main', 'Completed');
+ releaseLock();
+ env.done(result);
 
-    releaseLock();
-    env.done(result);
-
-  } catch (e) {
-    Logger.fatal('Main', 'Fatal error', e);
-    releaseLock();
-    env.done({ body: env.getBody() });
-  }
+ } catch (e) {
+ Logger.fatal('Main', 'Fatal error', e);
+ // 异常时也尝试清理
+ try { loader.dispose(); } catch (_) {}
+ releaseLock();
+ env.done({ body: env.getBody() });
+ }
 }
 main();
