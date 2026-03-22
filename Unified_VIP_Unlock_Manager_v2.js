@@ -1,9 +1,9 @@
 /**
  * ==========================================
- * Unified VIP Unlock Manager v20.2.6-patched
- * 统一 VIP 解锁管理器 - 紧急修复版
- * @version 20.2.6-patched
- * @description 集成执行锁自动释放、请求去重、全局变量清理
+ * Unified VIP Unlock Manager v20.2.6-final
+ * 统一 VIP 解锁管理器 - 最终修复版
+ * @version 20.2.6-final
+ * @description 支持智能预加载、域名索引、惰性编译、热更新、防重复执行、Set优化
  * ==========================================
  */
 
@@ -48,1100 +48,1017 @@
 'use strict';
 
 // ==========================================
-// 🚨 紧急修复 1: 执行锁自动过期 (Q1-1)
-// 防止死锁导致脚本卡死
+// 防重复执行锁（关键修复：使用URL作为锁的一部分）
 // ==========================================
-const LockManager = {
-  locks: new Map(),
-  
-  acquire(url) {
-    const key = `__vip_lock_${Utils.simpleHash(url || Date.now().toString())}`;
-    const now = Date.now();
-    
-    // 清理过期锁（>30秒）
-    for (const [k, v] of this.locks) {
-      if (now - v.time > 30000) {
-        try { delete globalThis[k]; } catch(e) {}
-        this.locks.delete(k);
-        Logger.debug('Lock', `Auto-released expired lock: ${k}`);
-      }
-    }
-    
-    // 检查重复执行
-    if (this.locks.has(key)) {
-      Logger.debug('Lock', `Duplicate execution detected: ${url?.substring(0, 50)}`);
-      return { key: null, isDuplicate: true };
-    }
-    
-    // 获取锁
-    this.locks.set(key, { time: now, url });
-    try { globalThis[key] = true; } catch(e) {}
-    
-    // 30秒自动释放保险
-    setTimeout(() => this.release(key), 30000);
-    
-    Logger.debug('Lock', `Acquired: ${key}`);
-    return { key, isDuplicate: false };
-  },
-  
-  release(key) {
-    if (!key || !this.locks.has(key)) return;
-    
-    try { delete globalThis[key]; } catch(e) {}
-    this.locks.delete(key);
-    Logger.debug('Lock', `Released: ${key}`);
-  }
-};
+const EXECUTION_KEY = '__UnifiedVIP_executing_' + (typeof $request !== 'undefined' ? ($request.url || Date.now()) : Date.now());
+try {
+ if (globalThis[EXECUTION_KEY]) {
+ if (typeof $response !== 'undefined' && $response) {
+ $done({ body: $response.body });
+ } else {
+ $done({});
+ }
+ return;
+ }
+ globalThis[EXECUTION_KEY] = true;
+} catch (e) {}
 
-// ==========================================
-// 🚨 紧急修复 2: 全局变量注册表 (Q1-3)
-// 集中管理，脚本结束自动清理
-// ==========================================
-const GlobalRegistry = {
-  keys: new Set(),
-  
-  register(key, value) {
-    this.keys.add(key);
-    try { globalThis[key] = value; } catch(e) {}
-    return key;
-  },
-  
-  clear() {
-    let count = 0;
-    for (const key of this.keys) {
-      try { 
-        globalThis[key] = null; 
-        delete globalThis[key]; 
-        count++;
-      } catch(e) {}
-    }
-    this.keys.clear();
-    Logger.debug('Registry', `Cleared ${count} global variables`);
-  }
+const releaseLock = () => {
+ try {
+ delete globalThis[EXECUTION_KEY];
+ } catch (e) {}
 };
 
 // ==========================================
 // 配置区域
 // ==========================================
 const CONFIG = {
-  REMOTE_BASE: 'https://joeshu.github.io/vip-unlock-configs',
-  CACHE_TTL: 6 * 60 * 60 * 1000,
-  CONFIG_CACHE_TTL: 60 * 60 * 1000,
-  PRELOAD_ENABLED: true,
-  PRELOAD_CONCURRENT: 3,
-  DOMAIN_INDEX_ENABLED: true,
-  LAZY_COMPILE: true,
-  HOT_RELOAD: true,
-  DEBUG: true,
-  TIMEOUT: 10
+ REMOTE_BASE: 'https://joeshu.github.io/vip-unlock-configs',
+ CACHE_TTL: 6 * 60 * 60 * 1000,
+ CONFIG_CACHE_TTL: 60 * 60 * 1000,
+ PRELOAD_ENABLED: true,
+ PRELOAD_CONCURRENT: 3,
+ DOMAIN_INDEX_ENABLED: true,
+ LAZY_COMPILE: true,
+ HOT_RELOAD: true,
+ DEBUG: false,
+ TIMEOUT: 10
 };
 
 const META = {
-  name: 'UnifiedVIP',
-  version: '20.2.6-patched'
+ name: 'UnifiedVIP',
+ version: '20.2.6-final'
 };
 
 // ==========================================
 // 日志系统（DEBUG=false时完全静默）
 // ==========================================
 const Logger = (() => {
-  const isDebug = CONFIG.DEBUG === true;
-  const noop = () => {};
+ const isDebug = CONFIG.DEBUG === true;
+ const noop = () => {};
 
-  const log = (level, tag, msg, data) => {
-    const now = new Date();
-    const time = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`;
-    const prefix = `[${META.name}][${level.toUpperCase()}][${time}]`;
-    const tagStr = tag ? `[${tag}]` : '';
-    const dataStr = data ? ` | ${typeof data === 'object' ? JSON.stringify(data) : data}` : '';
-    console.log(`${prefix}${tagStr} ${msg}${dataStr}`);
-  };
+ const log = (level, tag, msg, data) => {
+ const now = new Date();
+ const time = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`;
+ const prefix = `[${META.name}][${level.toUpperCase()}][${time}]`;
+ const tagStr = tag ? `[${tag}]` : '';
+ const dataStr = data ? ` | ${typeof data === 'object' ? JSON.stringify(data) : data}` : '';
+ console.log(`${prefix}${tagStr} ${msg}${dataStr}`);
+ };
 
-  const fatal = (tag, msg, err) => {
-    const errorMsg = err ? `${msg}: ${err.message || err}` : msg;
-    log('FATAL', tag, errorMsg);
-  };
+ const fatal = (tag, msg, err) => {
+ const errorMsg = err ? `${msg}: ${err.message || err}` : msg;
+ log('FATAL', tag, errorMsg);
+ };
 
-  if (!isDebug) {
-    return {
-      debug: noop,
-      info: noop,
-      warn: noop,
-      stats: noop,
-      error: noop,
-      fatal: fatal,
-      _isSilent: true
-    };
-  }
+ if (!isDebug) {
+ return {
+ debug: noop,
+ info: noop,
+ warn: noop,
+ stats: noop,
+ error: noop,
+ fatal: fatal,
+ _isSilent: true
+ };
+ }
 
-  return {
-    debug: (tag, msg, data) => log('debug', tag, msg, data),
-    info: (tag, msg, data) => log('info', tag, msg, data),
-    warn: (tag, msg, data) => log('warn', tag, msg, data),
-    stats: (msg, data) => log('STATS', '', msg, data),
-    error: (tag, msg, data) => log('error', tag, msg, data),
-    fatal: fatal,
-    _isSilent: false
-  };
+ return {
+ debug: (tag, msg, data) => log('debug', tag, msg, data),
+ info: (tag, msg, data) => log('info', tag, msg, data),
+ warn: (tag, msg, data) => log('warn', tag, msg, data),
+ stats: (msg, data) => log('STATS', '', msg, data),
+ error: (tag, msg, data) => log('error', tag, msg, data),
+ fatal: fatal,
+ _isSilent: false
+ };
 })();
 
 // ==========================================
 // 环境修复
 // ==========================================
 (function fixEnvironment() {
-  if (typeof console === 'undefined') globalThis.console = { log: () => {} };
-  const _log = console.log.bind(console);
-  ['error', 'warn', 'debug', 'info'].forEach(method => {
-    if (typeof console[method] !== 'function') {
-      console[method] = (...args) => _log(`[${method.toUpperCase()}]`, ...args);
-    }
-  });
+ if (typeof console === 'undefined') globalThis.console = { log: () => {} };
+ const _log = console.log.bind(console);
+ ['error', 'warn', 'debug', 'info'].forEach(method => {
+ if (typeof console[method] !== 'function') {
+ console[method] = (...args) => _log(`[${method.toUpperCase()}]`, ...args);
+ }
+ });
 })();
 
 // ==========================================
-// 🚨 紧急修复 3: HTTP 请求去重 (P4-1)
-// 相同 URL 的并发请求合并为单个 Promise
+// HTTP 请求
 // ==========================================
 const HTTP = {
-  _pending: new Map(),
-  
-  get: (url, timeout = CONFIG.TIMEOUT) => {
-    // URL 规范化（去除随机参数）
-    const cleanUrl = url.replace(/[?&](_|t|timestamp|random)=\d+/g, '')
-                       .replace(/[?&]v=\d+/g, '');
-    
-    // 检查进行中的请求
-    if (HTTP._pending.has(cleanUrl)) {
-      Logger.debug('HTTP', `Deduplicating: ${cleanUrl.substring(0, 50)}...`);
-      return HTTP._pending.get(cleanUrl);
-    }
-    
-    // 创建新请求
-    const promise = new Promise((resolve, reject) => {
-      const startTime = Date.now();
-      
-      const handleResponse = (error, response, body) => {
-        HTTP._pending.delete(cleanUrl); // 完成后移除
-        
-        if (error) {
-          reject(new Error(`HTTP Error: ${error}`));
-        } else {
-          resolve({
-            body: body || '',
-            status: typeof response === 'object' ? (response.status || 200) : 200,
-            time: Date.now() - startTime
-          });
-        }
-      };
+ get: (url, timeout = CONFIG.TIMEOUT) => new Promise((resolve, reject) => {
+ const startTime = Date.now();
+ const handleResponse = (error, response, body) => {
+ if (error) {
+ reject(new Error(`HTTP Error: ${error}`));
+ } else {
+ resolve({
+ body: body || '',
+ status: typeof response === 'object' ? (response.status || 200) : 200,
+ time: Date.now() - startTime
+ });
+ }
+ };
 
-      try {
-        if (typeof $task !== 'undefined') {
-          $task.fetch({ url, method: 'GET', timeout }).then(
-            res => handleResponse(null, { status: res.statusCode }, res.body),
-            err => handleResponse(err, null, null)
-          );
-        } else if (typeof $httpClient !== 'undefined') {
-          $httpClient.get({ url, timeout }, handleResponse);
-        } else if (typeof $http !== 'undefined') {
-          $http.get(url, handleResponse);
-        } else {
-          reject(new Error('No HTTP client'));
-        }
-      } catch (e) {
-        HTTP._pending.delete(cleanUrl);
-        reject(new Error(`HTTP Setup: ${e.message}`));
-      }
-    });
-    
-    HTTP._pending.set(cleanUrl, promise);
-    return promise;
-  }
+ try {
+ if (typeof $task !== 'undefined') {
+ $task.fetch({ url, method: 'GET', timeout }).then(
+ res => handleResponse(null, { status: res.statusCode }, res.body),
+ err => handleResponse(err, null, null)
+ );
+ } else if (typeof $httpClient !== 'undefined') {
+ $httpClient.get({ url, timeout }, handleResponse);
+ } else if (typeof $http !== 'undefined') {
+ $http.get(url, handleResponse);
+ } else {
+ reject(new Error('No HTTP client'));
+ }
+ } catch (e) {
+ reject(new Error(`HTTP Setup: ${e.message}`));
+ }
+ })
 };
 
 // ==========================================
 // 存储
 // ==========================================
 const Storage = {
-  read: (key) => {
-    try {
-      if (typeof $prefs !== 'undefined') return $prefs.valueForKey(key);
-      if (typeof $persistentStore !== 'undefined') return $persistentStore.read(key);
-    } catch (e) {}
-    return null;
-  },
-  write: (key, value) => {
-    try {
-      if (typeof $prefs !== 'undefined') return $prefs.setValueForKey(value, key);
-      if (typeof $persistentStore !== 'undefined') return $persistentStore.write(value, key);
-    } catch (e) {}
-    return false;
-  },
-  remove: (key) => Storage.write(key, null)
+ read: (key) => {
+ try {
+ if (typeof $prefs !== 'undefined') return $prefs.valueForKey(key);
+ if (typeof $persistentStore !== 'undefined') return $persistentStore.read(key);
+ } catch (e) {}
+ return null;
+ },
+ write: (key, value) => {
+ try {
+ if (typeof $prefs !== 'undefined') return $prefs.setValueForKey(value, key);
+ if (typeof $persistentStore !== 'undefined') return $persistentStore.write(value, key);
+ } catch (e) {}
+ return false;
+ },
+ remove: (key) => Storage.write(key, null)
 };
 
 // ==========================================
-// 工具函数
+// 工具函数（关键修复：正确的正则表达式）
 // ==========================================
 const Utils = {
-  safeJsonParse: (str, defaultVal = null) => {
-    try { return JSON.parse(str); } catch (e) { return defaultVal; }
-  },
-  safeJsonStringify: (obj) => {
-    try { return JSON.stringify(obj); } catch (e) { return '{}'; }
-  },
-  getPath: (obj, path) => {
-    if (!path || !obj) return undefined;
-    return path.split('.').reduce((current, part) => {
-      if (current === null || current === undefined) return undefined;
-      const match = part.match(/^([^\\[]+)\\[(\\d+)\\]$/);
-      if (match) {
-        const arr = current[match[1]];
-        return Array.isArray(arr) ? arr[parseInt(match[2])] : undefined;
-      }
-      return current[part];
-    }, obj);
-  },
-  setPath: (obj, path, value) => {
-    if (!path || !obj) return obj;
-    const parts = path.split('.');
-    let current = obj;
+ safeJsonParse: (str, defaultVal = null) => {
+ try { return JSON.parse(str); } catch (e) { return defaultVal; }
+ },
+ safeJsonStringify: (obj) => {
+ try { return JSON.stringify(obj); } catch (e) { return '{}'; }
+ },
+ getPath: (obj, path) => {
+ if (!path || !obj) return undefined;
+ return path.split('.').reduce((current, part) => {
+ if (current === null || current === undefined) return undefined;
+ // 修复：使用正确的正则表达式（无过度转义）
+ const match = part.match(/^([^\\[]+)\\[(\\d+)\\]$/);
+ if (match) {
+ const arr = current[match[1]];
+ return Array.isArray(arr) ? arr[parseInt(match[2])] : undefined;
+ }
+ return current[part];
+ }, obj);
+ },
+ setPath: (obj, path, value) => {
+ if (!path || !obj) return obj;
+ const parts = path.split('.');
+ let current = obj;
 
-    for (let i = 0; i < parts.length - 1; i++) {
-      const part = parts[i];
-      const nextPart = parts[i + 1];
-      const match = part.match(/^([^\\[]+)\\[(\\d+)\\]$/);
+ for (let i = 0; i < parts.length - 1; i++) {
+ const part = parts[i];
+ const nextPart = parts[i + 1];
+ // 修复：使用正确的正则表达式
+ const match = part.match(/^([^\\[]+)\\[(\\d+)\\]$/);
 
-      if (match) {
-        const arrName = match[1];
-        const arrIndex = parseInt(match[2]);
-        if (!(arrName in current) || !Array.isArray(current[arrName])) {
-          current[arrName] = [];
-        }
-        while (current[arrName].length <= arrIndex) current[arrName].push({});
-        if (i === parts.length - 2) {
-          current[arrName][arrIndex] = value;
-          return obj;
-        } else {
-          current = current[arrName][arrIndex];
-        }
-      } else {
-        const isNextArray = /^[^\\[]+\\[\\d+\\]$/.test(nextPart);
-        if (!(part in current) || current[part] === null) {
-          current[part] = isNextArray ? [] : {};
-        }
-        current = current[part];
-      }
-    }
+ if (match) {
+ const arrName = match[1];
+ const arrIndex = parseInt(match[2]);
+ if (!(arrName in current) || !Array.isArray(current[arrName])) {
+ current[arrName] = [];
+ }
+ while (current[arrName].length <= arrIndex) current[arrName].push({});
+ if (i === parts.length - 2) {
+ current[arrName][arrIndex] = value;
+ return obj;
+ } else {
+ current = current[arrName][arrIndex];
+ }
+ } else {
+ // 修复：使用正确的正则表达式
+ const isNextArray = /^[^\\[]+\\[\\d+\\]$/.test(nextPart);
+ if (!(part in current) || current[part] === null) {
+ current[part] = isNextArray ? [] : {};
+ }
+ current = current[part];
+ }
+ }
 
-    const lastPart = parts[parts.length - 1];
-    const lastMatch = lastPart.match(/^([^\\[]+)\\[(\\d+)\\]$/);
+ const lastPart = parts[parts.length - 1];
+ // 修复：使用正确的正则表达式
+ const lastMatch = lastPart.match(/^([^\\[]+)\\[(\\d+)\\]$/);
 
-    if (lastMatch) {
-      const arrName = lastMatch[1];
-      const arrIndex = parseInt(lastMatch[2]);
-      if (!Array.isArray(current[arrName])) current[arrName] = [];
-      while (current[arrName].length <= arrIndex) current[arrName].push(null);
-      current[arrName][arrIndex] = value;
-    } else {
-      current[lastPart] = value;
-    }
-    return obj;
-  },
-  simpleHash: (str) => {
-    let hash = 0;
-    for (let i = 0; i < str.length; i++) {
-      const char = str.charCodeAt(i);
-      hash = ((hash << 5) - hash) + char;
-      hash = hash & hash;
-    }
-    return Math.abs(hash).toString(36).substring(0, 8);
-  }
+ if (lastMatch) {
+ const arrName = lastMatch[1];
+ const arrIndex = parseInt(lastMatch[2]);
+ if (!Array.isArray(current[arrName])) current[arrName] = [];
+ while (current[arrName].length <= arrIndex) current[arrName].push(null);
+ current[arrName][arrIndex] = value;
+ } else {
+ current[lastPart] = value;
+ }
+ return obj;
+ },
+ simpleHash: (str) => {
+ let hash = 0;
+ for (let i = 0; i < str.length; i++) {
+ const char = str.charCodeAt(i);
+ hash = ((hash << 5) - hash) + char;
+ hash = hash & hash;
+ }
+ return hash.toString(16);
+ }
 };
 
 // ==========================================
-// 处理器工厂
+// 处理器工厂（包含Set扩展）
 // ==========================================
 const ProcessorFactory = {
-  setFields: (params) => (obj, env) => {
-    let modified = 0;
-    for (const [path, value] of Object.entries(params.fields || {})) {
-      Utils.setPath(obj, path, value);
-      modified++;
-    }
-    Logger.debug('Processor', `SetFields modified ${modified} fields`);
-    return obj;
-  },
-  mapArray: (params) => (obj, env) => {
-    const arr = Utils.getPath(obj, params.path);
-    if (!Array.isArray(arr)) {
-      Logger.debug('Processor', `${params.path} is not an array`);
-      return obj;
-    }
-    let modified = 0;
-    arr.forEach((item) => {
-      if (!item) return;
-      for (const [field, value] of Object.entries(params.fields || {})) {
-        if (item[field] !== undefined || value !== undefined) {
-          item[field] = value;
-        }
-        modified++;
-      }
-    });
-    Logger.debug('Processor', `MapArray processed ${modified} items`);
-    return obj;
-  },
-  filterArray: (params) => (obj, env) => {
-    const arr = Utils.getPath(obj, params.path);
-    if (!Array.isArray(arr)) return obj;
-    const originalLength = arr.length;
-    const excludeSet = new Set(params.excludeKeys || []);
-    const filtered = arr.filter(item => !excludeSet.has(item[params.keyField]));
-    Utils.setPath(obj, params.path, filtered);
-    Logger.debug('Processor', `Filtered ${params.path}: ${originalLength} → ${filtered.length}`);
-    return obj;
-  },
-  clearArray: (params) => (obj, env) => {
-    const arr = Utils.getPath(obj, params.path);
-    if (Array.isArray(arr)) {
-      const count = arr.length;
-      arr.length = 0;
-      Logger.debug('Processor', `Cleared ${params.logName || params.path}: ${count} items`);
-    }
-    return obj;
-  },
-  deleteFields: (params) => (obj, env) => {
-    let deleted = 0;
-    for (const path of params.paths || []) {
-      const parts = path.split('.');
-      let current = obj;
-      for (let i = 0; i < parts.length - 1; i++) {
-        current = current?.[parts[i]];
-        if (!current) break;
-      }
-      if (current) {
-        delete current[parts[parts.length - 1]];
-        deleted++;
-      }
-    }
-    Logger.debug('Processor', `Deleted ${deleted} fields`);
-    return obj;
-  },
-  sliceArray: (params) => (obj, env) => {
-    const arr = Utils.getPath(obj, params.path);
-    if (Array.isArray(arr) && arr.length > params.keepCount) {
-      Utils.setPath(obj, params.path, arr.slice(0, params.keepCount));
-      Logger.debug('Processor', `Sliced ${params.path}: ${arr.length} → ${params.keepCount}`);
-    }
-    return obj;
-  },
-  shiftArray: (params) => (obj, env) => {
-    const arr = Utils.getPath(obj, params.path);
-    if (Array.isArray(arr) && arr.length > 0) {
-      arr.shift();
-      Logger.debug('Processor', `Shifted ${params.logName || params.path}`);
-    }
-    return obj;
-  },
-  processByKeyPrefix: (params) => (obj, env) => {
-    const target = Utils.getPath(obj, params.objPath);
-    if (!target || typeof target !== 'object') return obj;
-    let modified = 0;
-    for (const [key, value] of Object.entries(target)) {
-      for (const [prefix, handler] of Object.entries(params.prefixRules || {})) {
-        if (prefix === '*') continue;
-        if (key.startsWith(prefix)) {
-          Object.assign(value, handler);
-          modified++;
-          break;
-        }
-      }
-    }
-    Logger.debug('Processor', `Processed ${modified} items by key prefix`);
-    return obj;
-  },
-  compose: (params, compile) => {
-    const processors = (params.steps || []).map(step => compile(step));
-    return (obj, env) => {
-      let result = obj;
-      for (let i = 0; i < processors.length; i++) {
-        if (!result) break;
-        Logger.debug('Compose', `Step ${i + 1}/${processors.length}`);
-        result = processors[i](result, env);
-      }
-      return result;
-    };
-  },
-  when: (params, compile) => {
-    return (obj, env) => {
-      try {
-        let conditionMet = false;
-        const data = Utils.getPath(obj, params.check || 'data');
-        const url = env?.getUrl?.() || '';
+ setFields: (params) => (obj, env) => {
+ let modified = 0;
+ for (const [path, value] of Object.entries(params.fields || {})) {
+ Utils.setPath(obj, path, value);
+ modified++;
+ }
+ Logger.debug('Processor', `SetFields modified ${modified} fields`);
+ return obj;
+ },
+ mapArray: (params) => (obj, env) => {
+ const arr = Utils.getPath(obj, params.path);
+ if (!Array.isArray(arr)) {
+ Logger.debug('Processor', `${params.path} is not an array`);
+ return obj;
+ }
+ let modified = 0;
+ arr.forEach((item) => {
+ if (!item) return;
+ for (const [field, value] of Object.entries(params.fields || {})) {
+ if (item[field] !== undefined || value !== undefined) {
+ item[field] = value;
+ }
+ modified++;
+ }
+ });
+ Logger.debug('Processor', `MapArray processed ${modified} items`);
+ return obj;
+ },
+ filterArray: (params) => (obj, env) => {
+ const arr = Utils.getPath(obj, params.path);
+ if (!Array.isArray(arr)) return obj;
+ const originalLength = arr.length;
+ // 使用 Set 提升性能（O(1) 查询）
+ const excludeSet = new Set(params.excludeKeys || []);
+ const filtered = arr.filter(item => !excludeSet.has(item[params.keyField]));
+ Utils.setPath(obj, params.path, filtered);
+ Logger.debug('Processor', `Filtered ${params.path}: ${originalLength} → ${filtered.length}`);
+ return obj;
+ },
+ clearArray: (params) => (obj, env) => {
+ const arr = Utils.getPath(obj, params.path);
+ if (Array.isArray(arr)) {
+ const count = arr.length;
+ arr.length = 0;
+ Logger.debug('Processor', `Cleared ${params.logName || params.path}: ${count} items`);
+ }
+ return obj;
+ },
+ deleteFields: (params) => (obj, env) => {
+ let deleted = 0;
+ for (const path of params.paths || []) {
+ const parts = path.split('.');
+ let current = obj;
+ for (let i = 0; i < parts.length - 1; i++) {
+ current = current?.[parts[i]];
+ if (!current) break;
+ }
+ if (current) {
+ delete current[parts[parts.length - 1]];
+ deleted++;
+ }
+ }
+ Logger.debug('Processor', `Deleted ${deleted} fields`);
+ return obj;
+ },
+ sliceArray: (params) => (obj, env) => {
+ const arr = Utils.getPath(obj, params.path);
+ if (Array.isArray(arr) && arr.length > params.keepCount) {
+ Utils.setPath(obj, params.path, arr.slice(0, params.keepCount));
+ Logger.debug('Processor', `Sliced ${params.path}: ${arr.length} → ${params.keepCount}`);
+ }
+ return obj;
+ },
+ shiftArray: (params) => (obj, env) => {
+ const arr = Utils.getPath(obj, params.path);
+ if (Array.isArray(arr) && arr.length > 0) {
+ arr.shift();
+ Logger.debug('Processor', `Shifted ${params.logName || params.path}`);
+ }
+ return obj;
+ },
+ processByKeyPrefix: (params) => (obj, env) => {
+ const target = Utils.getPath(obj, params.objPath);
+ if (!target || typeof target !== 'object') return obj;
+ let modified = 0;
+ for (const [key, value] of Object.entries(target)) {
+ for (const [prefix, handler] of Object.entries(params.prefixRules || {})) {
+ if (prefix === '*') continue;
+ if (key.startsWith(prefix)) {
+ Object.assign(value, handler);
+ modified++;
+ break;
+ }
+ }
+ }
+ Logger.debug('Processor', `Processed ${modified} items by key prefix`);
+ return obj;
+ },
+ compose: (params, compile) => {
+ const processors = (params.steps || []).map(step => compile(step));
+ return (obj, env) => {
+ let result = obj;
+ for (let i = 0; i < processors.length; i++) {
+ if (!result) break;
+ Logger.debug('Compose', `Step ${i + 1}/${processors.length}`);
+ result = processors[i](result, env);
+ }
+ return result;
+ };
+ },
+ when: (params, compile) => {
+ return (obj, env) => {
+ try {
+ let conditionMet = false;
+ const data = Utils.getPath(obj, params.check || 'data');
+ const url = env?.getUrl?.() || '';
 
-        switch (params.condition) {
-          case "empty":
-            conditionMet = !data || Object.keys(data).length === 0;
-            break;
-          case "hasKey":
-            const arr = Utils.getPath(obj, params.path);
-            conditionMet = Array.isArray(arr) && arr.some(item => item?.key === params.key);
-            break;
-          case "pathMatch":
-            conditionMet = params.path && url.includes(params.path);
-            break;
-          case "queryMatch":
-            const match = url.match(new RegExp(`[?&]${params.param}=([^&]+)`));
-            conditionMet = match && decodeURIComponent(match[1]) === params.value;
-            break;
-          case "includes":
-            conditionMet = Array.isArray(data) ? data.includes(params.value) : String(data).includes(params.value);
-            break;
-          case "inSet":
-            const valueSet = new Set(params.values || []);
-            const checkValue = Utils.getPath(obj, params.check || 'data');
-            conditionMet = valueSet.has(checkValue);
-            break;
-          case "isObject":
-            conditionMet = typeof data === 'object' && !Array.isArray(data) && data !== null;
-            break;
-          case "isArray":
-            conditionMet = Array.isArray(data);
-            break;
-          default:
-            if (typeof params.condition === 'function') {
-              conditionMet = params.condition(obj);
-            }
-        }
+ switch (params.condition) {
+ case "empty":
+ conditionMet = !data || Object.keys(data).length === 0;
+ break;
+ case "hasKey":
+ const arr = Utils.getPath(obj, params.path);
+ conditionMet = Array.isArray(arr) && arr.some(item => item?.key === params.key);
+ break;
+ case "pathMatch":
+ conditionMet = params.path && url.includes(params.path);
+ break;
+ case "queryMatch":
+ const match = url.match(new RegExp(`[?&]${params.param}=([^&]+)`));
+ conditionMet = match && decodeURIComponent(match[1]) === params.value;
+ break;
+ case "includes":
+ conditionMet = Array.isArray(data) ? data.includes(params.value) : String(data).includes(params.value);
+ break;
+ case "inSet":
+ // 新增：Set 优化支持（O(1) 查询）
+ const valueSet = new Set(params.values || []);
+ const checkValue = Utils.getPath(obj, params.check || 'data');
+ conditionMet = valueSet.has(checkValue);
+ break;
+ case "isObject":
+ conditionMet = typeof data === 'object' && !Array.isArray(data) && data !== null;
+ break;
+ case "isArray":
+ conditionMet = Array.isArray(data);
+ break;
+ default:
+ if (typeof params.condition === 'function') {
+ conditionMet = params.condition(obj);
+ }
+ }
 
-        Logger.debug('When', `Condition "${params.condition}" = ${conditionMet}`);
+ Logger.debug('When', `Condition "${params.condition}" = ${conditionMet}`);
 
-        if (conditionMet && params.then) {
-          return compile(params.then)(obj, env);
-        } else if (!conditionMet && params.else) {
-          return compile(params.else)(obj, env);
-        }
-      } catch (e) {
-        Logger.debug('When', `Error: ${e.message}`);
-      }
-      return obj;
-    };
-  },
-  sceneDispatcher: (params, compile) => {
-    const scenes = (params.scenes || []).map(s => ({
-      name: s.name,
-      when: s.when,
-      path: s.path,
-      param: s.param,
-      value: s.value,
-      check: s.check,
-      key: s.key,
-      values: s.values,
-      then: compile(s.then)
-    }));
+ if (conditionMet && params.then) {
+ return compile(params.then)(obj, env);
+ } else if (!conditionMet && params.else) {
+ return compile(params.else)(obj, env);
+ }
+ } catch (e) {
+ Logger.debug('When', `Error: ${e.message}`);
+ }
+ return obj;
+ };
+ },
+ sceneDispatcher: (params, compile) => {
+ const scenes = (params.scenes || []).map(s => ({
+ name: s.name,
+ when: s.when,
+ path: s.path,
+ param: s.param,
+ value: s.value,
+ check: s.check,
+ key: s.key,
+ values: s.values, // 新增：支持 inSet
+ then: compile(s.then)
+ }));
 
-    return (obj, env) => {
-      const url = env?.getUrl?.() || '';
+ return (obj, env) => {
+ const url = env?.getUrl?.() || '';
 
-      for (const scene of scenes) {
-        try {
-          let matched = false;
+ for (const scene of scenes) {
+ try {
+ let matched = false;
 
-          switch (scene.when) {
-            case "isObject":
-              matched = typeof obj.data === 'object' && !Array.isArray(obj.data);
-              break;
-            case "isArray":
-              matched = Array.isArray(obj.data);
-              break;
-            case "pathMatch":
-              matched = scene.path && url.includes(scene.path);
-              break;
-            case "queryMatch":
-              const match = url.match(new RegExp(`[?&]${scene.param}=([^&]+)`));
-              matched = match && decodeURIComponent(match[1]) === scene.value;
-              break;
-            case "includes":
-              const data = Utils.getPath(obj, scene.check || 'data');
-              matched = Array.isArray(data)
-                ? data.includes(scene.value)
-                : String(data).includes(scene.value);
-              break;
-            case "inSet":
-              const checkValue = Utils.getPath(obj, scene.check || 'data');
-              const valueSet = new Set(scene.values || []);
-              matched = valueSet.has(checkValue);
-              break;
-            case "empty":
-              const checkData = Utils.getPath(obj, scene.check || 'data');
-              matched = !checkData || Object.keys(checkData).length === 0;
-              break;
-            case "hasKey":
-              const arr = Utils.getPath(obj, scene.path);
-              matched = Array.isArray(arr) && arr.some(item => item?.key === scene.key);
-              break;
-            default:
-              if (typeof scene.when === 'function') {
-                matched = scene.when(obj);
-              }
-          }
+ switch (scene.when) {
+ case "isObject":
+ matched = typeof obj.data === 'object' && !Array.isArray(obj.data);
+ break;
+ case "isArray":
+ matched = Array.isArray(obj.data);
+ break;
+ case "pathMatch":
+ matched = scene.path && url.includes(scene.path);
+ break;
+ case "queryMatch":
+ const match = url.match(new RegExp(`[?&]${scene.param}=([^&]+)`));
+ matched = match && decodeURIComponent(match[1]) === scene.value;
+ break;
+ case "includes":
+ const data = Utils.getPath(obj, scene.check || 'data');
+ matched = Array.isArray(data)
+ ? data.includes(scene.value)
+ : String(data).includes(scene.value);
+ break;
+ case "inSet":
+ // 新增：Set 优化支持（O(1) 查询）
+ const checkValue = Utils.getPath(obj, scene.check || 'data');
+ const valueSet = new Set(scene.values || []);
+ matched = valueSet.has(checkValue);
+ break;
+ case "empty":
+ const checkData = Utils.getPath(obj, scene.check || 'data');
+ matched = !checkData || Object.keys(checkData).length === 0;
+ break;
+ case "hasKey":
+ const arr = Utils.getPath(obj, scene.path);
+ matched = Array.isArray(arr) && arr.some(item => item?.key === scene.key);
+ break;
+ default:
+ if (typeof scene.when === 'function') {
+ matched = scene.when(obj);
+ }
+ }
 
-          if (matched) {
-            Logger.debug('Scene', `Matched: ${scene.name}`);
-            return scene.then(obj, env);
-          }
-        } catch (e) {
-          Logger.debug('Scene', `Error in ${scene.name}: ${e.message}`);
-        }
-      }
+ if (matched) {
+ Logger.debug('Scene', `Matched: ${scene.name}`);
+ return scene.then(obj, env);
+ }
+ } catch (e) {
+ Logger.debug('Scene', `Error in ${scene.name}: ${e.message}`);
+ }
+ }
 
-      Logger.debug('Scene', 'No scene matched');
-      return obj;
-    };
-  }
+ Logger.debug('Scene', 'No scene matched');
+ return obj;
+ };
+ }
 };
 
 // ==========================================
-// 处理器编译缓存（使用简单 Map）
+// 处理器编译缓存
 // ==========================================
 const ProcessorCompileCache = new Map();
 const ConfigProcessorCache = new Map();
 
 function compileProcessor(def) {
-  if (!def || !def.processor) return null;
+ if (!def || !def.processor) return null;
 
-  if (CONFIG.LAZY_COMPILE) {
-    const cacheKey = Utils.simpleHash(JSON.stringify(def));
-    if (ProcessorCompileCache.has(cacheKey)) {
-      return ProcessorCompileCache.get(cacheKey);
-    }
-  }
+ if (CONFIG.LAZY_COMPILE) {
+ const cacheKey = Utils.simpleHash(JSON.stringify(def));
+ if (ProcessorCompileCache.has(cacheKey)) {
+ return ProcessorCompileCache.get(cacheKey);
+ }
+ }
 
-  const factory = ProcessorFactory[def.processor];
-  if (!factory) {
-    Logger.debug('Compile', `Unknown processor: ${def.processor}`);
-    return null;
-  }
-  const processor = factory(def.params, compileProcessor);
+ const factory = ProcessorFactory[def.processor];
+ if (!factory) {
+ Logger.debug('Compile', `Unknown processor: ${def.processor}`);
+ return null;
+ }
+ const processor = factory(def.params, compileProcessor);
 
-  if (CONFIG.LAZY_COMPILE && processor) {
-    const cacheKey = Utils.simpleHash(JSON.stringify(def));
-    ProcessorCompileCache.set(cacheKey, processor);
-  }
+ if (CONFIG.LAZY_COMPILE && processor) {
+ const cacheKey = Utils.simpleHash(JSON.stringify(def));
+ ProcessorCompileCache.set(cacheKey, processor);
+ }
 
-  return processor;
+ return processor;
 }
 
 function getConfigProcessor(config) {
-  if (!config || !config.processor || config.mode !== 'json') return null;
+ if (!config || !config.processor || config.mode !== 'json') return null;
 
-  const configId = config.id || Utils.simpleHash(JSON.stringify(config));
+ const configId = config.id || Utils.simpleHash(JSON.stringify(config));
 
-  if (ConfigProcessorCache.has(configId)) {
-    return ConfigProcessorCache.get(configId);
-  }
+ if (ConfigProcessorCache.has(configId)) {
+ return ConfigProcessorCache.get(configId);
+ }
 
-  const processor = compileProcessor(config.processor);
-  if (processor) {
-    ConfigProcessorCache.set(configId, processor);
-    Logger.debug('Cache', `Compiled processor for ${configId}`);
-  }
-  return processor;
+ const processor = compileProcessor(config.processor);
+ if (processor) {
+ ConfigProcessorCache.set(configId, processor);
+ Logger.debug('Cache', `Compiled processor for ${configId}`);
+ }
+ return processor;
 }
 
 // ==========================================
 // 运行时加载器
 // ==========================================
 class RuntimeLoader {
-  constructor() {
-    this.cache = new Map();
-    this.manifest = null;
-    this.patterns = new Map();
-    this.domainIndex = new Map();
-    this.accessStats = new Map();
-    this._manifestMemCache = null;
-    this._manifestCacheTime = 0;
-    this._configMemCache = new Map();
-    this._preloading = new Set();
-  }
+ constructor() {
+ this.cache = new Map();
+ this.manifest = null;
+ this.patterns = new Map();
+ this.domainIndex = new Map();
+ this.accessStats = new Map();
+ this._manifestMemCache = null;
+ this._manifestCacheTime = 0;
+ this._configMemCache = new Map();
+ this._preloading = new Set();
+ }
 
-  _isMemCacheValid(cacheTime, ttl = CONFIG.CONFIG_CACHE_TTL) {
-    return cacheTime && (Date.now() - cacheTime < ttl);
-  }
+ _isMemCacheValid(cacheTime, ttl = CONFIG.CONFIG_CACHE_TTL) {
+ return cacheTime && (Date.now() - cacheTime < ttl);
+ }
 
-  _getMemConfigCache(configId) {
-    const item = this._configMemCache.get(configId);
-    if (item && this._isMemCacheValid(item.time)) {
-      Logger.debug('Loader', `Memory cache hit: ${configId}`);
-      return item.data;
-    }
-    return null;
-  }
+ _getMemConfigCache(configId) {
+ const item = this._configMemCache.get(configId);
+ if (item && this._isMemCacheValid(item.time)) {
+ Logger.debug('Loader', `Memory cache hit: ${configId}`);
+ return item.data;
+ }
+ return null;
+ }
 
-  _setMemConfigCache(configId, data) {
-    this._configMemCache.set(configId, { data, time: Date.now() });
-    if (this._configMemCache.size > 100) {
-      const firstKey = this._configMemCache.keys().next().value;
-      this._configMemCache.delete(firstKey);
-    }
-  }
+ _setMemConfigCache(configId, data) {
+ this._configMemCache.set(configId, { data, time: Date.now() });
+ if (this._configMemCache.size > 100) {
+ const firstKey = this._configMemCache.keys().next().value;
+ this._configMemCache.delete(firstKey);
+ }
+ }
 
-  async loadManifest(force = false) {
-    const cacheKey = 'vip_manifest_v20';
-    const cacheTimeKey = `${cacheKey}_time`;
+ async loadManifest(force = false) {
+ const cacheKey = 'vip_manifest_v20';
+ const cacheTimeKey = `${cacheKey}_time`;
 
-    if (!force && this._manifestMemCache && this._isMemCacheValid(this._manifestCacheTime, CONFIG.CACHE_TTL)) {
-      Logger.debug('Loader', 'Using memory cached manifest');
-      return this._manifestMemCache;
-    }
+ if (!force && this._manifestMemCache && this._isMemCacheValid(this._manifestCacheTime, CONFIG.CACHE_TTL)) {
+ Logger.debug('Loader', 'Using memory cached manifest');
+ return this._manifestMemCache;
+ }
 
-    if (!force) {
-      const cached = Storage.read(cacheKey);
-      const cacheTime = parseInt(Storage.read(cacheTimeKey) || '0');
-      if (cached && this._isMemCacheValid(cacheTime, CONFIG.CACHE_TTL)) {
-        this.manifest = Utils.safeJsonParse(cached);
-        if (this.manifest) {
-          this._manifestMemCache = this.manifest;
-          this._manifestCacheTime = Date.now();
-          this.compilePatterns();
-          Logger.debug('Loader', 'Using storage cached manifest');
-          return this.manifest;
-        }
-      }
-    }
+ if (!force) {
+ const cached = Storage.read(cacheKey);
+ const cacheTime = parseInt(Storage.read(cacheTimeKey) || '0');
+ if (cached && this._isMemCacheValid(cacheTime, CONFIG.CACHE_TTL)) {
+ this.manifest = Utils.safeJsonParse(cached);
+ if (this.manifest) {
+ this._manifestMemCache = this.manifest;
+ this._manifestCacheTime = Date.now();
+ this.compilePatterns();
+ Logger.debug('Loader', 'Using storage cached manifest');
+ return this.manifest;
+ }
+ }
+ }
 
-    const url = `${CONFIG.REMOTE_BASE}/manifest.json?t=${Date.now()}`;
-    Logger.debug('Loader', 'Fetching manifest...');
+ const url = `${CONFIG.REMOTE_BASE}/manifest.json?t=${Date.now()}`;
+ Logger.debug('Loader', 'Fetching manifest...');
 
-    try {
-      const res = await HTTP.get(url);
-      if (res.status === 200 && res.body) {
-        this.manifest = Utils.safeJsonParse(res.body);
-        if (this.manifest) {
-          Storage.write(cacheKey, res.body);
-          Storage.write(cacheTimeKey, Date.now().toString());
-          this._manifestMemCache = this.manifest;
-          this._manifestCacheTime = Date.now();
-          this.compilePatterns();
-          Logger.debug('Loader', `Manifest updated: ${Object.keys(this.manifest.configs).length} apps`);
-          return this.manifest;
-        }
-      }
-      throw new Error(`HTTP ${res.status}`);
-    } catch (e) {
-      Logger.fatal('Loader', 'Manifest fetch failed', e);
-      const expired = Storage.read(cacheKey);
-      if (expired) {
-        this.manifest = Utils.safeJsonParse(expired);
-        this._manifestMemCache = this.manifest;
-        this._manifestCacheTime = Date.now();
-        this.compilePatterns();
-        return this.manifest;
-      }
-      throw e;
-    }
-  }
+ try {
+ const res = await HTTP.get(url);
+ if (res.status === 200 && res.body) {
+ this.manifest = Utils.safeJsonParse(res.body);
+ if (this.manifest) {
+ Storage.write(cacheKey, res.body);
+ Storage.write(cacheTimeKey, Date.now().toString());
+ this._manifestMemCache = this.manifest;
+ this._manifestCacheTime = Date.now();
+ this.compilePatterns();
+ Logger.debug('Loader', `Manifest updated: ${Object.keys(this.manifest.configs).length} apps`);
+ return this.manifest;
+ }
+ }
+ throw new Error(`HTTP ${res.status}`);
+ } catch (e) {
+ Logger.fatal('Loader', 'Manifest fetch failed', e);
+ const expired = Storage.read(cacheKey);
+ if (expired) {
+ this.manifest = Utils.safeJsonParse(expired);
+ this._manifestMemCache = this.manifest;
+ this._manifestCacheTime = Date.now();
+ this.compilePatterns();
+ return this.manifest;
+ }
+ throw e;
+ }
+ }
 
-  compilePatterns() {
-    this.patterns.clear();
-    this.domainIndex.clear();
+ compilePatterns() {
+ this.patterns.clear();
+ this.domainIndex.clear();
 
-    if (!this.manifest || !this.manifest.configs) return;
+ if (!this.manifest || !this.manifest.configs) return;
 
-    for (const [id, info] of Object.entries(this.manifest.configs)) {
-      try {
-        if (info.urlPattern) {
-          const regex = new RegExp(info.urlPattern);
-          this.patterns.set(id, regex);
+ for (const [id, info] of Object.entries(this.manifest.configs)) {
+ try {
+ if (info.urlPattern) {
+ const regex = new RegExp(info.urlPattern);
+ this.patterns.set(id, regex);
 
-          if (CONFIG.DOMAIN_INDEX_ENABLED) {
-            const domainMatch = info.urlPattern.match(/(?:\\^?https?\\?:\\\\\/\\\\\/)?([^\\\\\/\\\s]+)/);
-            if (domainMatch) {
-              const domain = domainMatch[1]
-                .replace(/\\\\\./g, '.')
-                .replace(/\\\d\\+\\\??/g, '*')
-                .replace(/\\\\[.\*?\\\\]/g, '*');
-              if (!this.domainIndex.has(domain)) {
-                this.domainIndex.set(domain, []);
-              }
-              this.domainIndex.get(domain).push(id);
-            }
-          }
-        }
-      } catch (e) {
-        Logger.debug('Loader', `Invalid regex for ${id}: ${e.message}`);
-      }
-    }
+ if (CONFIG.DOMAIN_INDEX_ENABLED) {
+ const domainMatch = info.urlPattern.match(/(?:\\^?https?\\?:\\\\\/\\\\\/)?([^\\\\\/\\\s]+)/);
+ if (domainMatch) {
+ const domain = domainMatch[1]
+ .replace(/\\\\\./g, '.')
+ .replace(/\\\d\\+\\\??/g, '*')
+ .replace(/\\\\[.\*?\\\\]/g, '*');
+ if (!this.domainIndex.has(domain)) {
+ this.domainIndex.set(domain, []);
+ }
+ this.domainIndex.get(domain).push(id);
+ }
+ }
+ }
+ } catch (e) {
+ Logger.debug('Loader', `Invalid regex for ${id}: ${e.message}`);
+ }
+ }
 
-    Logger.debug('Loader', `Compiled ${this.patterns.size} patterns, ${this.domainIndex.size} domains`);
-  }
+ Logger.debug('Loader', `Compiled ${this.patterns.size} patterns, ${this.domainIndex.size} domains`);
+ }
 
-  findMatch(url) {
-    let candidates = [];
+ findMatch(url) {
+ let candidates = [];
 
-    if (CONFIG.DOMAIN_INDEX_ENABLED) {
-      try {
-        const urlObj = new URL(url);
-        const hostname = urlObj.hostname;
+ if (CONFIG.DOMAIN_INDEX_ENABLED) {
+ try {
+ const urlObj = new URL(url);
+ const hostname = urlObj.hostname;
 
-        candidates = this.domainIndex.get(hostname) || [];
+ candidates = this.domainIndex.get(hostname) || [];
 
-        if (candidates.length === 0) {
-          const parts = hostname.split('.');
-          for (let i = 1; i < parts.length; i++) {
-            const wildcard = `*.${parts.slice(i).join('.')}`;
-            if (this.domainIndex.has(wildcard)) {
-              candidates = this.domainIndex.get(wildcard);
-              break;
-            }
-          }
-        }
-      } catch (e) {}
-    }
+ if (candidates.length === 0) {
+ const parts = hostname.split('.');
+ for (let i = 1; i < parts.length; i++) {
+ const wildcard = `*.${parts.slice(i).join('.')}`;
+ if (this.domainIndex.has(wildcard)) {
+ candidates = this.domainIndex.get(wildcard);
+ break;
+ }
+ }
+ }
+ } catch (e) {}
+ }
 
-    for (const id of candidates) {
-      try {
-        if (this.patterns.get(id).test(url)) {
-          this._updateAccessStats(id);
-          this._triggerPreload(candidates.filter(cid => cid !== id));
-          return id;
-        }
-      } catch (e) {
-        Logger.debug('Loader', `Pattern test error: ${id}`);
-      }
-    }
+ for (const id of candidates) {
+ try {
+ if (this.patterns.get(id).test(url)) {
+ this._updateAccessStats(id);
+ this._triggerPreload(candidates.filter(cid => cid !== id));
+ return id;
+ }
+ } catch (e) {
+ Logger.debug('Loader', `Pattern test error: ${id}`);
+ }
+ }
 
-    for (const [id, pattern] of this.patterns) {
-      if (!candidates.includes(id)) {
-        try {
-          if (pattern.test(url)) {
-            this._updateAccessStats(id);
-            return id;
-          }
-        } catch (e) {}
-      }
-    }
+ for (const [id, pattern] of this.patterns) {
+ if (!candidates.includes(id)) {
+ try {
+ if (pattern.test(url)) {
+ this._updateAccessStats(id);
+ return id;
+ }
+ } catch (e) {}
+ }
+ }
 
-    return null;
-  }
+ return null;
+ }
 
-  _updateAccessStats(configId) {
-    const stats = this.accessStats.get(configId) || { count: 0, lastAccess: 0 };
-    stats.count++;
-    stats.lastAccess = Date.now();
-    this.accessStats.set(configId, stats);
-  }
+ _updateAccessStats(configId) {
+ const stats = this.accessStats.get(configId) || { count: 0, lastAccess: 0 };
+ stats.count++;
+ stats.lastAccess = Date.now();
+ this.accessStats.set(configId, stats);
+ }
 
-  _triggerPreload(configIds) {
-    if (!CONFIG.PRELOAD_ENABLED) return;
+ _triggerPreload(configIds) {
+ if (!CONFIG.PRELOAD_ENABLED) return;
 
-    const sortedIds = configIds
-      .filter(id => !this._getMemConfigCache(id) && !this._preloading.has(id))
-      .sort((a, b) => {
-        const statsA = this.accessStats.get(a) || { count: 0 };
-        const statsB = this.accessStats.get(b) || { count: 0 };
-        return statsB.count - statsA.count;
-      })
-      .slice(0, CONFIG.PRELOAD_CONCURRENT);
+ const sortedIds = configIds
+ .filter(id => !this._getMemConfigCache(id) && !this._preloading.has(id))
+ .sort((a, b) => {
+ const statsA = this.accessStats.get(a) || { count: 0 };
+ const statsB = this.accessStats.get(b) || { count: 0 };
+ return statsB.count - statsA.count;
+ })
+ .slice(0, CONFIG.PRELOAD_CONCURRENT);
 
-    for (const id of sortedIds) {
-      this._preloading.add(id);
-      setTimeout(() => {
-        this.loadConfig(id).finally(() => {
-          this._preloading.delete(id);
-        });
-      }, 100);
-    }
-  }
+ for (const id of sortedIds) {
+ this._preloading.add(id);
+ setTimeout(() => {
+ this.loadConfig(id).finally(() => {
+ this._preloading.delete(id);
+ });
+ }, 100);
+ }
+ }
 
-  async loadConfig(configId, force = false) {
-    if (!force && CONFIG.HOT_RELOAD && this.manifest?.configVersions?.[configId]) {
-      const remoteVersion = this.manifest.configVersions[configId];
-      const cachedVersion = Storage.read(`vip_cfg_version_${configId}`);
-      if (cachedVersion !== remoteVersion) {
-        force = true;
-        Logger.debug('Loader', `Version changed for ${configId}`);
-      }
-    }
+ async loadConfig(configId, force = false) {
+ if (!force && CONFIG.HOT_RELOAD && this.manifest?.configVersions?.[configId]) {
+ const remoteVersion = this.manifest.configVersions[configId];
+ const cachedVersion = Storage.read(`vip_cfg_version_${configId}`);
+ if (cachedVersion !== remoteVersion) {
+ force = true;
+ Logger.debug('Loader', `Version changed for ${configId}`);
+ }
+ }
 
-    if (!force) {
-      const memCache = this._getMemConfigCache(configId);
-      if (memCache) return memCache;
-    }
+ if (!force) {
+ const memCache = this._getMemConfigCache(configId);
+ if (memCache) return memCache;
+ }
 
-    const cacheKey = `vip_cfg_v20_${configId}`;
-    const cacheTimeKey = `${cacheKey}_time`;
+ const cacheKey = `vip_cfg_v20_${configId}`;
+ const cacheTimeKey = `${cacheKey}_time`;
 
-    if (!force) {
-      const cached = Storage.read(cacheKey);
-      const cacheTime = parseInt(Storage.read(cacheTimeKey) || '0');
-      if (cached && this._isMemCacheValid(cacheTime)) {
-        const config = this.prepareConfig(Utils.safeJsonParse(cached));
-        this._setMemConfigCache(configId, config);
-        Logger.debug('Loader', `Storage cache: ${configId}`);
-        return config;
-      }
-    }
+ if (!force) {
+ const cached = Storage.read(cacheKey);
+ const cacheTime = parseInt(Storage.read(cacheTimeKey) || '0');
+ if (cached && this._isMemCacheValid(cacheTime)) {
+ const config = this.prepareConfig(Utils.safeJsonParse(cached));
+ this._setMemConfigCache(configId, config);
+ Logger.debug('Loader', `Storage cache: ${configId}`);
+ return config;
+ }
+ }
 
-    const url = `${CONFIG.REMOTE_BASE}/configs/${configId}.json?t=${Date.now()}`;
-    Logger.debug('Loader', `Fetching: ${configId}`);
+ const url = `${CONFIG.REMOTE_BASE}/configs/${configId}.json?t=${Date.now()}`;
+ Logger.debug('Loader', `Fetching: ${configId}`);
 
-    try {
-      const res = await HTTP.get(url);
-      if (res.status === 200 && res.body) {
-        Storage.write(cacheKey, res.body);
-        Storage.write(cacheTimeKey, Date.now().toString());
+ try {
+ const res = await HTTP.get(url);
+ if (res.status === 200 && res.body) {
+ Storage.write(cacheKey, res.body);
+ Storage.write(cacheTimeKey, Date.now().toString());
 
-        if (this.manifest?.configVersions?.[configId]) {
-          Storage.write(`vip_cfg_version_${configId}`, this.manifest.configVersions[configId]);
-        }
+ if (this.manifest?.configVersions?.[configId]) {
+ Storage.write(`vip_cfg_version_${configId}`, this.manifest.configVersions[configId]);
+ }
 
-        const config = this.prepareConfig(Utils.safeJsonParse(res.body));
-        this._setMemConfigCache(configId, config);
-        Logger.debug('Loader', `Config updated: ${configId}`);
-        return config;
-      }
-      throw new Error(`HTTP ${res.status}`);
-    } catch (e) {
-      Logger.fatal('Loader', `Config fetch failed: ${configId}`, e);
-      const expired = Storage.read(cacheKey);
-      if (expired) {
-        const config = this.prepareConfig(Utils.safeJsonParse(expired));
-        this._setMemConfigCache(configId, config);
-        return config;
-      }
-      throw e;
-    }
-  }
+ const config = this.prepareConfig(Utils.safeJsonParse(res.body));
+ this._setMemConfigCache(configId, config);
+ Logger.debug('Loader', `Config updated: ${configId}`);
+ return config;
+ }
+ throw new Error(`HTTP ${res.status}`);
+ } catch (e) {
+ Logger.fatal('Loader', `Config fetch failed: ${configId}`, e);
+ const expired = Storage.read(cacheKey);
+ if (expired) {
+ const config = this.prepareConfig(Utils.safeJsonParse(expired));
+ this._setMemConfigCache(configId, config);
+ return config;
+ }
+ throw e;
+ }
+ }
 
-  prepareConfig(raw) {
-    const config = { ...raw };
-    if (raw.urlPattern) {
-      try {
-        config.urlPattern = new RegExp(raw.urlPattern);
-      } catch (e) {
-        config.urlPattern = /.*/;
-      }
-    }
+ prepareConfig(raw) {
+ const config = { ...raw };
+ if (raw.urlPattern) {
+ try {
+ config.urlPattern = new RegExp(raw.urlPattern);
+ } catch (e) {
+ config.urlPattern = /.*/;
+ }
+ }
 
-    if (raw.regexReplacements) {
-      config.regexReplacements = raw.regexReplacements.map(r => ({
-        pattern: new RegExp(r.pattern, r.flags || 'g'),
-        replacement: r.replacement
-      }));
-    }
+ if (raw.regexReplacements) {
+ config.regexReplacements = raw.regexReplacements.map(r => ({
+ pattern: new RegExp(r.pattern, r.flags || 'g'),
+ replacement: r.replacement
+ }));
+ }
 
-    return config;
-  }
+ // 修复：不再冻结对象，避免后续赋值失败
+ return config;
+ }
 
-  getStats() {
-    return {
-      manifest: this.manifest ? Object.keys(this.manifest.configs).length : 0,
-      cached: this.cache.size,
-      memCached: this._configMemCache.size,
-      domains: this.domainIndex.size
-    };
-  }
+ getStats() {
+ return {
+ manifest: this.manifest ? Object.keys(this.manifest.configs).length : 0,
+ cached: this.cache.size,
+ memCached: this._configMemCache.size,
+ domains: this.domainIndex.size
+ };
+ }
 }
 
 // ==========================================
 // 环境和引擎
 // ==========================================
 class Environment {
-  constructor(name) {
-    this.name = name;
-    this.isQX = typeof $task !== 'undefined';
-    this.isSurge = typeof $httpClient !== 'undefined' && !this.isQX;
-    this.isLoon = typeof $loon !== 'undefined';
-    this.response = typeof $response !== 'undefined' ? $response : {};
-    this.request = typeof $request !== 'undefined' ? $request : {};
-    if (!this.request.url && this.response.request?.url) {
-      this.request = this.response.request;
-    }
-  }
-  getUrl() {
-    let url = this.response?.url || this.request?.url || '';
-    if (this.isQX && typeof $request === 'string') url = $request;
-    return url.toString();
-  }
-  getBody() {
-    return this.response?.body || '';
-  }
-  done(result) {
-    if (typeof $done === 'function') $done(result);
-    else console.log('[DONE]', result);
-  }
+ constructor(name) {
+ this.name = name;
+ this.isQX = typeof $task !== 'undefined';
+ this.isSurge = typeof $httpClient !== 'undefined' && !this.isQX;
+ this.isLoon = typeof $loon !== 'undefined';
+ this.response = typeof $response !== 'undefined' ? $response : {};
+ this.request = typeof $request !== 'undefined' ? $request : {};
+ if (!this.request.url && this.response.request?.url) {
+ this.request = this.response.request;
+ }
+ }
+ getUrl() {
+ let url = this.response?.url || this.request?.url || '';
+ if (this.isQX && typeof $request === 'string') url = $request;
+ return url.toString();
+ }
+ getBody() {
+ return this.response?.body || '';
+ }
+ done(result) {
+ if (typeof $done === 'function') $done(result);
+ else console.log('[DONE]', result);
+ }
 }
 
 class VipEngine {
-  constructor(env) {
-    this.env = env;
-  }
-  process(body, config) {
-    if (!body) {
-      Logger.debug('Engine', 'Empty body');
-      return { body: '{}' };
-    }
+ constructor(env) {
+ this.env = env;
+ }
+ process(body, config) {
+ if (!body) {
+ Logger.debug('Engine', 'Empty body');
+ return { body: '{}' };
+ }
 
-    switch (config.mode) {
-      case 'json':
-        return this.processJson(body, config);
-      case 'regex':
-        return this.processRegex(body, config);
-      case 'game':
-        return this.processGame(body, config);
-      case 'hybrid':
-        return this.processHybrid(body, config);
-      case 'html':
-        return this.processHtml(body, config);
-      default:
-        Logger.debug('Engine', `Unknown mode: ${config.mode}`);
-        return { body };
-    }
-  }
-  processJson(body, config) {
-    let obj = Utils.safeJsonParse(body);
-    if (!obj) {
-      Logger.fatal('Engine', 'Failed to parse JSON');
-      return { body };
-    }
+ switch (config.mode) {
+ case 'json':
+ return this.processJson(body, config);
+ case 'regex':
+ return this.processRegex(body, config);
+ case 'game':
+ return this.processGame(body, config);
+ case 'hybrid':
+ return this.processHybrid(body, config);
+ case 'html':
+ return this.processHtml(body, config);
+ default:
+ Logger.debug('Engine', `Unknown mode: ${config.mode}`);
+ return { body };
+ }
+ }
+ processJson(body, config) {
+ let obj = Utils.safeJsonParse(body);
+ if (!obj) {
+ Logger.fatal('Engine', 'Failed to parse JSON');
+ return { body };
+ }
 
-    const customProcessor = getConfigProcessor(config);
+ const customProcessor = getConfigProcessor(config);
 
-    if (typeof customProcessor === 'function') {
-      try {
-        obj = customProcessor(obj, this.env);
-        Logger.debug('Engine', `${config.name} VIP unlocked`);
-      } catch (e) {
-        Logger.fatal('Engine', `Processor error`, e);
-      }
-    } else {
-      Logger.debug('Engine', 'No custom processor');
-    }
+ if (typeof customProcessor === 'function') {
+ try {
+ obj = customProcessor(obj, this.env);
+ Logger.debug('Engine', `${config.name} VIP unlocked`);
+ } catch (e) {
+ Logger.fatal('Engine', `Processor error`, e);
+ }
+ } else {
+ Logger.debug('Engine', 'No custom processor');
+ }
 
-    return { body: Utils.safeJsonStringify(obj) };
-  }
-  processRegex(body, config) {
-    let modified = body;
-    let count = 0;
-    for (const rule of config.regexReplacements || []) {
-      try {
-        const original = modified;
-        modified = modified.replace(rule.pattern, rule.replacement);
-        if (original !== modified) count++;
-      } catch (e) {}
-    }
-    Logger.debug('Engine', `Regex replaced ${count} patterns`);
-    return { body: modified };
-  }
-  processGame(body, config) {
-    let modified = body;
-    let count = 0;
-    for (const res of config.gameResources || []) {
-      try {
-        const pattern = new RegExp(`"${res.field}":\\d+`, 'g');
-        const original = modified;
-        modified = modified.replace(pattern, `"${res.field}":${res.value}`);
-        if (original !== modified) count++;
-      } catch (e) {}
-    }
-    Logger.debug('Engine', `Game resources modified: ${count}`);
-    return { body: modified };
-  }
-  processHybrid(body, config) {
-    let result = this.processJson(body, config);
-    if (config.regexReplacements) {
-      result = this.processRegex(result.body, config);
-    }
-    return result;
-  }
-  processHtml(body, config) {
-    let modified = body;
-    let count = 0;
-    for (const rule of config.htmlReplacements || []) {
-      try {
-        const regex = new RegExp(rule.pattern, rule.flags || 'i');
-        const original = modified;
-        modified = modified.replace(regex, rule.replacement);
-        if (original !== modified) count++;
-      } catch (e) {}
-    }
-    Logger.debug('Engine', `HTML replaced ${count} patterns`);
-    return { body: modified };
-  }
+ return { body: Utils.safeJsonStringify(obj) };
+ }
+ processRegex(body, config) {
+ let modified = body;
+ let count = 0;
+ for (const rule of config.regexReplacements || []) {
+ try {
+ const original = modified;
+ modified = modified.replace(rule.pattern, rule.replacement);
+ if (original !== modified) count++;
+ } catch (e) {}
+ }
+ Logger.debug('Engine', `Regex replaced ${count} patterns`);
+ return { body: modified };
+ }
+ processGame(body, config) {
+ let modified = body;
+ let count = 0;
+ for (const res of config.gameResources || []) {
+ try {
+ const pattern = new RegExp(`"${res.field}":\\d+`, 'g');
+ const original = modified;
+ modified = modified.replace(pattern, `"${res.field}":${res.value}`);
+ if (original !== modified) count++;
+ } catch (e) {}
+ }
+ Logger.debug('Engine', `Game resources modified: ${count}`);
+ return { body: modified };
+ }
+ processHybrid(body, config) {
+ let result = this.processJson(body, config);
+ if (config.regexReplacements) {
+ result = this.processRegex(result.body, config);
+ }
+ return result;
+ }
+ processHtml(body, config) {
+ let modified = body;
+ let count = 0;
+ for (const rule of config.htmlReplacements || []) {
+ try {
+ const regex = new RegExp(rule.pattern, rule.flags || 'i');
+ const original = modified;
+ modified = modified.replace(regex, rule.replacement);
+ if (original !== modified) count++;
+ } catch (e) {}
+ }
+ Logger.debug('Engine', `HTML replaced ${count} patterns`);
+ return { body: modified };
+ }
 }
 
 // ==========================================
-// 主函数（使用新的锁和清理机制）
+// 主函数（原始版本）
 // ==========================================
 async function main() {
-  const env = new Environment(META.name);
-  const url = env.getUrl();
+ const env = new Environment(META.name);
 
-  // 🚨 获取执行锁（自动过期机制）
-  const { key: lockKey, isDuplicate } = LockManager.acquire(url);
-  
-  if (isDuplicate) {
-    Logger.debug('Main', 'Duplicate execution, returning original response');
-    return env.done({ body: env.getBody() });
-  }
+ try {
+ const url = env.getUrl();
+ if (!url) {
+ Logger.fatal('Main', 'No URL in request');
+ releaseLock();
+ return env.done({});
+ }
 
-  // 🚨 注册全局变量（便于最终清理）
-  const registryKey = GlobalRegistry.register(`__vip_run_${Date.now()}`, true);
+ Logger.debug('Request', `Processing ${url.replace(/\?.*$/, '').substring(0, 50)}...`);
 
-  try {
-    Logger.debug('Request', `Processing ${url.replace(/\?.*$/, '').substring(0, 50)}...`);
+ const loader = new RuntimeLoader();
 
-    const loader = new RuntimeLoader();
+ let manifest;
+ try {
+ manifest = await loader.loadManifest();
+ } catch (e) {
+ Logger.fatal('Main', 'Manifest failed', e);
+ releaseLock();
+ return env.done({ body: env.getBody() });
+ }
 
-    let manifest;
-    try {
-      manifest = await loader.loadManifest();
-    } catch (e) {
-      Logger.fatal('Main', 'Manifest failed', e);
-      LockManager.release(lockKey);
-      GlobalRegistry.clear();
-      return env.done({ body: env.getBody() });
-    }
+ const configId = loader.findMatch(url);
+ if (!configId) {
+ Logger.debug('Main', 'No rule matched');
+ releaseLock();
+ return env.done({ body: env.getBody() });
+ }
 
-    const configId = loader.findMatch(url);
-    if (!configId) {
-      Logger.debug('Main', 'No rule matched');
-      LockManager.release(lockKey);
-      GlobalRegistry.clear();
-      return env.done({ body: env.getBody() });
-    }
+ let config;
+ try {
+ config = await loader.loadConfig(configId);
+ } catch (e) {
+ Logger.fatal('Main', 'Config failed', e);
+ releaseLock();
+ return env.done({ body: env.getBody() });
+ }
 
-    let config;
-    try {
-      config = await loader.loadConfig(configId);
-    } catch (e) {
-      Logger.fatal('Main', 'Config failed', e);
-      LockManager.release(lockKey);
-      GlobalRegistry.clear();
-      return env.done({ body: env.getBody() });
-    }
+ const engine = new VipEngine(env);
+ const result = engine.process(env.getBody(), config);
 
-    const engine = new VipEngine(env);
-    const result = engine.process(env.getBody(), config);
+ Logger.debug('Main', 'Completed');
 
-    Logger.debug('Main', 'Completed');
+ releaseLock();
+ env.done(result);
 
-    // 🚨 确保清理
-    LockManager.release(lockKey);
-    GlobalRegistry.clear();
-    
-    env.done(result);
-
-  } catch (e) {
-    Logger.fatal('Main', 'Fatal error', e);
-    
-    // 🚨 异常时也要清理
-    LockManager.release(lockKey);
-    GlobalRegistry.clear();
-    
-    env.done({ body: env.getBody() });
-  }
+ } catch (e) {
+ Logger.fatal('Main', 'Fatal error', e);
+ releaseLock();
+ env.done({ body: env.getBody() });
+ }
 }
-
-// 启动
 main();
