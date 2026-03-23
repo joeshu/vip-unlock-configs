@@ -78,7 +78,7 @@ const CONFIG = {
     // ==========================================
     // 强制刷新开关（临时启用）
     // ==========================================
-    FORCE_REFRESH_MANIFEST: true,  // ← 设为 true 强制刷新，验证成功后改回 false
+    FORCE_REFRESH_MANIFEST: false,  // ← 设为 true 强制刷新，验证成功后改回 false
     MANIFEST_VERSION: '20.3.2'     // ← 与 manifest.json 中的 version 一致
 };
 
