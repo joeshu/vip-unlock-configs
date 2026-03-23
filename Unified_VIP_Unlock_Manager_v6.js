@@ -1,0 +1,989 @@
+/**
+ * ==========================================
+ * Unified VIP Unlock Manager v20.3.1
+ * 统一 VIP 解锁管理器 - 激进缓存优化版（修复配置加载）
+ * @version 20.3.1
+ * @description 三级缓存架构 + 版本匹配优先 + 修复缓存键对齐
+ * ==========================================
+ 
+[rewrite_local]
+ # iAppDaily - 余额查询接口（JSON模式-声明式字段设置）
+ ^https:\/\/api\.iappdaily\.com\/my\/balance url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v6.js
+ ^https?:\/\/(?:api[23]\.tophub\.(?:xyz|today|app)|tophub(?:2)?\.(?:tophubdata\.com|idaily\.today|remai\.today|iappdaiy\.com|ipadown\.com))\/account\/sync url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v6.js
+ # gps - GPS工具箱（JSON模式-声明式字段设置）
+ ^https:\/\/service\.gpstool\.com\/app\/index\/getUserInfo url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v6.js
+ ^https?:\/\/mapi\.kouyuxingqiu\.com\/api\/v2 url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v6.js
+ # mhlz - 魔幻粒子（JSON模式-声明式前缀处理）
+ ^https?:\/\/ss\.landintheair\.com\/storage\/ url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v6.js
+ # v2ex - V2EX去广告（HTML替换模式）
+ ^https?:\/\/.*v2ex\.com\/(?!(?:.*(?:api|login|cdn-cgi|verify|auth|captch|\.(js|css|jpg|jpeg|png|webp|gif|zip|woff|woff2|m3u8|mp4|mov|m4v|avi|mkv|flv|rmvb|wmv|rm|asf|asx|mp3|json|ico|otf|ttf)))).+$ url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v6.js
+ # foday - 复游会去广告（多路径模式-声明式过滤）
+ ^https?:\/\/apis\.folidaymall\.com\/online\/capi\/component\/getPageComponents url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v6.js
+ # qiujingapp - 球竞APP去广告（多路径模式-声明式清空）
+ ^https?:\/\/gateway-api\.yizhilive\.com\/api\/v2\/index\/carouses\/(3|6|8|11)(\?.*)?$ url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v6.js
+ ^https?:\/\/gateway-api\.yizhilive\.com\/api\/v3\/index\/all\?.*position=2.*$ url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v6.js
+ # Keep - 课程/会员接口（正则替换模式）
+ ^https?:\/\/(api|kit)\.gotokeep\.com\/(nuocha|gerudo|athena|nuocha\/plans|suit\/v5\/smart|kprime\/v4\/suit\/sales)\/ url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v6.js
+ # bqwz - 标枪王者游戏数据接口（游戏数值模式）
+ ^https?:\/\/javelin\.mandrillvr\.com\/api\/data\/get_game_data url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v6.js
+ # bxkt - 伴学课堂接口（混合模式-声明式组合）
+ ^https?:\/\/api\.banxueketang\.com\/api\/classpal\/app\/v1 url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v6.js
+ # tv - 影视去广告接口（多路径模式-完全声明式）
+ ^https?:\/\/(yzy0916|yz1018|yz250907|yz0320|cfvip)\..+\.com\/(v2|v1)\/api\/(basic\/init|home\/firstScreen|adInfo\/getPageAd|home\/body) url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v6.js
+ ^https?:\/\/(yz\w{4,6}|cfvip)\..+\.com\/(v2|v1)\/api\/(adInfo|vodInfo)\/(getPageAd|getTextAd|getSearchAd|getVodBodyAd|getVodPauseAd|getUserCenterAd) url reject-dict
+ ^https?:\/\/(yz\w{4,6}|cfvip)\..+\.com\/(v2|v1)\/api\/(home\/notice|gameCenter\/gameDetailList) url reject-dict
+ # 成语来解压 - 微信小程序无限金币（游戏数值模式）
+ ^https?:\/\/yr-game-api\.feigo\.fun\/api\/user\/get-game-user-value url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v6.js
+ # 星际使命 - 微信小程序游戏数据修改（JSON声明式处理器-完全重构）
+ ^https?:\/\/star\.jvplay\.cn\/v2\/storage url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v6.js
+# wohome - 联通智家去广告（条件删除模式）
+ ^https:\/\/iotpservice\.smartont\.net\/wohome\/dispatcher url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v6.js
+# 思朗月影视 - 用户信息VIP解锁
+^https?:\/\/theater-api\.sylangyue\.xyz\/api\/user\/info url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v6.js
+ [mitm]
+ hostname = theater-api.sylangyue.xyz, api.iappdaily.com, api2.tophub.today, api2.tophub.app, api3.tophub.xyz, api3.tophub.today, api3.tophub.app, tophub.tophubdata.com, tophub2.tophubdata.com, tophub.idaily.today, tophub2.idaily.today, tophub.remai.today, tophub.iappdaiy.com, tophub.ipadown.com,service.gpstool.com, mapi.kouyuxingqiu.com, ss.landintheair.com, *.v2ex.com, apis.folidaymall.com, gateway-api.yizhilive.com, pagead*.googlesyndication.com, api.gotokeep.com, kit.gotokeep.com, *.gotokeep.*, 120.53.74.*, 162.14.5.*, 42.187.199.*, 101.42.124.*, javelin.mandrillvr.com,api.banxueketang.com, yzy0916.*.com, yz1018.*.com, yz250907.*.com, yz0320.*.com, cfvip.*.com,yr-game-api.feigo.fun,star.jvplay.cn,iotpservice.smartont.net
+*/
+
+
+'use strict';
+
+// ==========================================
+// 配置区域
+// ==========================================
+const CONFIG = {
+    REMOTE_BASE: 'https://joeshu.github.io/vip-unlock-configs',
+    CACHE_TTL: 6 * 60 * 60 * 1000,      // manifest 缓存 6 小时（仅用于参考）
+    CONFIG_CACHE_TTL: 60 * 60 * 1000,    // 配置缓存元数据保留时间
+    MAX_BODY_SIZE: 5 * 1024 * 1024,      // 5MB 响应体限制
+    MAX_PROCESSORS_PER_REQUEST: 30,      // 单请求处理器上限
+    TIMEOUT: 10,                         // HTTP 超时 10 秒
+    DEBUG: true
+};
+
+const META = {
+    name: 'UnifiedVIP',
+    version: '20.3.1'
+};
+
+// ==========================================
+// 防重复执行锁
+// ==========================================
+const EXECUTION_KEY = '_UnifiedVIP_executing' + (typeof request !== 'undefined' ? (request.url || Date.now()) : Date.now());
+try {
+    if (globalThis[EXECUTION_KEY]) {
+        if (typeof $response !== 'undefined' && $response) {
+            $done({ body: $response.body });
+        } else {
+            $done({});
+        }
+        return;
+    }
+    globalThis[EXECUTION_KEY] = true;
+} catch (e) {}
+
+const releaseLock = () => {
+    try {
+        delete globalThis[EXECUTION_KEY];
+    } catch (e) {}
+};
+
+// ==========================================
+// 日志系统
+// ==========================================
+const Logger = (() => {
+    const isDebug = CONFIG.DEBUG === true;
+    const noop = () => {};
+    
+    const log = (level, tag, msg, data) => {
+        const now = new Date();
+        const time = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`;
+        const prefix = `[${META.name}][${level.toUpperCase()}][${time}]`;
+        const tagStr = tag ? `[${tag}]` : '';
+        
+        let dataStr = '';
+        if (data) {
+            if (data instanceof Error) {
+                dataStr = ` | Error: ${data.message}`;
+            } else if (typeof data === 'object') {
+                try {
+                    dataStr = ` | ${JSON.stringify(data)}`;
+                } catch (e) {
+                    dataStr = ' | [Object]';
+                }
+            } else {
+                dataStr = ` | ${data}`;
+            }
+        }
+        
+        console.log(`${prefix}${tagStr} ${msg}${dataStr}`);
+    };
+    
+    if (!isDebug) {
+        return {
+            debug: noop,
+            info: noop,
+            warn: noop,
+            error: (tag, msg, data) => log('ERROR', tag, msg, data),
+            fatal: (tag, msg, err) => log('FATAL', tag, msg, err),
+            _isSilent: true
+        };
+    }
+    
+    return {
+        debug: (tag, msg, data) => log('debug', tag, msg, data),
+        info: (tag, msg, data) => log('info', tag, msg, data),
+        warn: (tag, msg, data) => log('warn', tag, msg, data),
+        error: (tag, msg, data) => log('error', tag, msg, data),
+        fatal: (tag, msg, err) => log('FATAL', tag, msg, err),
+        _isSilent: false
+    };
+})();
+
+// ==========================================
+// 环境修复
+// ==========================================
+(function fixEnvironment() {
+    if (typeof console === 'undefined') globalThis.console = { log: () => {} };
+    const _log = console.log.bind(console);
+    ['error', 'warn', 'debug', 'info'].forEach(method => {
+        if (typeof console[method] !== 'function') {
+            console[method] = (...args) => _log(`[${method.toUpperCase()}]`, ...args);
+        }
+    });
+})();
+
+// ==========================================
+// HTTP 请求
+// ==========================================
+const HTTP = {
+    get: (url, timeout = CONFIG.TIMEOUT) => new Promise((resolve, reject) => {
+        const startTime = Date.now();
+        
+        const handleResponse = (error, response, body) => {
+            if (error) {
+                let errorMsg;
+                if (typeof error === 'string') {
+                    errorMsg = error;
+                } else if (error && typeof error === 'object') {
+                    try {
+                        errorMsg = JSON.stringify(error);
+                    } catch (e) {
+                        errorMsg = String(error);
+                    }
+                } else {
+                    errorMsg = String(error);
+                }
+                reject(new Error(`HTTP Error: ${errorMsg}`));
+            } else {
+                resolve({
+                    body: body || '',
+                    status: typeof response === 'object' ? (response.status || 200) : 200,
+                    time: Date.now() - startTime
+                });
+            }
+        };
+        
+        try {
+            if (typeof $task !== 'undefined') {
+                $task.fetch({ url, method: 'GET', timeout }).then(
+                    res => handleResponse(null, { status: res.statusCode }, res.body),
+                    err => handleResponse(err, null, null)
+                );
+            } else if (typeof $httpClient !== 'undefined') {
+                $httpClient.get({ url, timeout }, handleResponse);
+            } else if (typeof $http !== 'undefined') {
+                $http.get(url, handleResponse);
+            } else {
+                reject(new Error('No HTTP client available'));
+            }
+        } catch (e) {
+            reject(new Error(`HTTP Setup: ${e.message}`));
+        }
+    })
+};
+
+// ==========================================
+// 存储（支持删除）
+// ==========================================
+const Storage = {
+    read: (key) => {
+        try {
+            if (typeof $prefs !== 'undefined') return $prefs.valueForKey(key);
+            if (typeof $persistentStore !== 'undefined') return $persistentStore.read(key);
+        } catch (e) {}
+        return null;
+    },
+    
+    write: (key, value) => {
+        try {
+            if (typeof $prefs !== 'undefined') {
+                return $prefs.setValueForKey(value, key);
+            }
+            if (typeof $persistentStore !== 'undefined') {
+                return $persistentStore.write(value, key);
+            }
+        } catch (e) {}
+        return false;
+    },
+    
+    remove: (key) => {
+        try {
+            if (typeof $prefs !== 'undefined') {
+                return $prefs.setValueForKey(null, key) || $prefs.setValueForKey('', key);
+            }
+            if (typeof $persistentStore !== 'undefined') {
+                return $persistentStore.write('', key);
+            }
+        } catch (e) {}
+        return false;
+    }
+};
+
+// ==========================================
+// 工具函数
+// ==========================================
+const Utils = {
+    safeJsonParse: (str, defaultVal = null) => {
+        try { return JSON.parse(str); } catch (e) { return defaultVal; }
+    },
+    
+    safeJsonStringify: (obj) => {
+        try { return JSON.stringify(obj); } catch (e) { return '{}'; }
+    },
+    
+    getPath: (obj, path) => {
+        if (!path || !obj) return undefined;
+        
+        const parts = path.split('.');
+        let current = obj;
+        
+        for (const part of parts) {
+            if (current === null || current === undefined) return undefined;
+            
+            const match = part.match(/^([^\[]+)\[(\d+)\]$/);
+            if (match) {
+                const arr = current[match[1]];
+                current = Array.isArray(arr) ? arr[parseInt(match[2])] : undefined;
+            } else {
+                current = current[part];
+            }
+        }
+        return current;
+    },
+    
+    setPath: (obj, path, value) => {
+        if (!path || !obj) return obj;
+        
+        const parts = path.split('.');
+        let current = obj;
+        
+        for (let i = 0; i < parts.length - 1; i++) {
+            const part = parts[i];
+            const nextPart = parts[i + 1];
+            
+            const match = part.match(/^([^\[]+)\[(\d+)\]$/);
+            const isNextArray = /^[^\[]+\[\d+\]$/.test(nextPart);
+            
+            if (match) {
+                const arrName = match[1];
+                const arrIndex = parseInt(match[2]);
+                
+                if (!(arrName in current) || !Array.isArray(current[arrName])) {
+                    current[arrName] = [];
+                }
+                while (current[arrName].length <= arrIndex) current[arrName].push({});
+                
+                if (i === parts.length - 2) {
+                    current[arrName][arrIndex] = value;
+                    return obj;
+                } else {
+                    current = current[arrName][arrIndex];
+                }
+            } else {
+                if (!(part in current) || current[part] === null) {
+                    current[part] = isNextArray ? [] : {};
+                }
+                current = current[part];
+            }
+        }
+        
+        const lastPart = parts[parts.length - 1];
+        const lastMatch = lastPart.match(/^([^\[]+)\[(\d+)\]$/);
+        
+        if (lastMatch) {
+            const arrName = lastMatch[1];
+            const arrIndex = parseInt(lastMatch[2]);
+            
+            if (!Array.isArray(current[arrName])) current[arrName] = [];
+            while (current[arrName].length <= arrIndex) current[arrName].push(null);
+            current[arrName][arrIndex] = value;
+        } else {
+            current[lastPart] = value;
+        }
+        
+        return obj;
+    },
+    
+    simpleHash: (str) => {
+        let hash = 0;
+        for (let i = 0; i < str.length; i++) {
+            const char = str.charCodeAt(i);
+            hash = ((hash << 5) - hash) + char;
+            hash = hash & hash;
+        }
+        return hash.toString(16);
+    }
+};
+
+// ==========================================
+// P0-2: 简化 Manifest 加载器（缓存优先）
+// ==========================================
+class SimpleManifestLoader {
+    constructor(requestId) {
+        this._requestId = requestId;
+        this._manifest = null;
+        this._patterns = new Map();
+    }
+    
+    async load() {
+        const cacheKey = 'vip_manifest_v20';
+        const cached = Storage.read(cacheKey);
+        
+        if (cached) {
+            Logger.debug('Manifest', `[${this._requestId}] L2 hit`);
+            this._manifest = Utils.safeJsonParse(cached);
+            this._compilePatterns();
+            return this._manifest;
+        }
+        
+        Logger.info('Manifest', `[${this._requestId}] fetch`);
+        const res = await HTTP.get(`${CONFIG.REMOTE_BASE}/manifest.json?t=${Date.now()}`);
+        
+        if (res.status !== 200 || !res.body) {
+            throw new Error(`HTTP ${res.status}`);
+        }
+        
+        this._manifest = Utils.safeJsonParse(res.body);
+        Storage.write(cacheKey, res.body);
+        this._compilePatterns();
+        return this._manifest;
+    }
+    
+    _compilePatterns() {
+        this._patterns.clear();
+        if (!this._manifest?.configs) return;
+        
+        for (const [id, info] of Object.entries(this._manifest.configs)) {
+            try {
+                if (info.urlPattern) {
+                    this._patterns.set(id, new RegExp(info.urlPattern));
+                }
+            } catch (e) {
+                Logger.debug('Manifest', `Invalid regex for ${id}: ${e.message}`);
+            }
+        }
+        
+        Logger.debug('Manifest', `[${this._requestId}] Compiled ${this._patterns.size} patterns`);
+    }
+    
+    findMatch(url) {
+        for (const [id, pattern] of this._patterns) {
+            try {
+                if (pattern.test(url)) return id;
+            } catch (e) {}
+        }
+        return null;
+    }
+    
+    getConfigVersion(configId) {
+        return this._manifest?.configVersions?.[configId] || '1.0';
+    }
+}
+
+// ==========================================
+// 优化版配置加载器（合并存储，单次 I/O）
+// ==========================================
+class SimpleConfigLoader {
+    constructor(requestId) {
+        this._requestId = requestId;
+        // 仅用于同请求内缓存（防止一个请求中重复加载同一配置）
+        this._memCache = new Map();
+    }
+    
+    async load(configId, remoteVersion) {
+        // L1: 同请求内存缓存
+        if (this._memCache.has(configId)) {
+            const cached = this._memCache.get(configId);
+            if (cached._version === remoteVersion) {
+                Logger.debug('Config', `[${this._requestId}] ${configId} L1 hit v${remoteVersion}`);
+                return cached;
+            }
+        }
+        
+        // L2: 合并存储（单次读取替代原来的3次读取）
+        const cacheKey = `vip_cfg_v20_${configId}`;
+        const stored = Storage.read(cacheKey);
+        
+        if (stored) {
+            try {
+                const { v, t, d } = JSON.parse(stored);
+                // 检查版本匹配且未过期
+                if (v === remoteVersion && (Date.now() - t) < CONFIG.CONFIG_CACHE_TTL) {
+                    Logger.info('Config', `[${this._requestId}] ${configId} L2 hit v${remoteVersion}`);
+                    const config = this._prepareConfig(d);
+                    config._version = remoteVersion;
+                    this._memCache.set(configId, config);
+                    return config;
+                }
+            } catch (e) {
+                Logger.debug('Config', `[${this._requestId}] ${configId} cache parse error, will refetch`);
+            }
+        }
+        
+        // 远程下载
+        Logger.info('Config', `[${this._requestId}] ${configId} fetch v${remoteVersion}`);
+        const fresh = await this._fetch(configId);
+        
+        // 合并写入（单次存储替代原来的3次存储）
+        Storage.write(cacheKey, JSON.stringify({
+            v: remoteVersion,
+            t: Date.now(),
+            d: fresh
+        }));
+        
+        const config = this._prepareConfig(fresh);
+        config._version = remoteVersion;
+        this._memCache.set(configId, config);
+        return config;
+    }
+    
+    async _fetch(configId) {
+        const url = `${CONFIG.REMOTE_BASE}/configs/${configId}.json?t=${Date.now()}`;
+        const res = await HTTP.get(url);
+        
+        if (res.status !== 200 || !res.body) {
+            throw new Error(`HTTP ${res.status}`);
+        }
+        
+        return Utils.safeJsonParse(res.body);
+    }
+    
+    _prepareConfig(raw) {
+        const config = { ...raw };
+        
+        // 预编译 urlPattern
+        if (raw.urlPattern) {
+            try {
+                config.urlPattern = new RegExp(raw.urlPattern);
+            } catch (e) {
+                Logger.warn('Config', `[${this._requestId}] Invalid urlPattern: ${e.message}`);
+                config.urlPattern = /.*/;
+            }
+        }
+        
+        // 预编译正则替换规则
+        if (raw.regexReplacements) {
+            config._regexReplacements = raw.regexReplacements.map(r => ({
+                pattern: new RegExp(r.pattern, r.flags || 'g'),
+                replacement: r.replacement
+            }));
+        }
+        
+        // 预编译游戏资源规则
+        if (raw.gameResources) {
+            config._gameResources = raw.gameResources.map(r => ({
+                field: r.field,
+                value: r.value,
+                pattern: new RegExp(`"${r.field}":\\d+`, 'g')
+            }));
+        }
+        
+        return config;
+    }
+}
+
+// ==========================================
+// 处理器工厂（请求级隔离）
+// ==========================================
+function createProcessorFactory(requestId) {
+    let processorCount = 0;
+    
+    const checkLimit = () => {
+        processorCount++;
+        if (processorCount > CONFIG.MAX_PROCESSORS_PER_REQUEST) {
+            throw new Error(`Processor limit exceeded: ${processorCount}`);
+        }
+    };
+    
+    return {
+        setFields: (params) => (obj, env) => {
+            checkLimit();
+            let modified = 0;
+            for (const [path, value] of Object.entries(params.fields || {})) {
+                Utils.setPath(obj, path, value);
+                modified++;
+            }
+            Logger.debug('Processor', `[${requestId}] SetFields modified ${modified} fields`);
+            return obj;
+        },
+        
+        mapArray: (params) => (obj, env) => {
+            checkLimit();
+            const arr = Utils.getPath(obj, params.path);
+            if (!Array.isArray(arr)) {
+                Logger.debug('Processor', `[${requestId}] ${params.path} is not an array`);
+                return obj;
+            }
+            let modified = 0;
+            for (const item of arr) {
+                if (!item) continue;
+                for (const [field, value] of Object.entries(params.fields || {})) {
+                    item[field] = value;
+                    modified++;
+                }
+            }
+            Logger.debug('Processor', `[${requestId}] MapArray processed ${modified} items`);
+            return obj;
+        },
+        
+        filterArray: (params) => (obj, env) => {
+            checkLimit();
+            const arr = Utils.getPath(obj, params.path);
+            if (!Array.isArray(arr)) return obj;
+            
+            const originalLength = arr.length;
+            const excludeSet = new Set(params.excludeKeys || []);
+            const filtered = arr.filter(item => !excludeSet.has(item?.[params.keyField]));
+            Utils.setPath(obj, params.path, filtered);
+            Logger.debug('Processor', `[${requestId}] Filtered ${params.path}: ${originalLength} → ${filtered.length}`);
+            return obj;
+        },
+        
+        clearArray: (params) => (obj, env) => {
+            checkLimit();
+            const arr = Utils.getPath(obj, params.path);
+            if (Array.isArray(arr)) {
+                const count = arr.length;
+                arr.length = 0;
+                Logger.debug('Processor', `[${requestId}] Cleared ${params.logName || params.path}: ${count} items`);
+            }
+            return obj;
+        },
+        
+        deleteFields: (params) => (obj, env) => {
+            checkLimit();
+            let deleted = 0;
+            for (const path of params.paths || []) {
+                const parts = path.split('.');
+                let current = obj;
+                for (let i = 0; i < parts.length - 1; i++) {
+                    current = current?.[parts[i]];
+                    if (!current) break;
+                }
+                if (current) {
+                    delete current[parts[parts.length - 1]];
+                    deleted++;
+                }
+            }
+            Logger.debug('Processor', `[${requestId}] Deleted ${deleted} fields`);
+            return obj;
+        },
+        
+        sliceArray: (params) => (obj, env) => {
+            checkLimit();
+            const arr = Utils.getPath(obj, params.path);
+            if (Array.isArray(arr) && arr.length > params.keepCount) {
+                Utils.setPath(obj, params.path, arr.slice(0, params.keepCount));
+                Logger.debug('Processor', `[${requestId}] Sliced ${params.path}: ${arr.length} → ${params.keepCount}`);
+            }
+            return obj;
+        },
+        
+        shiftArray: (params) => (obj, env) => {
+            checkLimit();
+            const arr = Utils.getPath(obj, params.path);
+            if (Array.isArray(arr) && arr.length > 0) {
+                arr.shift();
+                Logger.debug('Processor', `[${requestId}] Shifted ${params.logName || params.path}`);
+            }
+            return obj;
+        },
+        
+        processByKeyPrefix: (params) => (obj, env) => {
+            checkLimit();
+            const target = Utils.getPath(obj, params.objPath);
+            if (!target || typeof target !== 'object') return obj;
+            
+            let modified = 0;
+            const rules = Object.entries(params.prefixRules || {});
+            for (const [key, value] of Object.entries(target)) {
+                for (const [prefix, handler] of rules) {
+                    if (prefix !== '*' && key.startsWith(prefix)) {
+                        Object.assign(value, handler);
+                        modified++;
+                        break;
+                    }
+                }
+            }
+            Logger.debug('Processor', `[${requestId}] Processed ${modified} items by key prefix`);
+            return obj;
+        },
+        
+        compose: (params, compile) => {
+            checkLimit();
+            const steps = params.steps || [];
+            const processors = steps.map(step => compile(step));
+            
+            return (obj, env) => {
+                let result = obj;
+                for (let i = 0; i < processors.length; i++) {
+                    if (!result) break;
+                    Logger.debug('Compose', `[${requestId}] Step ${i + 1}/${processors.length}`);
+                    result = processors[i](result, env);
+                }
+                return result;
+            };
+        },
+        
+        when: (params, compile) => {
+            checkLimit();
+            return (obj, env) => {
+                let conditionMet = false;
+                const url = env?.getUrl?.() || '';
+                
+                switch (params.condition) {
+                    case "empty":
+                        const data = Utils.getPath(obj, params.check || 'data');
+                        conditionMet = !data || Object.keys(data).length === 0;
+                        break;
+                    case "pathMatch":
+                        conditionMet = params.path && url.includes(params.path);
+                        break;
+                    case "queryMatch":
+                        const match = url.match(new RegExp(`[?&]${params.param}=([^&]+)`));
+                        conditionMet = match && decodeURIComponent(match[1]) === params.value;
+                        break;
+                    case "includes":
+                        const checkData = Utils.getPath(obj, params.check || 'data');
+                        conditionMet = Array.isArray(checkData) 
+                            ? checkData.includes(params.value) 
+                            : String(checkData).includes(params.value);
+                        break;
+                    case "isObject":
+                        conditionMet = typeof obj.data === 'object' && !Array.isArray(obj.data);
+                        break;
+                    case "isArray":
+                        conditionMet = Array.isArray(obj.data);
+                        break;
+                }
+                
+                Logger.debug('When', `[${requestId}] Condition "${params.condition}" = ${conditionMet}`);
+                
+                if (conditionMet && params.then) {
+                    return compile(params.then)(obj, env);
+                } else if (!conditionMet && params.else) {
+                    return compile(params.else)(obj, env);
+                }
+                return obj;
+            };
+        },
+        
+        sceneDispatcher: (params, compile) => {
+            checkLimit();
+            const scenes = (params.scenes || []).map(s => ({
+                name: s.name,
+                when: s.when,
+                path: s.path,
+                param: s.param,
+                value: s.value,
+                check: s.check,
+                key: s.key,
+                values: s.values,
+                then: compile(s.then)
+            }));
+            
+            return (obj, env) => {
+                const url = env?.getUrl?.() || '';
+                
+                for (const scene of scenes) {
+                    let matched = false;
+                    
+                    switch (scene.when) {
+                        case "pathMatch":
+                            matched = scene.path && url.includes(scene.path);
+                            break;
+                        case "queryMatch":
+                            const m = url.match(new RegExp(`[?&]${scene.param}=([^&]+)`));
+                            matched = m && decodeURIComponent(m[1]) === scene.value;
+                            break;
+                        case "includes":
+                            const d = Utils.getPath(obj, scene.check || 'data');
+                            matched = Array.isArray(d) ? d.includes(scene.value) : String(d).includes(scene.value);
+                            break;
+                        case "empty":
+                            const ed = Utils.getPath(obj, scene.check || 'data');
+                            matched = !ed || Object.keys(ed).length === 0;
+                            break;
+                        case "isObject":
+                            matched = typeof obj.data === 'object' && !Array.isArray(obj.data);
+                            break;
+                        case "isArray":
+                            matched = Array.isArray(obj.data);
+                            break;
+                    }
+                    
+                    if (matched) {
+                        Logger.debug('Scene', `[${requestId}] Matched: ${scene.name}`);
+                        return scene.then(obj, env);
+                    }
+                }
+                
+                Logger.debug('Scene', `[${requestId}] No scene matched`);
+                return obj;
+            };
+        }
+    };
+}
+
+// ==========================================
+// 处理器编译（请求级缓存）
+// ==========================================
+function createCompiler(factory) {
+    const cache = new Map();
+    
+    return function compileProcessor(def) {
+        if (!def || !def.processor) return null;
+        
+        const cacheKey = Utils.simpleHash(JSON.stringify(def));
+        if (cache.has(cacheKey)) {
+            return cache.get(cacheKey);
+        }
+        
+        const processorFactory = factory[def.processor];
+        if (!processorFactory) {
+            Logger.debug('Compile', `Unknown processor: ${def.processor}`);
+            return null;
+        }
+        
+        const processor = processorFactory(def.params, compileProcessor);
+        if (processor) {
+            cache.set(cacheKey, processor);
+        }
+        return processor;
+    };
+}
+
+// ==========================================
+// 环境和引擎
+// ==========================================
+class Environment {
+    constructor(name) {
+        this.name = name;
+        this.isQX = typeof $task !== 'undefined';
+        this.isSurge = typeof $httpClient !== 'undefined' && !this.isQX;
+        this.isLoon = typeof $loon !== 'undefined';
+        this.response = typeof $response !== 'undefined' ? $response : {};
+        this.request = typeof $request !== 'undefined' ? $request : {};
+        
+        if (!this.request.url && this.response.request?.url) {
+            this.request = this.response.request;
+        }
+    }
+    
+    getUrl() {
+        let url = this.response?.url || this.request?.url || '';
+        if (this.isQX && typeof $request === 'string') url = $request;
+        return url.toString();
+    }
+    
+    getBody() {
+        return this.response?.body || '';
+    }
+    
+    done(result) {
+        if (typeof $done === 'function') $done(result);
+        else console.log('[DONE]', result);
+    }
+}
+
+class VipEngine {
+    constructor(env, requestId) {
+        this.env = env;
+        this._requestId = requestId;
+    }
+    
+    process(body, config) {
+        if (!body) {
+            Logger.debug('Engine', `[${this._requestId}] Empty body`);
+            return { body: '{}' };
+        }
+        
+        const bodySize = typeof body === 'string' ? body.length : JSON.stringify(body).length;
+        if (bodySize > CONFIG.MAX_BODY_SIZE) {
+            Logger.warn('Engine', `[${this._requestId}] Body too large: ${(bodySize/1024/1024).toFixed(2)}MB`);
+            return { body: typeof body === 'string' ? body : JSON.stringify(body) };
+        }
+        
+        switch (config.mode) {
+            case 'json':
+                return this.processJson(body, config);
+            case 'regex':
+                return this.processRegex(body, config);
+            case 'game':
+                return this.processGame(body, config);
+            case 'hybrid':
+                return this.processHybrid(body, config);
+            case 'html':
+                return this.processHtml(body, config);
+            default:
+                Logger.debug('Engine', `[${this._requestId}] Unknown mode: ${config.mode}`);
+                return { body };
+        }
+    }
+    
+    processJson(body, config) {
+        if (typeof body === 'string' && body.length > CONFIG.MAX_BODY_SIZE) {
+            Logger.warn('Engine', `[${this._requestId}] JSON body too large`);
+            return { body };
+        }
+
+        let obj = Utils.safeJsonParse(body);
+        if (!obj) {
+            Logger.error('Engine', `[${this._requestId}] Failed to parse JSON`);
+            return { body };
+        }
+        
+        // 创建请求级处理器工厂和编译器
+        const factory = createProcessorFactory(this._requestId);
+        const compile = createCompiler(factory);
+        const processor = config.processor ? compile(config.processor) : null;
+        
+        if (typeof processor === 'function') {
+            try {
+                obj = processor(obj, this.env);
+                Logger.debug('Engine', `[${this._requestId}] ${config.name || 'VIP'} unlocked`);
+            } catch (e) {
+                Logger.error('Engine', `[${this._requestId}] Processor error`, e);
+            }
+        } else {
+            Logger.debug('Engine', `[${this._requestId}] No custom processor`);
+        }
+        
+        return { body: Utils.safeJsonStringify(obj) };
+    }
+    
+    processRegex(body, config) {
+        let modified = body;
+        let count = 0;
+        
+        // 优先使用预编译的 _regexReplacements
+        const replacements = config._regexReplacements || config.regexReplacements || [];
+        for (const rule of replacements) {
+            try {
+                const pattern = rule.pattern || new RegExp(rule.pattern, rule.flags || 'g');
+                const original = modified;
+                modified = modified.replace(pattern, rule.replacement);
+                if (original !== modified) count++;
+            } catch (e) {}
+        }
+        
+        Logger.debug('Engine', `[${this._requestId}] Regex replaced ${count} patterns`);
+        return { body: modified };
+    }
+    
+    processGame(body, config) {
+        let modified = body;
+        let count = 0;
+        
+        // 优先使用预编译的 _gameResources
+        const resources = config._gameResources || config.gameResources || [];
+        for (const res of resources) {
+            try {
+                const pattern = res.pattern || new RegExp(`"${res.field}":\\d+`, 'g');
+                const original = modified;
+                modified = modified.replace(pattern, `"${res.field}":${res.value}`);
+                if (original !== modified) count++;
+            } catch (e) {}
+        }
+        
+        Logger.debug('Engine', `[${this._requestId}] Game resources modified: ${count}`);
+        return { body: modified };
+    }
+    
+    processHybrid(body, config) {
+        let result = this.processJson(body, config);
+        if (config._regexReplacements || config.regexReplacements) {
+            result = this.processRegex(result.body, config);
+        }
+        return result;
+    }
+    
+    processHtml(body, config) {
+        let modified = body;
+        let count = 0;
+        
+        for (const rule of config.htmlReplacements || []) {
+            try {
+                const regex = new RegExp(rule.pattern, rule.flags || 'i');
+                const original = modified;
+                modified = modified.replace(regex, rule.replacement);
+                if (original !== modified) count++;
+            } catch (e) {}
+        }
+        
+        Logger.debug('Engine', `[${this._requestId}] HTML replaced ${count} patterns`);
+        return { body: modified };
+    }
+}
+
+// ==========================================
+// 主函数（P0-2 激进缓存优先）
+// ==========================================
+async function main() {
+    const requestId = Math.random().toString(36).substr(2, 6).toUpperCase();
+    const env = new Environment(META.name);
+    
+    try {
+        const url = env.getUrl();
+        if (!url) {
+            Logger.fatal('Main', `[${requestId}] No URL in request`);
+            return env.done({ body: env.getBody() });
+        }
+        
+        Logger.debug('Main', `[${requestId}] Processing ${url.replace(/\?.*$/, '').substring(0, 50)}...`);
+        
+        // 1. 加载 Manifest（L2 缓存优先）
+        const mLoader = new SimpleManifestLoader(requestId);
+        const manifest = await mLoader.load();
+        
+        // 2. URL 匹配
+        const configId = mLoader.findMatch(url);
+        if (!configId) {
+            Logger.debug('Main', `[${requestId}] No rule matched`);
+            return env.done({ body: env.getBody() });
+        }
+        
+        // 3. 获取远程版本号
+        const remoteVersion = mLoader.getConfigVersion(configId);
+        
+        // 4. 加载配置（优化版：L1 + L2 合并存储）
+        const cLoader = new SimpleConfigLoader(requestId);
+        const config = await cLoader.load(configId, remoteVersion);
+        
+        // 5. 执行处理
+        const engine = new VipEngine(env, requestId);
+        const result = engine.process(env.getBody(), config);
+        
+        Logger.debug('Main', `[${requestId}] Completed`);
+        releaseLock();
+        env.done(result);
+        
+    } catch (e) {
+        Logger.fatal('Main', `[${requestId}] Fatal error`, e);
+        releaseLock();
+        env.done({ body: env.getBody() });
+    }
+}
+
+// 启动
+main();
