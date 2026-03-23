@@ -3,9 +3,9 @@
  * Unified VIP Unlock Manager v20.3.1 - QX优化补丁
  * 优化项：锁修复 + DEBUG关闭 + 存储缓存 + 正则池 + 处理器优化 + HTTP超时 + 环境检测
  * QX 兼容优化版 - 放弃跨请求缓存，专注单次性能
+  * 特性：高性能锁（读多写少）+ 无锁去重切换
  * ==========================================
- 
-[rewrite_local]
+ [rewrite_local]
  # iAppDaily - 余额查询接口（JSON模式-声明式字段设置）
  ^https:\/\/api\.iappdaily\.com\/my\/balance url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v6.js
  ^https?:\/\/(?:api[23]\.tophub\.(?:xyz|today|app)|tophub(?:2)?\.(?:tophubdata\.com|idaily\.today|remai\.today|iappdaiy\.com|ipadown\.com))\/account\/sync url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v6.js
@@ -43,7 +43,6 @@
  hostname = theater-api.sylangyue.xyz, api.iappdaily.com, api2.tophub.today, api2.tophub.app, api3.tophub.xyz, api3.tophub.today, api3.tophub.app, tophub.tophubdata.com, tophub2.tophubdata.com, tophub.idaily.today, tophub2.idaily.today, tophub.remai.today, tophub.iappdaiy.com, tophub.ipadown.com,service.gpstool.com, mapi.kouyuxingqiu.com, ss.landintheair.com, *.v2ex.com, apis.folidaymall.com, gateway-api.yizhilive.com, pagead*.googlesyndication.com, api.gotokeep.com, kit.gotokeep.com, *.gotokeep.*, 120.53.74.*, 162.14.5.*, 42.187.199.*, 101.42.124.*, javelin.mandrillvr.com,api.banxueketang.com, yzy0916.*.com, yz1018.*.com, yz250907.*.com, yz0320.*.com, cfvip.*.com,yr-game-api.feigo.fun,star.jvplay.cn,iotpservice.smartont.net
 */
 'use strict';
-
 // ==========================================
 // 配置区域
 // ==========================================
@@ -54,52 +53,152 @@ const CONFIG = {
     MAX_BODY_SIZE: 5 * 1024 * 1024,
     MAX_PROCESSORS_PER_REQUEST: 30,
     TIMEOUT: 10,
-    DEBUG: true
+    DEBUG: true,
+    
+    // 锁配置
+    USE_DISTRIBUTED_LOCK: true,  // true=分布式锁（强一致性）, false=内存去重（高性能）
+    LOCK_TTL: 3000,              // 锁有效期3秒
+    LOCAL_CACHE_TTL: 100,        // 本地缓存100ms
+    DEDUP_WINDOW: 500            // 无锁模式下去重窗口500ms
 };
 
 const META = {
     name: 'UnifiedVIP',
-    version: '20.3.1-qx'
+    version: '20.3.1-balanced'
 };
 
 // ==========================================
-// 优化2：修复防重复锁
+// 平衡锁实现：读多写少策略
 // ==========================================
-const LockManager = (() => {
-    const locks = new Set();
-    const MAX_LOCKS = 100;
+const BalancedLock = (() => {
+    const LOCK_PREFIX = '_vip_lock_';
+    
+    // 内存缓存（减少存储读取）
+    const localCache = new Map();
+    
+    // 无锁去重（高性能模式）
+    const recentUrls = new Map();
+    
+    const isQX = typeof $task !== 'undefined';
+    
+    // 分布式锁（强一致性模式）
+    const distributedAcquire = (key) => {
+        const now = Date.now();
+        
+        // L1: 本地内存检查（零I/O）
+        const cached = localCache.get(key);
+        if (cached && (now - cached) < CONFIG.LOCAL_CACHE_TTL) {
+            Logger.debug('Lock', 'L1 reject (recent local)');
+            return false;
+        }
+        
+        // L2: 检查存储锁（仅QX）
+        if (isQX) {
+            try {
+                const lockKey = LOCK_PREFIX + key;
+                const existing = $prefs.valueForKey(lockKey);
+                
+                if (existing) {
+                    const lockTime = parseInt(existing);
+                    if (now - lockTime < CONFIG.LOCK_TTL) {
+                        Logger.debug('Lock', 'L2 reject (distributed locked)');
+                        localCache.set(key, now - CONFIG.LOCAL_CACHE_TTL + 50); // 缓存拒绝结果50ms
+                        return false;
+                    }
+                    // 锁过期
+                }
+                
+                // 获取锁
+                $prefs.setValueForKey(now.toString(), lockKey);
+                Logger.debug('Lock', 'L2 acquired (distributed)');
+                
+            } catch (e) {
+                Logger.warn('Lock', 'Distributed lock failed, fallback to local');
+            }
+        }
+        
+        localCache.set(key, now);
+        return true;
+    };
+    
+    const distributedRelease = (key) => {
+        localCache.delete(key);
+        if (isQX) {
+            try {
+                $prefs.setValueForKey('', LOCK_PREFIX + key);
+                Logger.debug('Lock', 'Released (distributed)');
+            } catch (e) {}
+        }
+    };
+    
+    // 无锁去重（纯内存）
+    const memoryAcquire = (url) => {
+        const now = Date.now();
+        const key = url.split('?')[0];
+        
+        const lastSeen = recentUrls.get(key);
+        if (lastSeen && (now - lastSeen) < CONFIG.DEDUP_WINDOW) {
+            Logger.debug('Lock', `Memory reject (seen ${now - lastSeen}ms ago)`);
+            return false;
+        }
+        
+        recentUrls.set(key, now);
+        
+        // 清理旧记录
+        if (recentUrls.size > 50) {
+            const cutoff = now - CONFIG.DEDUP_WINDOW;
+            for (const [k, v] of recentUrls) {
+                if (v < cutoff) recentUrls.delete(k);
+            }
+        }
+        
+        return true;
+    };
+    
+    const memoryRelease = () => {
+        // 无锁模式无需释放
+    };
     
     return {
-        acquire: (key) => {
-            if (locks.has(key)) return false;
-            if (locks.size >= MAX_LOCKS) {
-                const first = locks.values().next().value;
-                locks.delete(first);
+        acquire: (key, url) => {
+            if (CONFIG.USE_DISTRIBUTED_LOCK) {
+                return distributedAcquire(key);
+            } else {
+                return memoryAcquire(url);
             }
-            locks.add(key);
-            return true;
         },
         release: (key) => {
-            locks.delete(key);
+            if (CONFIG.USE_DISTRIBUTED_LOCK) {
+                distributedRelease(key);
+            } else {
+                memoryRelease();
+            }
         },
         makeKey: (url) => {
+            const cleanUrl = url.split('?')[0];
             let hash = 0;
-            for (let i = 0; i < url.length; i++) {
-                hash = ((hash << 5) - hash) + url.charCodeAt(i);
+            for (let i = 0; i < cleanUrl.length; i++) {
+                hash = ((hash << 5) - hash) + cleanUrl.charCodeAt(i);
                 hash = hash & hash;
             }
-            return 'L' + Math.abs(hash).toString(36);
-        }
+            return Math.abs(hash).toString(36).substring(0, 10);
+        },
+        getMode: () => CONFIG.USE_DISTRIBUTED_LOCK ? 'distributed' : 'memory'
     };
 })();
 
-const LOCK_KEY = LockManager.makeKey(
-    (typeof $request !== 'undefined' && $request.url) ? $request.url : 
-    (typeof $response !== 'undefined' && $response.url) ? $response.url : 
-    Date.now().toString()
-);
+// ==========================================
+// 获取锁
+// ==========================================
+const URL = (typeof $request !== 'undefined' && $request.url) ? $request.url : 
+            (typeof $response !== 'undefined' && $response.url) ? $response.url : '';
 
-if (!LockManager.acquire(LOCK_KEY)) {
+const LOCK_KEY = BalancedLock.makeKey(URL);
+
+Logger.info('Lock', `Mode: ${BalancedLock.getMode()}, Key: ${LOCK_KEY}`);
+
+if (!BalancedLock.acquire(LOCK_KEY, URL)) {
+    Logger.info('Lock', 'Duplicate request, skipping');
     if (typeof $response !== 'undefined' && $response) {
         $done({ body: $response.body });
     } else {
@@ -108,10 +207,10 @@ if (!LockManager.acquire(LOCK_KEY)) {
     return;
 }
 
-const releaseLock = () => LockManager.release(LOCK_KEY);
+const releaseLock = () => BalancedLock.release(LOCK_KEY);
 
 // ==========================================
-// 修复：DEBUG=true时日志正常工作
+// 日志系统
 // ==========================================
 const Logger = (() => {
     const isDebug = CONFIG.DEBUG === true;
@@ -124,7 +223,7 @@ const Logger = (() => {
     
     const log = (level, tag, msg, data) => {
         const now = new Date();
-        const time = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`;
+        const time = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}.${String(now.getMilliseconds()).padStart(3,'0')}`;
         const prefix = `[${META.name}][${level.toUpperCase()}][${time}]`;
         const tagStr = tag ? `[${tag}]` : '';
         
@@ -157,7 +256,7 @@ const Logger = (() => {
 })();
 
 // ==========================================
-// 优化9：环境检测延迟执行
+// 环境检测
 // ==========================================
 if (typeof console === 'undefined') {
     globalThis.console = { log: () => {} };
@@ -170,7 +269,7 @@ const _log = console.log.bind(console);
 });
 
 // ==========================================
-// 优化4：QX存储优化（内存缓存层）
+// 存储优化
 // ==========================================
 const Storage = (() => {
     const memCache = new Map();
@@ -217,22 +316,17 @@ const Storage = (() => {
         readBatch: (keys) => {
             const result = {};
             const now = Date.now();
-            const missingKeys = [];
             
             for (const key of keys) {
                 const cached = memCache.get(key);
                 if (cached && (now - cached.t) < MEM_TTL) {
                     result[key] = cached.v;
                 } else {
-                    missingKeys.push(key);
-                }
-            }
-            
-            for (const key of missingKeys) {
-                const value = backend.read(key);
-                if (value !== null) {
-                    result[key] = value;
-                    memCache.set(key, { v: value, t: now });
+                    const value = backend.read(key);
+                    if (value !== null) {
+                        result[key] = value;
+                        memCache.set(key, { v: value, t: now });
+                    }
                 }
             }
             
@@ -242,7 +336,7 @@ const Storage = (() => {
 })();
 
 // ==========================================
-// 优化8：HTTP超时精确控制
+// HTTP客户端
 // ==========================================
 const HTTP = (() => {
     const isQX = typeof $task !== 'undefined';
@@ -251,23 +345,18 @@ const HTTP = (() => {
     return {
         get: (url, timeout = CONFIG.TIMEOUT * 1000) => new Promise((resolve, reject) => {
             const timer = setTimeout(() => {
-                reject(new Error(`HTTP Timeout: ${url.substring(0, 50)}...`));
+                reject(new Error('Timeout'));
             }, timeout);
-            
-            const startTime = Date.now();
             
             const handleResponse = (error, response, body) => {
                 clearTimeout(timer);
                 
                 if (error) {
-                    const errorMsg = typeof error === 'string' ? error : 
-                                    (error && typeof error === 'object') ? JSON.stringify(error) : String(error);
-                    reject(new Error(`HTTP Error: ${errorMsg}`));
+                    reject(new Error(String(error)));
                 } else {
                     resolve({
                         body: body || '',
-                        status: typeof response === 'object' ? (response.status || 200) : 200,
-                        time: Date.now() - startTime
+                        status: typeof response === 'object' ? (response.status || 200) : 200
                     });
                 }
             };
@@ -288,11 +377,11 @@ const HTTP = (() => {
                     $http.get(url, handleResponse);
                 } else {
                     clearTimeout(timer);
-                    reject(new Error('No HTTP client available'));
+                    reject(new Error('No HTTP client'));
                 }
             } catch (e) {
                 clearTimeout(timer);
-                reject(new Error(`HTTP Setup: ${e.message}`));
+                reject(e);
             }
         })
     };
@@ -355,7 +444,7 @@ const Utils = {
 };
 
 // ==========================================
-// 优化5：正则表达式全局缓存池（单次请求内有效）
+// 正则缓存池
 // ==========================================
 const RegexPool = (() => {
     const cache = new Map();
@@ -404,7 +493,7 @@ const RegexPool = (() => {
 })();
 
 // ==========================================
-// 优化6：处理器工厂（移除计数器）
+// 处理器工厂（无计数器）
 // ==========================================
 function createProcessorFactory(requestId) {
     return {
@@ -598,7 +687,7 @@ function createCompiler(factory) {
 }
 
 // ==========================================
-// Manifest加载器（简化版，移除无效的跨请求缓存）
+// Manifest加载器
 // ==========================================
 class SimpleManifestLoader {
     constructor(requestId) {
@@ -610,7 +699,6 @@ class SimpleManifestLoader {
     async load() {
         const cacheKey = 'vip_manifest_v20';
         
-        // 单次请求内：先查Storage内存缓存，再查持久化
         const { [cacheKey]: cached } = Storage.readBatch([cacheKey]);
         
         if (cached) {
@@ -620,7 +708,6 @@ class SimpleManifestLoader {
             return this._manifest;
         }
 
-        // 远程加载
         Logger.info('ManifestLoader', 'Fetching remote...');
         const res = await HTTP.get(`${CONFIG.REMOTE_BASE}/manifest.json?t=${Date.now()}`);
         
@@ -674,7 +761,6 @@ class SimpleConfigLoader {
     }
 
     async load(configId, remoteVersion) {
-        // 同请求内内存缓存
         if (this._memCache.has(configId)) {
             const cached = this._memCache.get(configId);
             if (cached._version === remoteVersion) {
@@ -699,7 +785,6 @@ class SimpleConfigLoader {
             } catch (e) {}
         }
 
-        // 远程加载
         Logger.info('ConfigLoader', `${configId} fetching remote...`);
         const fresh = await this._fetch(configId);
         
@@ -763,7 +848,6 @@ class Environment {
         if (!this.request.url && this.response.request?.url) {
             this.request = this.response.request;
         }
-        Logger.debug('Environment', `Platform: ${this.isQX ? 'QX' : this.isSurge ? 'Surge' : 'Other'}`);
     }
 
     getUrl() {
@@ -879,7 +963,6 @@ class VipEngine {
 // ==========================================
 async function main() {
     const requestId = Math.random().toString(36).substr(2, 6).toUpperCase();
-    Logger.info('Main', `=== ${requestId} started ===`);
     
     const env = new Environment(META.name);
 
@@ -890,7 +973,7 @@ async function main() {
             return env.done({ body: env.getBody() });
         }
 
-        Logger.info('Main', `Processing: ${url.replace(/\?.*$/, '').substring(0, 60)}...`);
+        Logger.info('Main', `${requestId} | ${url.replace(/\?.*$/, '').substring(0, 60)}`);
 
         const mLoader = new SimpleManifestLoader(requestId);
         const manifest = await mLoader.load();
@@ -901,7 +984,6 @@ async function main() {
             releaseLock();
             return env.done({ body: env.getBody() });
         }
-        Logger.info('Main', `Matched: ${configId}`);
 
         const remoteVersion = mLoader.getConfigVersion(configId);
 
@@ -911,12 +993,12 @@ async function main() {
         const engine = new VipEngine(env, requestId);
         const result = engine.process(env.getBody(), config);
 
-        Logger.info('Main', `=== ${requestId} completed ===`);
+        Logger.info('Main', `${requestId} completed`);
         releaseLock();
         env.done(result);
 
     } catch (e) {
-        Logger.fatal('Main', `Failed: ${e.message}`);
+        Logger.error('Main', `${requestId} failed: ${e.message}`);
         releaseLock();
         env.done({ body: env.getBody() });
     }
