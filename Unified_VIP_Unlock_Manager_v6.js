@@ -2,7 +2,7 @@
  * ==========================================
  * Unified VIP Unlock Manager v20.3.1 - QX优化补丁
  * 优化项：锁修复 + DEBUG关闭 + 存储缓存 + 正则池 + 处理器优化 + HTTP超时 + 环境检测
-  * 新增：Manifest内存缓存（60秒零I/O）
+ * QX 兼容优化版 - 放弃跨请求缓存，专注单次性能
  * ==========================================
  
 [rewrite_local]
@@ -59,44 +59,8 @@ const CONFIG = {
 
 const META = {
     name: 'UnifiedVIP',
-    version: '20.3.1-opt'
+    version: '20.3.1-qx'
 };
-
-// ==========================================
-// 新增：Manifest内存缓存（跨请求零I/O）
-// ==========================================
-const ManifestCache = (() => {
-    let manifest = null;
-    let patterns = null;
-    let lastLoad = 0;
-    const MEM_TTL = 180000; // 180秒内存缓存
-    
-    return {
-        get: () => {
-            if (manifest && (Date.now() - lastLoad) < MEM_TTL) {
-                Logger.debug('ManifestCache', `Hit: ${(Date.now() - lastLoad)}ms old`);
-                return { manifest, patterns };
-            }
-            return null;
-        },
-        set: (m, p) => {
-            manifest = m;
-            patterns = p;
-            lastLoad = Date.now();
-            Logger.debug('ManifestCache', 'Updated');
-        },
-        clear: () => {
-            manifest = null;
-            patterns = null;
-            lastLoad = 0;
-        },
-        getStats: () => ({
-            hasData: !!manifest,
-            age: lastLoad ? Date.now() - lastLoad : 0,
-            patternCount: patterns?.size || 0
-        })
-    };
-})();
 
 // ==========================================
 // 优化2：修复防重复锁
@@ -226,7 +190,6 @@ const Storage = (() => {
             const now = Date.now();
             const cached = memCache.get(key);
             if (cached && (now - cached.t) < MEM_TTL) {
-                Logger.debug('Storage', `Memory hit: ${key}`);
                 return cached.v;
             }
             
@@ -234,13 +197,9 @@ const Storage = (() => {
                 const value = backend.read(key);
                 if (value !== null && value !== undefined && value !== '') {
                     memCache.set(key, { v: value, t: now });
-                    Logger.debug('Storage', `Disk hit: ${key}`);
-                } else {
-                    Logger.debug('Storage', `Miss: ${key}`);
                 }
                 return value;
             } catch (e) {
-                Logger.error('Storage', `Read error: ${key}`, e);
                 return null;
             }
         },
@@ -248,21 +207,8 @@ const Storage = (() => {
         write: (key, value) => {
             const now = Date.now();
             memCache.set(key, { v: value, t: now });
-            Logger.debug('Storage', `Write: ${key}`);
-            
             try {
                 return backend.write(key, value);
-            } catch (e) {
-                Logger.error('Storage', `Write error: ${key}`, e);
-                return false;
-            }
-        },
-        
-        remove: (key) => {
-            memCache.delete(key);
-            Logger.debug('Storage', `Remove: ${key}`);
-            try {
-                return backend.write(key, '') || backend.write(key, null);
             } catch (e) {
                 return false;
             }
@@ -277,7 +223,6 @@ const Storage = (() => {
                 const cached = memCache.get(key);
                 if (cached && (now - cached.t) < MEM_TTL) {
                     result[key] = cached.v;
-                    Logger.debug('Storage', `Batch memory hit: ${key}`);
                 } else {
                     missingKeys.push(key);
                 }
@@ -288,7 +233,6 @@ const Storage = (() => {
                 if (value !== null) {
                     result[key] = value;
                     memCache.set(key, { v: value, t: now });
-                    Logger.debug('Storage', `Batch disk hit: ${key}`);
                 }
             }
             
@@ -307,12 +251,10 @@ const HTTP = (() => {
     return {
         get: (url, timeout = CONFIG.TIMEOUT * 1000) => new Promise((resolve, reject) => {
             const timer = setTimeout(() => {
-                Logger.error('HTTP', `Timeout: ${url.substring(0, 50)}...`);
                 reject(new Error(`HTTP Timeout: ${url.substring(0, 50)}...`));
             }, timeout);
             
             const startTime = Date.now();
-            Logger.debug('HTTP', `Request: ${url.substring(0, 80)}...`);
             
             const handleResponse = (error, response, body) => {
                 clearTimeout(timer);
@@ -320,16 +262,12 @@ const HTTP = (() => {
                 if (error) {
                     const errorMsg = typeof error === 'string' ? error : 
                                     (error && typeof error === 'object') ? JSON.stringify(error) : String(error);
-                    Logger.error('HTTP', `Error: ${errorMsg}`);
                     reject(new Error(`HTTP Error: ${errorMsg}`));
                 } else {
-                    const time = Date.now() - startTime;
-                    const status = typeof response === 'object' ? (response.status || 200) : 200;
-                    Logger.debug('HTTP', `Response: ${status} in ${time}ms`);
                     resolve({
                         body: body || '',
-                        status: status,
-                        time: time
+                        status: typeof response === 'object' ? (response.status || 200) : 200,
+                        time: Date.now() - startTime
                     });
                 }
             };
@@ -365,16 +303,10 @@ const HTTP = (() => {
 // ==========================================
 const Utils = {
     safeJsonParse: (str, defaultVal = null) => {
-        try { return JSON.parse(str); } catch (e) { 
-            Logger.debug('Utils', 'JSON parse failed', e.message);
-            return defaultVal; 
-        }
+        try { return JSON.parse(str); } catch (e) { return defaultVal; }
     },
     safeJsonStringify: (obj) => {
-        try { return JSON.stringify(obj); } catch (e) { 
-            Logger.error('Utils', 'JSON stringify failed', e);
-            return '{}'; 
-        }
+        try { return JSON.stringify(obj); } catch (e) { return '{}'; }
     },
     getPath: (obj, path) => {
         if (!path || !obj) return undefined;
@@ -423,7 +355,7 @@ const Utils = {
 };
 
 // ==========================================
-// 优化5：正则表达式全局缓存池
+// 优化5：正则表达式全局缓存池（单次请求内有效）
 // ==========================================
 const RegexPool = (() => {
     const cache = new Map();
@@ -438,7 +370,6 @@ const RegexPool = (() => {
                 const idx = accessOrder.indexOf(key);
                 if (idx > -1) accessOrder.splice(idx, 1);
                 accessOrder.push(key);
-                Logger.debug('RegexPool', `Hit: ${pattern.substring(0, 30)}...`);
                 return cache.get(key);
             }
             
@@ -448,15 +379,12 @@ const RegexPool = (() => {
                 if (cache.size >= MAX_SIZE && accessOrder.length > 0) {
                     const oldest = accessOrder.shift();
                     cache.delete(oldest);
-                    Logger.debug('RegexPool', 'LRU eviction');
                 }
                 
                 cache.set(key, regex);
                 accessOrder.push(key);
-                Logger.debug('RegexPool', `Compiled: ${pattern.substring(0, 30)}...`, `Pool size: ${cache.size}`);
                 return regex;
             } catch (e) {
-                Logger.error('RegexPool', `Invalid pattern: ${pattern}`, e);
                 return /(?!)/;
             }
         },
@@ -466,17 +394,9 @@ const RegexPool = (() => {
             for (const [id, patternStr] of patterns) {
                 try {
                     results.set(id, RegexPool.get(patternStr));
-                } catch (e) {
-                    Logger.error('RegexPool', `Failed for ${id}`, e);
-                }
+                } catch (e) {}
             }
             return results;
-        },
-        
-        clear: () => {
-            cache.clear();
-            accessOrder.length = 0;
-            Logger.info('RegexPool', 'Cleared');
         },
         
         get size() { return cache.size; }
@@ -487,61 +407,40 @@ const RegexPool = (() => {
 // 优化6：处理器工厂（移除计数器）
 // ==========================================
 function createProcessorFactory(requestId) {
-    Logger.debug('ProcessorFactory', `Created for request ${requestId}`);
-    
     return {
         setFields: (params) => (obj, env) => {
             const fields = params.fields || {};
-            let modified = 0;
             for (const path in fields) {
                 Utils.setPath(obj, path, fields[path]);
-                modified++;
             }
-            Logger.debug('setFields', `Modified ${modified} fields`);
             return obj;
         },
 
         mapArray: (params) => (obj, env) => {
             const arr = Utils.getPath(obj, params.path);
-            if (!Array.isArray(arr)) {
-                Logger.debug('mapArray', `${params.path} is not array`);
-                return obj;
-            }
+            if (!Array.isArray(arr)) return obj;
             const fields = params.fields || {};
-            let count = 0;
             for (const item of arr) {
-                if (item) {
-                    Object.assign(item, fields);
-                    count++;
-                }
+                if (item) Object.assign(item, fields);
             }
-            Logger.debug('mapArray', `Processed ${count} items`);
             return obj;
         },
 
         filterArray: (params) => (obj, env) => {
             const arr = Utils.getPath(obj, params.path);
             if (!Array.isArray(arr)) return obj;
-            const originalLength = arr.length;
             const excludeSet = new Set(params.excludeKeys || []);
-            const filtered = arr.filter(item => !excludeSet.has(item?.[params.keyField]));
-            Utils.setPath(obj, params.path, filtered);
-            Logger.debug('filterArray', `${params.path}: ${originalLength} → ${filtered.length}`);
+            Utils.setPath(obj, params.path, arr.filter(item => !excludeSet.has(item?.[params.keyField])));
             return obj;
         },
 
         clearArray: (params) => (obj, env) => {
             const arr = Utils.getPath(obj, params.path);
-            if (Array.isArray(arr)) {
-                const count = arr.length;
-                arr.length = 0;
-                Logger.debug('clearArray', `Cleared ${count} items from ${params.logName || params.path}`);
-            }
+            if (Array.isArray(arr)) arr.length = 0;
             return obj;
         },
 
         deleteFields: (params) => (obj, env) => {
-            let deleted = 0;
             for (const path of params.paths || []) {
                 const parts = path.split('.');
                 let current = obj;
@@ -549,38 +448,28 @@ function createProcessorFactory(requestId) {
                     current = current?.[parts[i]];
                     if (!current) break;
                 }
-                if (current) {
-                    delete current[parts[parts.length - 1]];
-                    deleted++;
-                }
+                if (current) delete current[parts[parts.length - 1]];
             }
-            Logger.debug('deleteFields', `Deleted ${deleted} fields`);
             return obj;
         },
 
         sliceArray: (params) => (obj, env) => {
             const arr = Utils.getPath(obj, params.path);
             if (Array.isArray(arr) && arr.length > params.keepCount) {
-                const original = arr.length;
                 Utils.setPath(obj, params.path, arr.slice(0, params.keepCount));
-                Logger.debug('sliceArray', `${params.path}: ${original} → ${params.keepCount}`);
             }
             return obj;
         },
 
         shiftArray: (params) => (obj, env) => {
             const arr = Utils.getPath(obj, params.path);
-            if (Array.isArray(arr) && arr.length > 0) {
-                arr.shift();
-                Logger.debug('shiftArray', `Shifted ${params.logName || params.path}`);
-            }
+            if (Array.isArray(arr) && arr.length > 0) arr.shift();
             return obj;
         },
 
         processByKeyPrefix: (params) => (obj, env) => {
             const target = Utils.getPath(obj, params.objPath);
             if (!target || typeof target !== 'object') return obj;
-            let modified = 0;
             const rules = Object.entries(params.prefixRules || {});
             for (const key in target) {
                 const value = target[key];
@@ -588,29 +477,24 @@ function createProcessorFactory(requestId) {
                 for (const [prefix, handler] of rules) {
                     if (prefix !== '*' && key.startsWith(prefix)) {
                         Object.assign(value, handler);
-                        modified++;
                         break;
                     }
                 }
             }
-            Logger.debug('processByKeyPrefix', `Processed ${modified} items`);
             return obj;
         },
 
         compose: (params, compile) => {
             const steps = params.steps || [];
             if (steps.length > CONFIG.MAX_PROCESSORS_PER_REQUEST) {
-                Logger.error('compose', `Too many steps: ${steps.length}`);
-                throw new Error(`Too many processors: ${steps.length} > ${CONFIG.MAX_PROCESSORS_PER_REQUEST}`);
+                throw new Error(`Too many processors: ${steps.length}`);
             }
             const processors = steps.map(step => compile(step));
-            Logger.debug('compose', `Composed ${processors.length} steps`);
             
             return (obj, env) => {
                 let result = obj;
                 for (let i = 0; i < processors.length; i++) {
                     if (!result) break;
-                    Logger.debug('compose', `Step ${i + 1}/${processors.length}`);
                     result = processors[i](result, env);
                 }
                 return result;
@@ -646,7 +530,6 @@ function createProcessorFactory(requestId) {
             
             return (obj, env) => {
                 const conditionMet = conditionFn(obj, env);
-                Logger.debug('when', `Condition "${params.condition}" = ${conditionMet}`);
                 if (conditionMet && thenProcessor) {
                     return thenProcessor(obj, env);
                 } else if (!conditionMet && elseProcessor) {
@@ -658,7 +541,6 @@ function createProcessorFactory(requestId) {
 
         sceneDispatcher: (params, compile) => {
             const scenes = (params.scenes || []).map(s => ({
-                name: s.name,
                 matchFn: (obj, env) => {
                     const url = env?.getUrl?.() || '';
                     switch (s.when) {
@@ -680,16 +562,12 @@ function createProcessorFactory(requestId) {
                 then: compile(s.then)
             }));
             
-            Logger.debug('sceneDispatcher', `Loaded ${scenes.length} scenes`);
-            
             return (obj, env) => {
                 for (const scene of scenes) {
                     if (scene.matchFn(obj, env)) {
-                        Logger.debug('sceneDispatcher', `Matched: ${scene.name}`);
                         return scene.then(obj, env);
                     }
                 }
-                Logger.debug('sceneDispatcher', 'No scene matched');
                 return obj;
             };
         }
@@ -707,62 +585,43 @@ function createCompiler(factory) {
         
         const cacheKey = Utils.simpleHash(JSON.stringify(def));
         if (cache.has(cacheKey)) {
-            Logger.debug('Compiler', `Cache hit: ${def.processor}`);
             return cache.get(cacheKey);
         }
         
         const processorFactory = factory[def.processor];
-        if (!processorFactory) {
-            Logger.error('Compiler', `Unknown processor: ${def.processor}`);
-            return null;
-        }
+        if (!processorFactory) return null;
         
         const processor = processorFactory(def.params, compileProcessor);
-        if (processor) {
-            cache.set(cacheKey, processor);
-            Logger.debug('Compiler', `Compiled: ${def.processor}`);
-        }
+        if (processor) cache.set(cacheKey, processor);
         return processor;
     };
 }
 
 // ==========================================
-// 优化版Manifest加载器（新增ManifestCache）
+// Manifest加载器（简化版，移除无效的跨请求缓存）
 // ==========================================
 class SimpleManifestLoader {
     constructor(requestId) {
         this._requestId = requestId;
         this._manifest = null;
         this._patterns = null;
-        Logger.debug('ManifestLoader', `Created: ${requestId}`);
     }
 
     async load() {
-        // P0: 内存缓存（零I/O，60秒内）
-        const memCached = ManifestCache.get();
-        if (memCached) {
-            this._manifest = memCached.manifest;
-            this._patterns = memCached.patterns;
-            Logger.info('ManifestLoader', `L0 memory cache hit (0 I/O), ${this._patterns.size} patterns ready`);
-            return this._manifest;
-        }
-
-        // P1: 持久化存储
         const cacheKey = 'vip_manifest_v20';
-        Logger.debug('ManifestLoader', 'L0 miss, checking storage...');
+        
+        // 单次请求内：先查Storage内存缓存，再查持久化
         const { [cacheKey]: cached } = Storage.readBatch([cacheKey]);
         
         if (cached) {
-            Logger.info('ManifestLoader', 'L1 storage hit');
             this._manifest = Utils.safeJsonParse(cached);
             this._compilePatterns();
-            // 写入内存缓存供后续请求使用
-            ManifestCache.set(this._manifest, this._patterns);
+            Logger.info('ManifestLoader', `L1 cache hit, ${this._patterns.size} patterns`);
             return this._manifest;
         }
 
-        // P2: 远程加载
-        Logger.info('ManifestLoader', 'L1 miss, fetching remote...');
+        // 远程加载
+        Logger.info('ManifestLoader', 'Fetching remote...');
         const res = await HTTP.get(`${CONFIG.REMOTE_BASE}/manifest.json?t=${Date.now()}`);
         
         if (res.status !== 200 || !res.body) {
@@ -772,10 +631,7 @@ class SimpleManifestLoader {
         this._manifest = Utils.safeJsonParse(res.body);
         Storage.write(cacheKey, res.body);
         this._compilePatterns();
-        
-        // 写入内存缓存
-        ManifestCache.set(this._manifest, this._patterns);
-        Logger.info('ManifestLoader', `Remote loaded, ${this._patterns.size} patterns cached`);
+        Logger.info('ManifestLoader', `Remote loaded, ${this._patterns.size} patterns`);
         
         return this._manifest;
     }
@@ -791,20 +647,14 @@ class SimpleManifestLoader {
         }
         
         this._patterns = RegexPool.precompile(patternEntries);
-        Logger.debug('ManifestLoader', `Compiled ${this._patterns.size} patterns`);
     }
 
     findMatch(url) {
         if (!this._patterns) return null;
         for (const [id, pattern] of this._patterns) {
             try {
-                if (pattern.test(url)) {
-                    Logger.debug('ManifestLoader', `Matched: ${id}`);
-                    return id;
-                }
-            } catch (e) {
-                Logger.error('ManifestLoader', `Regex error for ${id}`, e);
-            }
+                if (pattern.test(url)) return id;
+            } catch (e) {}
         }
         return null;
     }
@@ -821,12 +671,10 @@ class SimpleConfigLoader {
     constructor(requestId) {
         this._requestId = requestId;
         this._memCache = new Map();
-        Logger.debug('ConfigLoader', `Created: ${requestId}`);
     }
 
     async load(configId, remoteVersion) {
-        Logger.debug('ConfigLoader', `Loading ${configId} v${remoteVersion}...`);
-        
+        // 同请求内内存缓存
         if (this._memCache.has(configId)) {
             const cached = this._memCache.get(configId);
             if (cached._version === remoteVersion) {
@@ -842,20 +690,17 @@ class SimpleConfigLoader {
             try {
                 const { v, t, d } = Utils.safeJsonParse(stored);
                 if (v === remoteVersion && (Date.now() - t) < CONFIG.CONFIG_CACHE_TTL) {
-                    Logger.info('ConfigLoader', `${configId} L2 hit v${remoteVersion}`);
                     const config = this._prepareConfig(d);
                     config._version = remoteVersion;
                     this._memCache.set(configId, config);
+                    Logger.info('ConfigLoader', `${configId} L2 hit v${remoteVersion}`);
                     return config;
-                } else {
-                    Logger.debug('ConfigLoader', `${configId} cache expired or version mismatch`);
                 }
-            } catch (e) {
-                Logger.warn('ConfigLoader', `${configId} cache parse error`, e);
-            }
+            } catch (e) {}
         }
 
-        Logger.info('ConfigLoader', `${configId} fetching remote v${remoteVersion}...`);
+        // 远程加载
+        Logger.info('ConfigLoader', `${configId} fetching remote...`);
         const fresh = await this._fetch(configId);
         
         Storage.write(cacheKey, Utils.safeJsonStringify({
@@ -867,18 +712,13 @@ class SimpleConfigLoader {
         const config = this._prepareConfig(fresh);
         config._version = remoteVersion;
         this._memCache.set(configId, config);
-        Logger.info('ConfigLoader', `${configId} loaded and cached`);
         return config;
     }
 
     async _fetch(configId) {
         const url = `${CONFIG.REMOTE_BASE}/configs/${configId}.json?t=${Date.now()}`;
         const res = await HTTP.get(url);
-
-        if (res.status !== 200 || !res.body) {
-            throw new Error(`HTTP ${res.status}`);
-        }
-
+        if (res.status !== 200 || !res.body) throw new Error(`HTTP ${res.status}`);
         return Utils.safeJsonParse(res.body);
     }
 
@@ -904,7 +744,6 @@ class SimpleConfigLoader {
             }));
         }
 
-        Logger.debug('ConfigLoader', `Prepared config with ${config._regexReplacements?.length || 0} regex, ${config._gameResources?.length || 0} game rules`);
         return config;
     }
 }
@@ -924,7 +763,7 @@ class Environment {
         if (!this.request.url && this.response.request?.url) {
             this.request = this.response.request;
         }
-        Logger.debug('Environment', `Created: ${name}, Platform: ${this.isQX ? 'QX' : this.isSurge ? 'Surge' : 'Other'}`);
+        Logger.debug('Environment', `Platform: ${this.isQX ? 'QX' : this.isSurge ? 'Surge' : 'Other'}`);
     }
 
     getUrl() {
@@ -938,7 +777,6 @@ class Environment {
     }
 
     done(result) {
-        Logger.debug('Environment', `Done: ${result?.status || 'ok'}`);
         if (typeof $done === 'function') $done(result);
         else console.log('[DONE]', result);
     }
@@ -948,22 +786,15 @@ class VipEngine {
     constructor(env, requestId) {
         this.env = env;
         this._requestId = requestId;
-        Logger.debug('VipEngine', `Created: ${requestId}`);
     }
 
     process(body, config) {
-        if (!body) {
-            Logger.warn('VipEngine', 'Empty body');
-            return { body: '{}' };
-        }
+        if (!body) return { body: '{}' };
 
         const bodySize = typeof body === 'string' ? body.length : JSON.stringify(body).length;
         if (bodySize > CONFIG.MAX_BODY_SIZE) {
-            Logger.warn('VipEngine', `Body too large: ${(bodySize/1024/1024).toFixed(2)}MB`);
             return { body: typeof body === 'string' ? body : JSON.stringify(body) };
         }
-
-        Logger.debug('VipEngine', `Processing mode: ${config.mode}, size: ${bodySize} bytes`);
 
         switch (config.mode) {
             case 'json':
@@ -977,22 +808,13 @@ class VipEngine {
             case 'html':
                 return this.processHtml(body, config);
             default:
-                Logger.warn('VipEngine', `Unknown mode: ${config.mode}`);
                 return { body };
         }
     }
 
     processJson(body, config) {
-        if (typeof body === 'string' && body.length > CONFIG.MAX_BODY_SIZE) {
-            Logger.warn('VipEngine', 'JSON body too large');
-            return { body };
-        }
-
         let obj = Utils.safeJsonParse(body);
-        if (!obj) {
-            Logger.error('VipEngine', 'Failed to parse JSON');
-            return { body };
-        }
+        if (!obj) return { body };
 
         const factory = createProcessorFactory(this._requestId);
         const compile = createCompiler(factory);
@@ -1001,12 +823,10 @@ class VipEngine {
         if (typeof processor === 'function') {
             try {
                 obj = processor(obj, this.env);
-                Logger.info('VipEngine', `${config.name || 'VIP'} unlocked successfully`);
+                Logger.info('VipEngine', `${config.name || 'VIP'} unlocked`);
             } catch (e) {
                 Logger.error('VipEngine', 'Processor error', e);
             }
-        } else {
-            Logger.debug('VipEngine', 'No custom processor');
         }
 
         return { body: Utils.safeJsonStringify(obj) };
@@ -1014,39 +834,23 @@ class VipEngine {
 
     processRegex(body, config) {
         let modified = body;
-        let count = 0;
-        
         const replacements = config._regexReplacements || config.regexReplacements || [];
         for (const rule of replacements) {
             try {
-                const original = modified;
                 modified = modified.replace(rule.pattern, rule.replacement);
-                if (original !== modified) count++;
-            } catch (e) {
-                Logger.error('VipEngine', 'Regex replace error', e);
-            }
+            } catch (e) {}
         }
-
-        Logger.debug('VipEngine', `Regex replaced ${count}/${replacements.length} patterns`);
         return { body: modified };
     }
 
     processGame(body, config) {
         let modified = body;
-        let count = 0;
-        
         const resources = config._gameResources || config.gameResources || [];
         for (const res of resources) {
             try {
-                const original = modified;
                 modified = modified.replace(res.pattern, `"${res.field}":${res.value}`);
-                if (original !== modified) count++;
-            } catch (e) {
-                Logger.error('VipEngine', 'Game resource error', e);
-            }
+            } catch (e) {}
         }
-
-        Logger.debug('VipEngine', `Game resources modified: ${count}/${resources.length}`);
         return { body: modified };
     }
 
@@ -1060,20 +864,12 @@ class VipEngine {
 
     processHtml(body, config) {
         let modified = body;
-        let count = 0;
-
         for (const rule of config.htmlReplacements || []) {
             try {
                 const regex = RegexPool.get(rule.pattern, rule.flags || 'i');
-                const original = modified;
                 modified = modified.replace(regex, rule.replacement);
-                if (original !== modified) count++;
-            } catch (e) {
-                Logger.error('VipEngine', 'HTML replace error', e);
-            }
+            } catch (e) {}
         }
-
-        Logger.debug('VipEngine', `HTML replaced ${count} patterns`);
         return { body: modified };
     }
 }
@@ -1083,14 +879,13 @@ class VipEngine {
 // ==========================================
 async function main() {
     const requestId = Math.random().toString(36).substr(2, 6).toUpperCase();
-    Logger.info('Main', `=== Request ${requestId} started ===`);
+    Logger.info('Main', `=== ${requestId} started ===`);
     
     const env = new Environment(META.name);
 
     try {
         const url = env.getUrl();
         if (!url) {
-            Logger.fatal('Main', 'No URL in request');
             releaseLock();
             return env.done({ body: env.getBody() });
         }
@@ -1102,11 +897,11 @@ async function main() {
 
         const configId = mLoader.findMatch(url);
         if (!configId) {
-            Logger.info('Main', 'No rule matched, passing through');
+            Logger.info('Main', 'No rule matched');
             releaseLock();
             return env.done({ body: env.getBody() });
         }
-        Logger.info('Main', `Matched config: ${configId}`);
+        Logger.info('Main', `Matched: ${configId}`);
 
         const remoteVersion = mLoader.getConfigVersion(configId);
 
@@ -1116,16 +911,15 @@ async function main() {
         const engine = new VipEngine(env, requestId);
         const result = engine.process(env.getBody(), config);
 
-        Logger.info('Main', `=== Request ${requestId} completed ===`);
+        Logger.info('Main', `=== ${requestId} completed ===`);
         releaseLock();
         env.done(result);
 
     } catch (e) {
-        Logger.fatal('Main', `Request ${requestId} failed`, e);
+        Logger.fatal('Main', `Failed: ${e.message}`);
         releaseLock();
         env.done({ body: env.getBody() });
     }
 }
 
-// 启动
 main();
