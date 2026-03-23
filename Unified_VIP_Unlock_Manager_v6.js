@@ -976,7 +976,7 @@ class SimpleManifestLoader {
         }
         
         Logger.debug('ManifestLoader', `Matching URL: ${url.substring(0, 80)}...`);
-         
+      /*
      // 添加详细调试
         if (url.includes('v2ex')) {
           Logger.info('ManifestLoader', `V2EX DEBUG: Testing URL ${url}`);
@@ -987,7 +987,7 @@ class SimpleManifestLoader {
             }
           }
         }
-     
+     */
         for (const [id, pattern] of this._patterns) {
             try {
                 if (pattern.test(url)) {
