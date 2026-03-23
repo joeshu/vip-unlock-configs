@@ -3,7 +3,9 @@
 * Unified VIP Unlock Manager v20.3.1 - QX平衡优化版（最终修复版）
  * 优化项：锁修复 + DEBUG关闭 + 存储缓存 + 正则池 + 处理器优化 + HTTP超时 + 环境检测
  * QX 兼容优化版 - 放弃跨请求缓存，专注单次性能
-  * 特性：高性能锁（读多写少）+ 无锁去重切换
+ * 特性：高性能锁（读多写少）+ 无锁去重切换
+ * Unified VIP Unlock Manager v20.3.1 - QX扩展版（支持通知）
+ * 新增：notify 处理器，支持系统通知
  * ==========================================
  [rewrite_local]
  # iAppDaily - 余额查询接口（JSON模式-声明式字段设置）
@@ -39,20 +41,24 @@
  ^https:\/\/iotpservice\.smartont\.net\/wohome\/dispatcher url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v6.js
 # 思朗月影视 - 用户信息VIP解锁
 ^https?:\/\/theater-api\.sylangyue\.xyz\/api\/user\/info url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v6.js
+ # mingcalc - 明计算会员解锁
+^https?:\/\/jsq\.mingcalc\.cn\/XMGetMeCount\.ashx url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v6.js
+ # qmjyzc - 全民解压找茬关卡辅助
+^https?:\/\/res5\.haotgame\.com\/cu03\/static\/OpenDoors\/Res\/data\/levels\/\d+\.json url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v6.js
  [mitm]
- hostname = theater-api.sylangyue.xyz, api.iappdaily.com, api2.tophub.today, api2.tophub.app, api3.tophub.xyz, api3.tophub.today, api3.tophub.app, tophub.tophubdata.com, tophub2.tophubdata.com, tophub.idaily.today, tophub2.idaily.today, tophub.remai.today, tophub.iappdaiy.com, tophub.ipadown.com,service.gpstool.com, mapi.kouyuxingqiu.com, ss.landintheair.com, *.v2ex.com, apis.folidaymall.com, gateway-api.yizhilive.com, pagead*.googlesyndication.com, api.gotokeep.com, kit.gotokeep.com, *.gotokeep.*, 120.53.74.*, 162.14.5.*, 42.187.199.*, 101.42.124.*, javelin.mandrillvr.com,api.banxueketang.com, yzy0916.*.com, yz1018.*.com, yz250907.*.com, yz0320.*.com, cfvip.*.com,yr-game-api.feigo.fun,star.jvplay.cn,iotpservice.smartont.net
+ hostname =res5.haotgame.com, jsq.mingcalc.cn, theater-api.sylangyue.xyz, api.iappdaily.com, api2.tophub.today, api2.tophub.app, api3.tophub.xyz, api3.tophub.today, api3.tophub.app, tophub.tophubdata.com, tophub2.tophubdata.com, tophub.idaily.today, tophub2.idaily.today, tophub.remai.today, tophub.iappdaiy.com, tophub.ipadown.com,service.gpstool.com, mapi.kouyuxingqiu.com, ss.landintheair.com, *.v2ex.com, apis.folidaymall.com, gateway-api.yizhilive.com, pagead*.googlesyndication.com, api.gotokeep.com, kit.gotokeep.com, *.gotokeep.*, 120.53.74.*, 162.14.5.*, 42.187.199.*, 101.42.124.*, javelin.mandrillvr.com,api.banxueketang.com, yzy0916.*.com, yz1018.*.com, yz250907.*.com, yz0320.*.com, cfvip.*.com,yr-game-api.feigo.fun,star.jvplay.cn,iotpservice.smartont.net
 */
 'use strict';
 
 // ==========================================
-// 0. 最基础环境修复（最先执行，无任何依赖）
+// 0. 最基础环境修复
 // ==========================================
 if (typeof console === 'undefined') {
     globalThis.console = { log: () => {} };
 }
 
 // ==========================================
-// 1. 配置（无任何依赖）
+// 1. 配置
 // ==========================================
 const CONFIG = {
     REMOTE_BASE: 'https://joeshu.github.io/vip-unlock-configs',
@@ -62,7 +68,7 @@ const CONFIG = {
     MAX_PROCESSORS_PER_REQUEST: 30,
     TIMEOUT: 10,
     DEBUG: true,
-    USE_DISTRIBUTED_LOCK: false,    // true=分布式锁（强一致性）, false=内存去重（高性能）
+    USE_DISTRIBUTED_LOCK: false,  // true=分布式锁（强一致性）, false=内存去重（高性能）
     LOCK_TTL: 3000,
     LOCAL_CACHE_TTL: 100,
     DEDUP_WINDOW: 500
@@ -70,11 +76,29 @@ const CONFIG = {
 
 const META = {
     name: 'UnifiedVIP',
-    version: '20.3.1-balanced'
+    version: '20.3.1-notify'
 };
 
 // ==========================================
-// 2. 简易日志（仅依赖 console，无其他依赖）
+// 2. 平台检测（新增，用于通知）
+// ==========================================
+const Platform = {
+    isQX: typeof $task !== 'undefined',
+    isLoon: typeof $loon !== 'undefined',
+    isSurge: typeof $httpClient !== 'undefined' && typeof $loon === 'undefined',
+    isStash: typeof $stash !== 'undefined',
+    
+    getName() {
+        if (this.isQX) return 'QX';
+        if (this.isLoon) return 'Loon';
+        if (this.isSurge) return 'Surge';
+        if (this.isStash) return 'Stash';
+        return 'Unknown';
+    }
+};
+
+// ==========================================
+// 3. 简易日志
 // ==========================================
 const SimpleLog = (level, tag, msg, data) => {
     try {
@@ -82,19 +106,70 @@ const SimpleLog = (level, tag, msg, data) => {
         const time = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`;
         const dataStr = data ? ` | ${typeof data === 'object' ? JSON.stringify(data) : data}` : '';
         console.log(`[${META.name}][${level.toUpperCase()}][${time}][${tag}] ${msg}${dataStr}`);
-    } catch (e) {
-        // 兜底：如果连console都失败，静默处理
-    }
+    } catch (e) {}
 };
 
 // ==========================================
-// 3. 锁实现（依赖 CONFIG, SimpleLog）
+// 4. 通知系统（新增）
+// ==========================================
+const Notify = (() => {
+    const send = (title, subtitle, message, options = {}) => {
+        try {
+            if (Platform.isQX) {
+                $notify(title, subtitle, message, options);
+                return true;
+            } else if (Platform.isLoon) {
+                const url = options['open-url'] || options.url;
+                if (url) {
+                    $notification.post(title, subtitle, message, url);
+                } else {
+                    $notification.post(title, subtitle, message);
+                }
+                return true;
+            } else if (Platform.isSurge || Platform.isStash) {
+                $notification.post(title, subtitle, message, options);
+                return true;
+            }
+            return false;
+        } catch (e) {
+            SimpleLog('error', 'Notify', 'Send failed', e.message);
+            return false;
+        }
+    };
+
+    return {
+        send,
+        // 快捷方法：从配置发送
+        sendFromConfig: (config, data) => {
+            const title = config.title || 'UnifiedVIP';
+            const subtitle = config.subtitle || '';
+            let message = config.message || '';
+            
+            // 支持模板变量替换
+            if (config.template && data) {
+                message = config.template.replace(/\{\{(\w+)\}\}/g, (match, key) => {
+                    return Utils.getPath(data, key) || match;
+                });
+            }
+            
+            // 限制长度
+            const maxLen = config.maxLength || 500;
+            if (message.length > maxLen) {
+                message = message.substring(0, maxLen) + '...';
+            }
+            
+            return send(title, subtitle, message, config.options || {});
+        }
+    };
+})();
+
+// ==========================================
+// 5. 平衡锁实现
 // ==========================================
 const BalancedLock = (() => {
     const LOCK_PREFIX = '_vip_lock_';
     const localCache = new Map();
     const recentUrls = new Map();
-    const isQX = typeof $task !== 'undefined';
     
     const distributedAcquire = (key) => {
         const now = Date.now();
@@ -105,7 +180,7 @@ const BalancedLock = (() => {
             return false;
         }
         
-        if (isQX) {
+        if (Platform.isQX) {
             try {
                 const lockKey = LOCK_PREFIX + key;
                 const existing = $prefs.valueForKey(lockKey);
@@ -133,7 +208,7 @@ const BalancedLock = (() => {
     
     const distributedRelease = (key) => {
         localCache.delete(key);
-        if (isQX) {
+        if (Platform.isQX) {
             try {
                 $prefs.setValueForKey('', LOCK_PREFIX + key);
                 SimpleLog('debug', 'Lock', 'Released (distributed)');
@@ -163,8 +238,6 @@ const BalancedLock = (() => {
         return true;
     };
     
-    const memoryRelease = () => {};
-    
     return {
         acquire: (key, url) => {
             if (CONFIG.USE_DISTRIBUTED_LOCK) {
@@ -176,8 +249,6 @@ const BalancedLock = (() => {
         release: (key) => {
             if (CONFIG.USE_DISTRIBUTED_LOCK) {
                 distributedRelease(key);
-            } else {
-                memoryRelease();
             }
         },
         makeKey: (url) => {
@@ -194,7 +265,7 @@ const BalancedLock = (() => {
 })();
 
 // ==========================================
-// 4. 获取锁（使用 SimpleLog）
+// 6. 获取锁
 // ==========================================
 const URL = (typeof $request !== 'undefined' && $request.url) ? $request.url : 
             (typeof $response !== 'undefined' && $response.url) ? $response.url : '';
@@ -213,14 +284,13 @@ if (!BalancedLock.acquire(LOCK_KEY, URL)) {
     return;
 }
 
-// 注意：releaseLock 使用 SimpleLog，避免依赖 Logger
 const releaseLock = () => {
     BalancedLock.release(LOCK_KEY);
     SimpleLog('debug', 'Lock', 'Released');
 };
 
 // ==========================================
-// 5. 完整日志系统 Logger（依赖 CONFIG, META）
+// 7. 完整日志系统
 // ==========================================
 const Logger = (() => {
     const isDebug = CONFIG.DEBUG === true;
@@ -265,11 +335,10 @@ const Logger = (() => {
     };
 })();
 
-// 验证 Logger 可用
-Logger.info('Init', 'Logger initialized successfully');
+Logger.info('Init', `Platform: ${Platform.getName()}, Logger ready`);
 
 // ==========================================
-// 6. 环境修复补充（console方法）
+// 8. 环境修复补充
 // ==========================================
 const _log = console.log.bind(console);
 ['error', 'warn', 'debug', 'info'].forEach(method => {
@@ -279,19 +348,17 @@ const _log = console.log.bind(console);
 });
 
 // ==========================================
-// 7. 存储优化
+// 9. 存储优化
 // ==========================================
 const Storage = (() => {
     const memCache = new Map();
     const MEM_TTL = 60000;
-    const isQX = typeof $task !== 'undefined';
-    const isSurge = typeof $httpClient !== 'undefined';
     
     const backend = {
-        read: isQX ? (k) => $prefs.valueForKey(k) : 
-              isSurge ? (k) => $persistentStore.read(k) : () => null,
-        write: isQX ? (k, v) => $prefs.setValueForKey(v, k) :
-               isSurge ? (k, v) => $persistentStore.write(v, k) : () => false
+        read: Platform.isQX ? (k) => $prefs.valueForKey(k) : 
+              Platform.isSurge ? (k) => $persistentStore.read(k) : () => null,
+        write: Platform.isQX ? (k, v) => $prefs.setValueForKey(v, k) :
+               Platform.isSurge ? (k, v) => $persistentStore.write(v, k) : () => false
     };
     
     return {
@@ -346,12 +413,9 @@ const Storage = (() => {
 })();
 
 // ==========================================
-// 8. HTTP客户端
+// 10. HTTP客户端
 // ==========================================
 const HTTP = (() => {
-    const isQX = typeof $task !== 'undefined';
-    const isSurge = typeof $httpClient !== 'undefined';
-    
     return {
         get: (url, timeout = CONFIG.TIMEOUT * 1000) => new Promise((resolve, reject) => {
             const timer = setTimeout(() => {
@@ -372,7 +436,7 @@ const HTTP = (() => {
             };
             
             try {
-                if (isQX) {
+                if (Platform.isQX) {
                     $task.fetch({ 
                         url, 
                         method: 'GET', 
@@ -381,7 +445,7 @@ const HTTP = (() => {
                         res => handleResponse(null, { status: res.statusCode }, res.body),
                         err => handleResponse(err, null, null)
                     );
-                } else if (isSurge) {
+                } else if (Platform.isSurge) {
                     $httpClient.get({ url, timeout: timeout / 1000 }, handleResponse);
                 } else if (typeof $http !== 'undefined') {
                     $http.get(url, handleResponse);
@@ -398,7 +462,7 @@ const HTTP = (() => {
 })();
 
 // ==========================================
-// 9. 工具函数
+// 11. 工具函数
 // ==========================================
 const Utils = {
     safeJsonParse: (str, defaultVal = null) => {
@@ -450,11 +514,22 @@ const Utils = {
             hash = hash & hash;
         }
         return Math.abs(hash).toString(16);
+    },
+    // 新增：格式化对象用于通知
+    formatObject: (obj, separator = '\n') => {
+        if (!obj || typeof obj !== 'object') return '';
+        const lines = [];
+        let index = 1;
+        for (const key in obj) {
+            lines.push(`${index}、${obj[key]}`);
+            index++;
+        }
+        return lines.join(separator);
     }
 };
 
 // ==========================================
-// 10. 正则缓存池
+// 12. 正则缓存池
 // ==========================================
 const RegexPool = (() => {
     const cache = new Map();
@@ -503,7 +578,7 @@ const RegexPool = (() => {
 })();
 
 // ==========================================
-// 11. 处理器工厂（无计数器）
+// 13. 处理器工厂（新增 notify 处理器）
 // ==========================================
 function createProcessorFactory(requestId) {
     return {
@@ -580,6 +655,62 @@ function createProcessorFactory(requestId) {
                     }
                 }
             }
+            return obj;
+        },
+
+        // ==========================================
+        // 新增：notify 处理器 - 发送系统通知
+        // ==========================================
+        notify: (params) => (obj, env) => {
+            const title = params.title || 'UnifiedVIP';
+            let subtitle = params.subtitle || '';
+            let message = params.message || '';
+            
+            // 支持从响应体提取字段作为副标题
+            if (params.subtitleField) {
+                subtitle = Utils.getPath(obj, params.subtitleField) || subtitle;
+            }
+            
+            // 支持模板消息
+            if (params.template) {
+                message = params.template.replace(/\{\{(\w+)\}\}/g, (match, key) => {
+                    return Utils.getPath(obj, key) || match;
+                });
+            }
+            
+            // 支持从字段提取消息内容
+            if (params.messageField) {
+                const fieldData = Utils.getPath(obj, params.messageField);
+                if (fieldData) {
+                    if (typeof fieldData === 'object') {
+                        // 格式化对象（如 answers）
+                        message = Utils.formatObject(fieldData, params.separator || '\n');
+                    } else {
+                        message = String(fieldData);
+                    }
+                }
+            }
+            
+            // 支持前缀
+            if (params.prefix) {
+                message = params.prefix + message;
+            }
+            
+            // 限制长度
+            const maxLen = params.maxLength || 500;
+            if (message.length > maxLen) {
+                message = message.substring(0, maxLen) + '...';
+            }
+            
+            // 发送通知
+            const success = Notify.send(title, subtitle, message, params.options || {});
+            Logger.info('Notify', `Sent: ${success ? 'success' : 'failed'}, title="${title}", length=${message.length}`);
+            
+            // 可选：在响应体中标记已通知
+            if (params.markField) {
+                Utils.setPath(obj, params.markField, true);
+            }
+            
             return obj;
         },
 
@@ -674,7 +805,7 @@ function createProcessorFactory(requestId) {
 }
 
 // ==========================================
-// 12. 处理器编译器
+// 14. 处理器编译器
 // ==========================================
 function createCompiler(factory) {
     const cache = new Map();
@@ -697,7 +828,7 @@ function createCompiler(factory) {
 }
 
 // ==========================================
-// 13. Manifest加载器
+// 15. Manifest加载器
 // ==========================================
 class SimpleManifestLoader {
     constructor(requestId) {
@@ -762,7 +893,7 @@ class SimpleManifestLoader {
 }
 
 // ==========================================
-// 14. 配置加载器
+// 16. 配置加载器
 // ==========================================
 class SimpleConfigLoader {
     constructor(requestId) {
@@ -844,14 +975,14 @@ class SimpleConfigLoader {
 }
 
 // ==========================================
-// 15. 环境和引擎
+// 17. 环境和引擎
 // ==========================================
 class Environment {
     constructor(name) {
         this.name = name;
-        this.isQX = typeof $task !== 'undefined';
-        this.isSurge = typeof $httpClient !== 'undefined' && !this.isQX;
-        this.isLoon = typeof $loon !== 'undefined';
+        this.isQX = Platform.isQX;
+        this.isSurge = Platform.isSurge;
+        this.isLoon = Platform.isLoon;
         this.response = typeof $response !== 'undefined' ? $response : {};
         this.request = typeof $request !== 'undefined' ? $request : {};
 
@@ -969,7 +1100,7 @@ class VipEngine {
 }
 
 // ==========================================
-// 16. 主函数
+// 18. 主函数
 // ==========================================
 async function main() {
     const requestId = Math.random().toString(36).substr(2, 6).toUpperCase();
