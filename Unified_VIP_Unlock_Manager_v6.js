@@ -1,10 +1,10 @@
 /**
  * ==========================================
-* Unified VIP Unlock Manager v20.3.1 - QX平衡优化版（最终修复版）
+* Unified VIP Unlock Manager v20.3.2 - QX平衡优化版（最终修复版）
  * 优化项：锁修复 + DEBUG关闭 + 存储缓存 + 正则池 + 处理器优化 + HTTP超时 + 环境检测
  * QX 兼容优化版 - 放弃跨请求缓存，专注单次性能
  * 特性：高性能锁（读多写少）+ 无锁去重切换
- * Unified VIP Unlock Manager v20.3.1 - QX扩展版（支持通知）
+ * Unified VIP Unlock Manager v20.3.2 - QX扩展版（支持通知）
  * 新增：notify 处理器，支持系统通知
  * ==========================================
  [rewrite_local]
@@ -62,8 +62,8 @@ if (typeof console === 'undefined') {
 // ==========================================
 const CONFIG = {
     REMOTE_BASE: 'https://joeshu.github.io/vip-unlock-configs',
-    CACHE_TTL: 6 * 60 * 60 * 1000,
-    CONFIG_CACHE_TTL: 60 * 60 * 1000,
+    CACHE_TTL: 0 * 60 * 60 * 1000,
+    CONFIG_CACHE_TTL: 0 * 60 * 1000,
     MAX_BODY_SIZE: 5 * 1024 * 1024,
     MAX_PROCESSORS_PER_REQUEST: 30,
     TIMEOUT: 10,
@@ -76,7 +76,7 @@ const CONFIG = {
 
 const META = {
     name: 'UnifiedVIP',
-    version: '20.3.1-notify'
+    version: '20.3.2'
 };
 
 // ==========================================
