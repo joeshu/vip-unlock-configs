@@ -360,8 +360,8 @@ const Logger = (() => {
     };
 })();
 
-Logger.info('Init', `Platform: ${Platform.getName()}, Logger ready`);
-Logger.info('Config', `FORCE_REFRESH_MANIFEST: ${CONFIG.FORCE_REFRESH_MANIFEST}, MANIFEST_VERSION: ${CONFIG.MANIFEST_VERSION}`);
+//Logger.info('Init', `Platform: ${Platform.getName()}, Logger ready`);
+//Logger.info('Config', `FORCE_REFRESH_MANIFEST: ${CONFIG.FORCE_REFRESH_MANIFEST}, MANIFEST_VERSION: ${CONFIG.MANIFEST_VERSION}`);
 
 // ==========================================
 // 8. 环境修复补充
