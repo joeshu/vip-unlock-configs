@@ -5,8 +5,8 @@
   "mode": "html",
   "htmlReplacements": [
      {
-      "pattern": "<body",
-      "replacement": "<style>.sidebar_units,.sidebar_compliance,.pro-unitins,.adsbygoogle,#pro-campaign-container,.wwads-img,.wwads-content{display:none!important}</style><body",
+      "pattern": "</body",
+      "replacement": "<style>.sidebar_units,.sidebar_compliance,.pro-unitins,.adsbygoogle,#pro-campaign-container,.wwads-img,.wwads-content{display:none!important}</style></body",
       "flags": "i"
     },
     {
