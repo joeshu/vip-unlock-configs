@@ -78,8 +78,8 @@ const CONFIG = {
     // ==========================================
     // 强制刷新开关（临时启用）
     // ==========================================
-    VERBOSE_PATTERN_LOG: false,  // ← 新增：详细 pattern 日志开关
-    FORCE_REFRESH_MANIFEST: false,  // ← 设为 true 强制刷新，验证成功后改回 false
+    VERBOSE_PATTERN_LOG: true,  // ← 新增：详细 pattern 日志开关
+    FORCE_REFRESH_MANIFEST: true,  // ← 设为 true 强制刷新，验证成功后改回 false
     MANIFEST_VERSION: '20.3.2'     // ← 与 manifest.json 中的 version 一致
     };
 
@@ -976,7 +976,18 @@ class SimpleManifestLoader {
         }
         
         Logger.debug('ManifestLoader', `Matching URL: ${url.substring(0, 80)}...`);
-        
+         
+     // 添加详细调试
+        if (url.includes('v2ex')) {
+          Logger.info('ManifestLoader', `V2EX DEBUG: Testing URL ${url}`);
+          for (const [id, pattern] of this._patterns) {
+            if (id === 'v2ex') {
+              Logger.info('ManifestLoader', `V2EX Pattern: ${pattern.source}`);
+              Logger.info('ManifestLoader', `V2EX Test result: ${pattern.test(url)}`);
+            }
+          }
+        }
+     
         for (const [id, pattern] of this._patterns) {
             try {
                 if (pattern.test(url)) {
