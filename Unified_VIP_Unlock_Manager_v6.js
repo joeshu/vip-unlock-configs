@@ -2,6 +2,7 @@
  * ==========================================
  * Unified VIP Unlock Manager v20.3.1 - QX优化补丁
  * 优化项：锁修复 + DEBUG关闭 + 存储缓存 + 正则池 + 处理器优化 + HTTP超时 + 环境检测
+  * 新增：Manifest内存缓存（60秒零I/O）
  * ==========================================
  
 [rewrite_local]
@@ -41,10 +42,10 @@
  [mitm]
  hostname = theater-api.sylangyue.xyz, api.iappdaily.com, api2.tophub.today, api2.tophub.app, api3.tophub.xyz, api3.tophub.today, api3.tophub.app, tophub.tophubdata.com, tophub2.tophubdata.com, tophub.idaily.today, tophub2.idaily.today, tophub.remai.today, tophub.iappdaiy.com, tophub.ipadown.com,service.gpstool.com, mapi.kouyuxingqiu.com, ss.landintheair.com, *.v2ex.com, apis.folidaymall.com, gateway-api.yizhilive.com, pagead*.googlesyndication.com, api.gotokeep.com, kit.gotokeep.com, *.gotokeep.*, 120.53.74.*, 162.14.5.*, 42.187.199.*, 101.42.124.*, javelin.mandrillvr.com,api.banxueketang.com, yzy0916.*.com, yz1018.*.com, yz250907.*.com, yz0320.*.com, cfvip.*.com,yr-game-api.feigo.fun,star.jvplay.cn,iotpservice.smartont.net
 */
-
 'use strict';
+
 // ==========================================
-// 配置区域（DEBUG已开启）
+// 配置区域
 // ==========================================
 const CONFIG = {
     REMOTE_BASE: 'https://joeshu.github.io/vip-unlock-configs',
@@ -53,7 +54,7 @@ const CONFIG = {
     MAX_BODY_SIZE: 5 * 1024 * 1024,
     MAX_PROCESSORS_PER_REQUEST: 30,
     TIMEOUT: 10,
-    DEBUG: true  // ← 已开启DEBUG
+    DEBUG: true
 };
 
 const META = {
@@ -62,7 +63,43 @@ const META = {
 };
 
 // ==========================================
-// 优化2：修复防重复锁（QX安全的模块级闭包实现）
+// 新增：Manifest内存缓存（跨请求零I/O）
+// ==========================================
+const ManifestCache = (() => {
+    let manifest = null;
+    let patterns = null;
+    let lastLoad = 0;
+    const MEM_TTL = 60000; // 60秒内存缓存
+    
+    return {
+        get: () => {
+            if (manifest && (Date.now() - lastLoad) < MEM_TTL) {
+                Logger.debug('ManifestCache', `Hit: ${(Date.now() - lastLoad)}ms old`);
+                return { manifest, patterns };
+            }
+            return null;
+        },
+        set: (m, p) => {
+            manifest = m;
+            patterns = p;
+            lastLoad = Date.now();
+            Logger.debug('ManifestCache', 'Updated');
+        },
+        clear: () => {
+            manifest = null;
+            patterns = null;
+            lastLoad = 0;
+        },
+        getStats: () => ({
+            hasData: !!manifest,
+            age: lastLoad ? Date.now() - lastLoad : 0,
+            patternCount: patterns?.size || 0
+        })
+    };
+})();
+
+// ==========================================
+// 优化2：修复防重复锁
 // ==========================================
 const LockManager = (() => {
     const locks = new Set();
@@ -115,15 +152,11 @@ const releaseLock = () => LockManager.release(LOCK_KEY);
 const Logger = (() => {
     const isDebug = CONFIG.DEBUG === true;
     
-    // 生产环境：零开销Proxy
     if (!isDebug) {
         return new Proxy({}, {
             get: () => () => {}
         });
     }
-    
-    // 调试环境：实际日志实现（修复版）
-    const noop = () => {};
     
     const log = (level, tag, msg, data) => {
         const now = new Date();
@@ -694,7 +727,7 @@ function createCompiler(factory) {
 }
 
 // ==========================================
-// Manifest加载器
+// 优化版Manifest加载器（新增ManifestCache）
 // ==========================================
 class SimpleManifestLoader {
     constructor(requestId) {
@@ -705,19 +738,31 @@ class SimpleManifestLoader {
     }
 
     async load() {
-        const cacheKey = 'vip_manifest_v20';
-        
-        Logger.debug('ManifestLoader', `Loading...`);
-        const { [cacheKey]: cached } = Storage.readBatch([cacheKey]);
-        
-        if (cached) {
-            Logger.info('ManifestLoader', 'L2 cache hit');
-            this._manifest = Utils.safeJsonParse(cached);
-            this._compilePatterns();
+        // P0: 内存缓存（零I/O，60秒内）
+        const memCached = ManifestCache.get();
+        if (memCached) {
+            this._manifest = memCached.manifest;
+            this._patterns = memCached.patterns;
+            Logger.info('ManifestLoader', `L0 memory cache hit (0 I/O), ${this._patterns.size} patterns ready`);
             return this._manifest;
         }
 
-        Logger.info('ManifestLoader', 'Fetching remote...');
+        // P1: 持久化存储
+        const cacheKey = 'vip_manifest_v20';
+        Logger.debug('ManifestLoader', 'L0 miss, checking storage...');
+        const { [cacheKey]: cached } = Storage.readBatch([cacheKey]);
+        
+        if (cached) {
+            Logger.info('ManifestLoader', 'L1 storage hit');
+            this._manifest = Utils.safeJsonParse(cached);
+            this._compilePatterns();
+            // 写入内存缓存供后续请求使用
+            ManifestCache.set(this._manifest, this._patterns);
+            return this._manifest;
+        }
+
+        // P2: 远程加载
+        Logger.info('ManifestLoader', 'L1 miss, fetching remote...');
         const res = await HTTP.get(`${CONFIG.REMOTE_BASE}/manifest.json?t=${Date.now()}`);
         
         if (res.status !== 200 || !res.body) {
@@ -727,7 +772,11 @@ class SimpleManifestLoader {
         this._manifest = Utils.safeJsonParse(res.body);
         Storage.write(cacheKey, res.body);
         this._compilePatterns();
-        Logger.info('ManifestLoader', `Loaded ${Object.keys(this._manifest.configs || {}).length} configs`);
+        
+        // 写入内存缓存
+        ManifestCache.set(this._manifest, this._patterns);
+        Logger.info('ManifestLoader', `Remote loaded, ${this._patterns.size} patterns cached`);
+        
         return this._manifest;
     }
 
