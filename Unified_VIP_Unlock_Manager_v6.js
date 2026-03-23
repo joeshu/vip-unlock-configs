@@ -56,7 +56,7 @@ const CONFIG = {
     DEBUG: true,
     
     // 锁配置
-    USE_DISTRIBUTED_LOCK: true,  // true=分布式锁（强一致性）, false=内存去重（高性能）
+    USE_DISTRIBUTED_LOCK: false,  // true=分布式锁（强一致性）, false=内存去重（高性能）
     LOCK_TTL: 3000,              // 锁有效期3秒
     LOCAL_CACHE_TTL: 100,        // 本地缓存100ms
     DEDUP_WINDOW: 500            // 无锁模式下去重窗口500ms
