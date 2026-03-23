@@ -54,7 +54,7 @@ const CONFIG = {
     MAX_BODY_SIZE: 5 * 1024 * 1024,
     MAX_PROCESSORS_PER_REQUEST: 30,
     TIMEOUT: 10,
-    DEBUG: true  // ← 关闭DEBUG
+    DEBUG: false   // ← 关闭DEBUG
 };
 
 const META = {
