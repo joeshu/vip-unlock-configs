@@ -43,9 +43,8 @@
 */
 
 'use strict';
-
 // ==========================================
-// 配置区域（优化3：DEBUG关闭）
+// 配置区域（DEBUG已开启）
 // ==========================================
 const CONFIG = {
     REMOTE_BASE: 'https://joeshu.github.io/vip-unlock-configs',
@@ -54,7 +53,7 @@ const CONFIG = {
     MAX_BODY_SIZE: 5 * 1024 * 1024,
     MAX_PROCESSORS_PER_REQUEST: 30,
     TIMEOUT: 10,
-    DEBUG: false   // ← 关闭DEBUG
+    DEBUG: true  // ← 已开启DEBUG
 };
 
 const META = {
@@ -66,15 +65,13 @@ const META = {
 // 优化2：修复防重复锁（QX安全的模块级闭包实现）
 // ==========================================
 const LockManager = (() => {
-    // 使用模块级闭包变量，比globalThis更可靠
     const locks = new Set();
-    const MAX_LOCKS = 100; // 防止内存泄漏
+    const MAX_LOCKS = 100;
     
     return {
         acquire: (key) => {
             if (locks.has(key)) return false;
             if (locks.size >= MAX_LOCKS) {
-                // LRU清理：删除最早的锁
                 const first = locks.values().next().value;
                 locks.delete(first);
             }
@@ -84,9 +81,7 @@ const LockManager = (() => {
         release: (key) => {
             locks.delete(key);
         },
-        // 生成更短的锁键（避免长URL导致内存膨胀）
         makeKey: (url) => {
-            // 使用URL的哈希而非完整URL
             let hash = 0;
             for (let i = 0; i < url.length; i++) {
                 hash = ((hash << 5) - hash) + url.charCodeAt(i);
@@ -97,7 +92,6 @@ const LockManager = (() => {
     };
 })();
 
-// 优化后的锁应用（替换原脚本的全局锁代码）
 const LOCK_KEY = LockManager.makeKey(
     (typeof $request !== 'undefined' && $request.url) ? $request.url : 
     (typeof $response !== 'undefined' && $response.url) ? $response.url : 
@@ -105,7 +99,6 @@ const LOCK_KEY = LockManager.makeKey(
 );
 
 if (!LockManager.acquire(LOCK_KEY)) {
-    // 已在执行中，直接返回原始响应
     if (typeof $response !== 'undefined' && $response) {
         $done({ body: $response.body });
     } else {
@@ -117,40 +110,61 @@ if (!LockManager.acquire(LOCK_KEY)) {
 const releaseLock = () => LockManager.release(LOCK_KEY);
 
 // ==========================================
-// 优化3：零开销日志系统（生产环境）
+// 修复：DEBUG=true时日志正常工作
 // ==========================================
 const Logger = (() => {
-    if (!CONFIG.DEBUG) {
-        // 真正零开销：Proxy拦截所有调用，参数不求值
+    const isDebug = CONFIG.DEBUG === true;
+    
+    // 生产环境：零开销Proxy
+    if (!isDebug) {
         return new Proxy({}, {
-            get: () => () => {},
-            has: () => false
+            get: () => () => {}
         });
     }
     
-    // 调试环境实现（略，与原脚本相同）
+    // 调试环境：实际日志实现（修复版）
+    const noop = () => {};
+    
     const log = (level, tag, msg, data) => {
-        const time = new Date().toLocaleTimeString('en-US', { hour12: false });
-        console.log(`[${META.name}][${level.toUpperCase()}][${time}][${tag}] ${msg}${data ? ' | ' + JSON.stringify(data) : ''}`);
+        const now = new Date();
+        const time = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`;
+        const prefix = `[${META.name}][${level.toUpperCase()}][${time}]`;
+        const tagStr = tag ? `[${tag}]` : '';
+        
+        let dataStr = '';
+        if (data !== undefined && data !== null) {
+            if (data instanceof Error) {
+                dataStr = ` | Error: ${data.message}`;
+            } else if (typeof data === 'object') {
+                try {
+                    dataStr = ` | ${JSON.stringify(data)}`;
+                } catch (e) {
+                    dataStr = ' | [Object]';
+                }
+            } else {
+                dataStr = ` | ${data}`;
+            }
+        }
+        
+        console.log(`${prefix}${tagStr} ${msg}${dataStr}`);
     };
     
     return {
-        debug: (t, m, d) => log('debug', t, m, d),
-        info: (t, m, d) => log('info', t, m, d),
-        warn: (t, m, d) => log('warn', t, m, d),
-        error: (t, m, d) => log('error', t, m, d),
-        fatal: (t, m, d) => log('FATAL', t, m, d)
+        debug: (tag, msg, data) => log('debug', tag, msg, data),
+        info: (tag, msg, data) => log('info', tag, msg, data),
+        warn: (tag, msg, data) => log('warn', tag, msg, data),
+        error: (tag, msg, data) => log('error', tag, msg, data),
+        fatal: (tag, msg, data) => log('FATAL', tag, msg, data),
+        _isSilent: false
     };
 })();
 
 // ==========================================
-// 优化9：环境检测延迟执行（仅在需要时修复）
+// 优化9：环境检测延迟执行
 // ==========================================
-// 替换原脚本的立即执行函数
 if (typeof console === 'undefined') {
     globalThis.console = { log: () => {} };
 }
-// 仅在方法缺失时修复，且使用更高效的绑定
 const _log = console.log.bind(console);
 ['error', 'warn', 'debug', 'info'].forEach(method => {
     if (typeof console[method] !== 'function') {
@@ -162,15 +176,11 @@ const _log = console.log.bind(console);
 // 优化4：QX存储优化（内存缓存层）
 // ==========================================
 const Storage = (() => {
-    // 内存缓存层
     const memCache = new Map();
-    const MEM_TTL = 60000; // 1分钟内存缓存有效期
-    
-    // 检测QX环境
+    const MEM_TTL = 60000;
     const isQX = typeof $task !== 'undefined';
     const isSurge = typeof $httpClient !== 'undefined';
     
-    // 底层存储接口
     const backend = {
         read: isQX ? (k) => $prefs.valueForKey(k) : 
               isSurge ? (k) => $persistentStore.read(k) : () => null,
@@ -181,42 +191,43 @@ const Storage = (() => {
     return {
         read: (key) => {
             const now = Date.now();
-            
-            // L1: 内存缓存
             const cached = memCache.get(key);
             if (cached && (now - cached.t) < MEM_TTL) {
+                Logger.debug('Storage', `Memory hit: ${key}`);
                 return cached.v;
             }
             
-            // L2: 持久化存储
             try {
                 const value = backend.read(key);
                 if (value !== null && value !== undefined && value !== '') {
-                    // 写入内存缓存
                     memCache.set(key, { v: value, t: now });
+                    Logger.debug('Storage', `Disk hit: ${key}`);
+                } else {
+                    Logger.debug('Storage', `Miss: ${key}`);
                 }
                 return value;
             } catch (e) {
+                Logger.error('Storage', `Read error: ${key}`, e);
                 return null;
             }
         },
         
         write: (key, value) => {
             const now = Date.now();
-            
-            // 更新内存缓存
             memCache.set(key, { v: value, t: now });
+            Logger.debug('Storage', `Write: ${key}`);
             
-            // 异步写入持久化（QX中同步写入即可）
             try {
                 return backend.write(key, value);
             } catch (e) {
+                Logger.error('Storage', `Write error: ${key}`, e);
                 return false;
             }
         },
         
         remove: (key) => {
             memCache.delete(key);
+            Logger.debug('Storage', `Remove: ${key}`);
             try {
                 return backend.write(key, '') || backend.write(key, null);
             } catch (e) {
@@ -224,28 +235,27 @@ const Storage = (() => {
             }
         },
         
-        // 批量读取优化（减少多次I/O）
         readBatch: (keys) => {
             const result = {};
             const now = Date.now();
             const missingKeys = [];
             
-            // 先查内存
             for (const key of keys) {
                 const cached = memCache.get(key);
                 if (cached && (now - cached.t) < MEM_TTL) {
                     result[key] = cached.v;
+                    Logger.debug('Storage', `Batch memory hit: ${key}`);
                 } else {
                     missingKeys.push(key);
                 }
             }
             
-            // 再查持久化
             for (const key of missingKeys) {
                 const value = backend.read(key);
                 if (value !== null) {
                     result[key] = value;
                     memCache.set(key, { v: value, t: now });
+                    Logger.debug('Storage', `Batch disk hit: ${key}`);
                 }
             }
             
@@ -255,7 +265,7 @@ const Storage = (() => {
 })();
 
 // ==========================================
-// 优化8：HTTP超时精确控制（QX专用）
+// 优化8：HTTP超时精确控制
 // ==========================================
 const HTTP = (() => {
     const isQX = typeof $task !== 'undefined';
@@ -263,12 +273,13 @@ const HTTP = (() => {
     
     return {
         get: (url, timeout = CONFIG.TIMEOUT * 1000) => new Promise((resolve, reject) => {
-            // 使用毫秒级精确超时
             const timer = setTimeout(() => {
+                Logger.error('HTTP', `Timeout: ${url.substring(0, 50)}...`);
                 reject(new Error(`HTTP Timeout: ${url.substring(0, 50)}...`));
             }, timeout);
             
             const startTime = Date.now();
+            Logger.debug('HTTP', `Request: ${url.substring(0, 80)}...`);
             
             const handleResponse = (error, response, body) => {
                 clearTimeout(timer);
@@ -276,23 +287,26 @@ const HTTP = (() => {
                 if (error) {
                     const errorMsg = typeof error === 'string' ? error : 
                                     (error && typeof error === 'object') ? JSON.stringify(error) : String(error);
+                    Logger.error('HTTP', `Error: ${errorMsg}`);
                     reject(new Error(`HTTP Error: ${errorMsg}`));
                 } else {
+                    const time = Date.now() - startTime;
+                    const status = typeof response === 'object' ? (response.status || 200) : 200;
+                    Logger.debug('HTTP', `Response: ${status} in ${time}ms`);
                     resolve({
                         body: body || '',
-                        status: typeof response === 'object' ? (response.status || 200) : 200,
-                        time: Date.now() - startTime
+                        status: status,
+                        time: time
                     });
                 }
             };
             
             try {
                 if (isQX) {
-                    // QX: $task.fetch 超时参数为秒，但我们用外部定时器更精确
                     $task.fetch({ 
                         url, 
                         method: 'GET', 
-                        timeout: Math.ceil(timeout / 1000) // 向上取整为秒
+                        timeout: Math.ceil(timeout / 1000)
                     }).then(
                         res => handleResponse(null, { status: res.statusCode }, res.body),
                         err => handleResponse(err, null, null)
@@ -314,14 +328,20 @@ const HTTP = (() => {
 })();
 
 // ==========================================
-// 工具函数（保持原有实现）
+// 工具函数
 // ==========================================
 const Utils = {
     safeJsonParse: (str, defaultVal = null) => {
-        try { return JSON.parse(str); } catch (e) { return defaultVal; }
+        try { return JSON.parse(str); } catch (e) { 
+            Logger.debug('Utils', 'JSON parse failed', e.message);
+            return defaultVal; 
+        }
     },
     safeJsonStringify: (obj) => {
-        try { return JSON.stringify(obj); } catch (e) { return '{}'; }
+        try { return JSON.stringify(obj); } catch (e) { 
+            Logger.error('Utils', 'JSON stringify failed', e);
+            return '{}'; 
+        }
     },
     getPath: (obj, path) => {
         if (!path || !obj) return undefined;
@@ -374,58 +394,56 @@ const Utils = {
 // ==========================================
 const RegexPool = (() => {
     const cache = new Map();
-    const MAX_SIZE = 100; // 最大缓存数量
-    const accessOrder = []; // LRU顺序追踪
+    const MAX_SIZE = 100;
+    const accessOrder = [];
     
     return {
         get: (pattern, flags = 'g') => {
             const key = `${pattern}|||${flags}`;
             
-            // 命中缓存
             if (cache.has(key)) {
-                // 更新LRU顺序
                 const idx = accessOrder.indexOf(key);
                 if (idx > -1) accessOrder.splice(idx, 1);
                 accessOrder.push(key);
+                Logger.debug('RegexPool', `Hit: ${pattern.substring(0, 30)}...`);
                 return cache.get(key);
             }
             
-            // 创建新正则
             try {
                 const regex = new RegExp(pattern, flags);
                 
-                // LRU淘汰
                 if (cache.size >= MAX_SIZE && accessOrder.length > 0) {
                     const oldest = accessOrder.shift();
                     cache.delete(oldest);
+                    Logger.debug('RegexPool', 'LRU eviction');
                 }
                 
                 cache.set(key, regex);
                 accessOrder.push(key);
+                Logger.debug('RegexPool', `Compiled: ${pattern.substring(0, 30)}...`, `Pool size: ${cache.size}`);
                 return regex;
             } catch (e) {
-                // 无效正则返回匹配空
-                return /(?!)/; // 永不匹配的正则
+                Logger.error('RegexPool', `Invalid pattern: ${pattern}`, e);
+                return /(?!)/;
             }
         },
         
-        // 批量预编译（用于manifest加载后）
         precompile: (patterns) => {
             const results = new Map();
             for (const [id, patternStr] of patterns) {
                 try {
                     results.set(id, RegexPool.get(patternStr));
                 } catch (e) {
-                    Logger.error('RegexPool', `Invalid pattern for ${id}`);
+                    Logger.error('RegexPool', `Failed for ${id}`, e);
                 }
             }
             return results;
         },
         
-        // 清理缓存（可选的内存管理）
         clear: () => {
             cache.clear();
             accessOrder.length = 0;
+            Logger.info('RegexPool', 'Cleared');
         },
         
         get size() { return cache.size; }
@@ -433,47 +451,64 @@ const RegexPool = (() => {
 })();
 
 // ==========================================
-// 优化6：处理器工厂（移除计数器，改为静态配置验证）
+// 优化6：处理器工厂（移除计数器）
 // ==========================================
 function createProcessorFactory(requestId) {
-    // 移除运行时计数器，改为配置阶段验证
-    // 原脚本的 MAX_PROCESSORS_PER_REQUEST 检查移至配置加载时
+    Logger.debug('ProcessorFactory', `Created for request ${requestId}`);
     
     return {
         setFields: (params) => (obj, env) => {
-            // 直接执行，无计数开销
             const fields = params.fields || {};
+            let modified = 0;
             for (const path in fields) {
                 Utils.setPath(obj, path, fields[path]);
+                modified++;
             }
+            Logger.debug('setFields', `Modified ${modified} fields`);
             return obj;
         },
 
         mapArray: (params) => (obj, env) => {
             const arr = Utils.getPath(obj, params.path);
-            if (!Array.isArray(arr)) return obj;
-            const fields = params.fields || {};
-            for (const item of arr) {
-                if (item) Object.assign(item, fields);
+            if (!Array.isArray(arr)) {
+                Logger.debug('mapArray', `${params.path} is not array`);
+                return obj;
             }
+            const fields = params.fields || {};
+            let count = 0;
+            for (const item of arr) {
+                if (item) {
+                    Object.assign(item, fields);
+                    count++;
+                }
+            }
+            Logger.debug('mapArray', `Processed ${count} items`);
             return obj;
         },
 
         filterArray: (params) => (obj, env) => {
             const arr = Utils.getPath(obj, params.path);
             if (!Array.isArray(arr)) return obj;
+            const originalLength = arr.length;
             const excludeSet = new Set(params.excludeKeys || []);
-            Utils.setPath(obj, params.path, arr.filter(item => !excludeSet.has(item?.[params.keyField])));
+            const filtered = arr.filter(item => !excludeSet.has(item?.[params.keyField]));
+            Utils.setPath(obj, params.path, filtered);
+            Logger.debug('filterArray', `${params.path}: ${originalLength} → ${filtered.length}`);
             return obj;
         },
 
         clearArray: (params) => (obj, env) => {
             const arr = Utils.getPath(obj, params.path);
-            if (Array.isArray(arr)) arr.length = 0;
+            if (Array.isArray(arr)) {
+                const count = arr.length;
+                arr.length = 0;
+                Logger.debug('clearArray', `Cleared ${count} items from ${params.logName || params.path}`);
+            }
             return obj;
         },
 
         deleteFields: (params) => (obj, env) => {
+            let deleted = 0;
             for (const path of params.paths || []) {
                 const parts = path.split('.');
                 let current = obj;
@@ -481,28 +516,38 @@ function createProcessorFactory(requestId) {
                     current = current?.[parts[i]];
                     if (!current) break;
                 }
-                if (current) delete current[parts[parts.length - 1]];
+                if (current) {
+                    delete current[parts[parts.length - 1]];
+                    deleted++;
+                }
             }
+            Logger.debug('deleteFields', `Deleted ${deleted} fields`);
             return obj;
         },
 
         sliceArray: (params) => (obj, env) => {
             const arr = Utils.getPath(obj, params.path);
             if (Array.isArray(arr) && arr.length > params.keepCount) {
+                const original = arr.length;
                 Utils.setPath(obj, params.path, arr.slice(0, params.keepCount));
+                Logger.debug('sliceArray', `${params.path}: ${original} → ${params.keepCount}`);
             }
             return obj;
         },
 
         shiftArray: (params) => (obj, env) => {
             const arr = Utils.getPath(obj, params.path);
-            if (Array.isArray(arr) && arr.length > 0) arr.shift();
+            if (Array.isArray(arr) && arr.length > 0) {
+                arr.shift();
+                Logger.debug('shiftArray', `Shifted ${params.logName || params.path}`);
+            }
             return obj;
         },
 
         processByKeyPrefix: (params) => (obj, env) => {
             const target = Utils.getPath(obj, params.objPath);
             if (!target || typeof target !== 'object') return obj;
+            let modified = 0;
             const rules = Object.entries(params.prefixRules || {});
             for (const key in target) {
                 const value = target[key];
@@ -510,25 +555,29 @@ function createProcessorFactory(requestId) {
                 for (const [prefix, handler] of rules) {
                     if (prefix !== '*' && key.startsWith(prefix)) {
                         Object.assign(value, handler);
+                        modified++;
                         break;
                     }
                 }
             }
+            Logger.debug('processByKeyPrefix', `Processed ${modified} items`);
             return obj;
         },
 
         compose: (params, compile) => {
             const steps = params.steps || [];
-            // 静态验证处理器数量
             if (steps.length > CONFIG.MAX_PROCESSORS_PER_REQUEST) {
+                Logger.error('compose', `Too many steps: ${steps.length}`);
                 throw new Error(`Too many processors: ${steps.length} > ${CONFIG.MAX_PROCESSORS_PER_REQUEST}`);
             }
             const processors = steps.map(step => compile(step));
+            Logger.debug('compose', `Composed ${processors.length} steps`);
             
             return (obj, env) => {
                 let result = obj;
                 for (let i = 0; i < processors.length; i++) {
                     if (!result) break;
+                    Logger.debug('compose', `Step ${i + 1}/${processors.length}`);
                     result = processors[i](result, env);
                 }
                 return result;
@@ -536,7 +585,6 @@ function createProcessorFactory(requestId) {
         },
 
         when: (params, compile) => {
-            // 预编译条件判断逻辑
             const conditionFn = (obj, env) => {
                 const url = env?.getUrl?.() || '';
                 switch (params.condition) {
@@ -565,6 +613,7 @@ function createProcessorFactory(requestId) {
             
             return (obj, env) => {
                 const conditionMet = conditionFn(obj, env);
+                Logger.debug('when', `Condition "${params.condition}" = ${conditionMet}`);
                 if (conditionMet && thenProcessor) {
                     return thenProcessor(obj, env);
                 } else if (!conditionMet && elseProcessor) {
@@ -576,6 +625,7 @@ function createProcessorFactory(requestId) {
 
         sceneDispatcher: (params, compile) => {
             const scenes = (params.scenes || []).map(s => ({
+                name: s.name,
                 matchFn: (obj, env) => {
                     const url = env?.getUrl?.() || '';
                     switch (s.when) {
@@ -597,12 +647,16 @@ function createProcessorFactory(requestId) {
                 then: compile(s.then)
             }));
             
+            Logger.debug('sceneDispatcher', `Loaded ${scenes.length} scenes`);
+            
             return (obj, env) => {
                 for (const scene of scenes) {
                     if (scene.matchFn(obj, env)) {
+                        Logger.debug('sceneDispatcher', `Matched: ${scene.name}`);
                         return scene.then(obj, env);
                     }
                 }
+                Logger.debug('sceneDispatcher', 'No scene matched');
                 return obj;
             };
         }
@@ -610,7 +664,7 @@ function createProcessorFactory(requestId) {
 }
 
 // ==========================================
-// 处理器编译器（使用RegexPool优化）
+// 处理器编译器
 // ==========================================
 function createCompiler(factory) {
     const cache = new Map();
@@ -620,40 +674,50 @@ function createCompiler(factory) {
         
         const cacheKey = Utils.simpleHash(JSON.stringify(def));
         if (cache.has(cacheKey)) {
+            Logger.debug('Compiler', `Cache hit: ${def.processor}`);
             return cache.get(cacheKey);
         }
         
         const processorFactory = factory[def.processor];
-        if (!processorFactory) return null;
+        if (!processorFactory) {
+            Logger.error('Compiler', `Unknown processor: ${def.processor}`);
+            return null;
+        }
         
         const processor = processorFactory(def.params, compileProcessor);
-        if (processor) cache.set(cacheKey, processor);
+        if (processor) {
+            cache.set(cacheKey, processor);
+            Logger.debug('Compiler', `Compiled: ${def.processor}`);
+        }
         return processor;
     };
 }
 
 // ==========================================
-// Manifest加载器（使用RegexPool优化）
+// Manifest加载器
 // ==========================================
 class SimpleManifestLoader {
     constructor(requestId) {
         this._requestId = requestId;
         this._manifest = null;
-        this._patterns = null; // 使用RegexPool后不再直接存储正则
+        this._patterns = null;
+        Logger.debug('ManifestLoader', `Created: ${requestId}`);
     }
 
     async load() {
         const cacheKey = 'vip_manifest_v20';
         
-        // 使用批量读取优化
+        Logger.debug('ManifestLoader', `Loading...`);
         const { [cacheKey]: cached } = Storage.readBatch([cacheKey]);
         
         if (cached) {
+            Logger.info('ManifestLoader', 'L2 cache hit');
             this._manifest = Utils.safeJsonParse(cached);
             this._compilePatterns();
             return this._manifest;
         }
 
+        Logger.info('ManifestLoader', 'Fetching remote...');
         const res = await HTTP.get(`${CONFIG.REMOTE_BASE}/manifest.json?t=${Date.now()}`);
         
         if (res.status !== 200 || !res.body) {
@@ -663,13 +727,13 @@ class SimpleManifestLoader {
         this._manifest = Utils.safeJsonParse(res.body);
         Storage.write(cacheKey, res.body);
         this._compilePatterns();
+        Logger.info('ManifestLoader', `Loaded ${Object.keys(this._manifest.configs || {}).length} configs`);
         return this._manifest;
     }
 
     _compilePatterns() {
         if (!this._manifest?.configs) return;
         
-        // 使用RegexPool预编译所有模式
         const patternEntries = [];
         for (const [id, info] of Object.entries(this._manifest.configs)) {
             if (info.urlPattern) {
@@ -678,14 +742,20 @@ class SimpleManifestLoader {
         }
         
         this._patterns = RegexPool.precompile(patternEntries);
+        Logger.debug('ManifestLoader', `Compiled ${this._patterns.size} patterns`);
     }
 
     findMatch(url) {
         if (!this._patterns) return null;
         for (const [id, pattern] of this._patterns) {
             try {
-                if (pattern.test(url)) return id;
-            } catch (e) {}
+                if (pattern.test(url)) {
+                    Logger.debug('ManifestLoader', `Matched: ${id}`);
+                    return id;
+                }
+            } catch (e) {
+                Logger.error('ManifestLoader', `Regex error for ${id}`, e);
+            }
         }
         return null;
     }
@@ -696,22 +766,26 @@ class SimpleManifestLoader {
 }
 
 // ==========================================
-// 配置加载器（使用存储优化）
+// 配置加载器
 // ==========================================
 class SimpleConfigLoader {
     constructor(requestId) {
         this._requestId = requestId;
         this._memCache = new Map();
+        Logger.debug('ConfigLoader', `Created: ${requestId}`);
     }
 
     async load(configId, remoteVersion) {
-        // L1: 同请求内存缓存
+        Logger.debug('ConfigLoader', `Loading ${configId} v${remoteVersion}...`);
+        
         if (this._memCache.has(configId)) {
             const cached = this._memCache.get(configId);
-            if (cached._version === remoteVersion) return cached;
+            if (cached._version === remoteVersion) {
+                Logger.info('ConfigLoader', `${configId} L1 hit`);
+                return cached;
+            }
         }
 
-        // L2: 持久化存储（使用优化后的Storage）
         const cacheKey = `vip_cfg_v20_${configId}`;
         const stored = Storage.read(cacheKey);
 
@@ -719,17 +793,20 @@ class SimpleConfigLoader {
             try {
                 const { v, t, d } = Utils.safeJsonParse(stored);
                 if (v === remoteVersion && (Date.now() - t) < CONFIG.CONFIG_CACHE_TTL) {
+                    Logger.info('ConfigLoader', `${configId} L2 hit v${remoteVersion}`);
                     const config = this._prepareConfig(d);
                     config._version = remoteVersion;
                     this._memCache.set(configId, config);
                     return config;
+                } else {
+                    Logger.debug('ConfigLoader', `${configId} cache expired or version mismatch`);
                 }
             } catch (e) {
-                // 缓存解析错误，继续获取远程
+                Logger.warn('ConfigLoader', `${configId} cache parse error`, e);
             }
         }
 
-        // 远程下载
+        Logger.info('ConfigLoader', `${configId} fetching remote v${remoteVersion}...`);
         const fresh = await this._fetch(configId);
         
         Storage.write(cacheKey, Utils.safeJsonStringify({
@@ -741,6 +818,7 @@ class SimpleConfigLoader {
         const config = this._prepareConfig(fresh);
         config._version = remoteVersion;
         this._memCache.set(configId, config);
+        Logger.info('ConfigLoader', `${configId} loaded and cached`);
         return config;
     }
 
@@ -758,7 +836,6 @@ class SimpleConfigLoader {
     _prepareConfig(raw) {
         const config = { ...raw };
 
-        // 使用RegexPool预编译正则
         if (raw.urlPattern) {
             config.urlPattern = RegexPool.get(raw.urlPattern);
         }
@@ -778,12 +855,13 @@ class SimpleConfigLoader {
             }));
         }
 
+        Logger.debug('ConfigLoader', `Prepared config with ${config._regexReplacements?.length || 0} regex, ${config._gameResources?.length || 0} game rules`);
         return config;
     }
 }
 
 // ==========================================
-// 环境和引擎（保持原有逻辑）
+// 环境和引擎
 // ==========================================
 class Environment {
     constructor(name) {
@@ -797,6 +875,7 @@ class Environment {
         if (!this.request.url && this.response.request?.url) {
             this.request = this.response.request;
         }
+        Logger.debug('Environment', `Created: ${name}, Platform: ${this.isQX ? 'QX' : this.isSurge ? 'Surge' : 'Other'}`);
     }
 
     getUrl() {
@@ -810,6 +889,7 @@ class Environment {
     }
 
     done(result) {
+        Logger.debug('Environment', `Done: ${result?.status || 'ok'}`);
         if (typeof $done === 'function') $done(result);
         else console.log('[DONE]', result);
     }
@@ -819,17 +899,22 @@ class VipEngine {
     constructor(env, requestId) {
         this.env = env;
         this._requestId = requestId;
+        Logger.debug('VipEngine', `Created: ${requestId}`);
     }
 
     process(body, config) {
         if (!body) {
+            Logger.warn('VipEngine', 'Empty body');
             return { body: '{}' };
         }
 
         const bodySize = typeof body === 'string' ? body.length : JSON.stringify(body).length;
         if (bodySize > CONFIG.MAX_BODY_SIZE) {
+            Logger.warn('VipEngine', `Body too large: ${(bodySize/1024/1024).toFixed(2)}MB`);
             return { body: typeof body === 'string' ? body : JSON.stringify(body) };
         }
+
+        Logger.debug('VipEngine', `Processing mode: ${config.mode}, size: ${bodySize} bytes`);
 
         switch (config.mode) {
             case 'json':
@@ -843,17 +928,20 @@ class VipEngine {
             case 'html':
                 return this.processHtml(body, config);
             default:
+                Logger.warn('VipEngine', `Unknown mode: ${config.mode}`);
                 return { body };
         }
     }
 
     processJson(body, config) {
         if (typeof body === 'string' && body.length > CONFIG.MAX_BODY_SIZE) {
+            Logger.warn('VipEngine', 'JSON body too large');
             return { body };
         }
 
         let obj = Utils.safeJsonParse(body);
         if (!obj) {
+            Logger.error('VipEngine', 'Failed to parse JSON');
             return { body };
         }
 
@@ -864,9 +952,12 @@ class VipEngine {
         if (typeof processor === 'function') {
             try {
                 obj = processor(obj, this.env);
+                Logger.info('VipEngine', `${config.name || 'VIP'} unlocked successfully`);
             } catch (e) {
-                // 处理器错误，保持原样
+                Logger.error('VipEngine', 'Processor error', e);
             }
+        } else {
+            Logger.debug('VipEngine', 'No custom processor');
         }
 
         return { body: Utils.safeJsonStringify(obj) };
@@ -874,27 +965,39 @@ class VipEngine {
 
     processRegex(body, config) {
         let modified = body;
+        let count = 0;
         
         const replacements = config._regexReplacements || config.regexReplacements || [];
         for (const rule of replacements) {
             try {
+                const original = modified;
                 modified = modified.replace(rule.pattern, rule.replacement);
-            } catch (e) {}
+                if (original !== modified) count++;
+            } catch (e) {
+                Logger.error('VipEngine', 'Regex replace error', e);
+            }
         }
 
+        Logger.debug('VipEngine', `Regex replaced ${count}/${replacements.length} patterns`);
         return { body: modified };
     }
 
     processGame(body, config) {
         let modified = body;
+        let count = 0;
         
         const resources = config._gameResources || config.gameResources || [];
         for (const res of resources) {
             try {
+                const original = modified;
                 modified = modified.replace(res.pattern, `"${res.field}":${res.value}`);
-            } catch (e) {}
+                if (original !== modified) count++;
+            } catch (e) {
+                Logger.error('VipEngine', 'Game resource error', e);
+            }
         }
 
+        Logger.debug('VipEngine', `Game resources modified: ${count}/${resources.length}`);
         return { body: modified };
     }
 
@@ -908,14 +1011,20 @@ class VipEngine {
 
     processHtml(body, config) {
         let modified = body;
+        let count = 0;
 
         for (const rule of config.htmlReplacements || []) {
             try {
                 const regex = RegexPool.get(rule.pattern, rule.flags || 'i');
+                const original = modified;
                 modified = modified.replace(regex, rule.replacement);
-            } catch (e) {}
+                if (original !== modified) count++;
+            } catch (e) {
+                Logger.error('VipEngine', 'HTML replace error', e);
+            }
         }
 
+        Logger.debug('VipEngine', `HTML replaced ${count} patterns`);
         return { body: modified };
     }
 }
@@ -925,41 +1034,45 @@ class VipEngine {
 // ==========================================
 async function main() {
     const requestId = Math.random().toString(36).substr(2, 6).toUpperCase();
+    Logger.info('Main', `=== Request ${requestId} started ===`);
+    
     const env = new Environment(META.name);
 
     try {
         const url = env.getUrl();
         if (!url) {
+            Logger.fatal('Main', 'No URL in request');
             releaseLock();
             return env.done({ body: env.getBody() });
         }
 
-        // 1. 加载 Manifest
+        Logger.info('Main', `Processing: ${url.replace(/\?.*$/, '').substring(0, 60)}...`);
+
         const mLoader = new SimpleManifestLoader(requestId);
         const manifest = await mLoader.load();
 
-        // 2. URL 匹配
         const configId = mLoader.findMatch(url);
         if (!configId) {
+            Logger.info('Main', 'No rule matched, passing through');
             releaseLock();
             return env.done({ body: env.getBody() });
         }
+        Logger.info('Main', `Matched config: ${configId}`);
 
-        // 3. 获取远程版本号
         const remoteVersion = mLoader.getConfigVersion(configId);
 
-        // 4. 加载配置
         const cLoader = new SimpleConfigLoader(requestId);
         const config = await cLoader.load(configId, remoteVersion);
 
-        // 5. 执行处理
         const engine = new VipEngine(env, requestId);
         const result = engine.process(env.getBody(), config);
 
+        Logger.info('Main', `=== Request ${requestId} completed ===`);
         releaseLock();
         env.done(result);
 
     } catch (e) {
+        Logger.fatal('Main', `Request ${requestId} failed`, e);
         releaseLock();
         env.done({ body: env.getBody() });
     }
