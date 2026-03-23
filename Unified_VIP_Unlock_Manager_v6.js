@@ -78,13 +78,14 @@ const CONFIG = {
     // ==========================================
     // 强制刷新开关（临时启用）
     // ==========================================
+    VERBOSE_PATTERN_LOG: false,  // ← 新增：详细 pattern 日志开关
     FORCE_REFRESH_MANIFEST: false,  // ← 设为 true 强制刷新，验证成功后改回 false
     MANIFEST_VERSION: '20.3.2'     // ← 与 manifest.json 中的 version 一致
-};
+    };
 
 const META = {
     name: 'UnifiedVIP',
-    version: '20.3.1-notify'
+    version: '20.3.2-notify'
 };
 
 // ==========================================
@@ -961,7 +962,7 @@ class SimpleManifestLoader {
         Logger.debug('ManifestLoader', `Compiled ${this._patterns.size} patterns`);
         
         // 列出所有 pattern 用于调试
-        if (CONFIG.DEBUG) {
+        if (CONFIG.DEBUG && CONFIG.VERBOSE_PATTERN_LOG) {
             for (const [id, pattern] of this._patterns) {
                 Logger.debug('ManifestLoader', `Pattern: ${id} = ${pattern.source.substring(0, 50)}...`);
             }
