@@ -69,7 +69,7 @@ const ManifestCache = (() => {
     let manifest = null;
     let patterns = null;
     let lastLoad = 0;
-    const MEM_TTL = 60000; // 60秒内存缓存
+    const MEM_TTL = 180000; // 180秒内存缓存
     
     return {
         get: () => {
