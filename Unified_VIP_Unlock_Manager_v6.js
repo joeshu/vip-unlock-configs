@@ -62,7 +62,7 @@ const CONFIG = {
     MAX_PROCESSORS_PER_REQUEST: 30,
     TIMEOUT: 10,
     DEBUG: true,
-    USE_DISTRIBUTED_LOCK: true,
+    USE_DISTRIBUTED_LOCK: false,    // true=分布式锁（强一致性）, false=内存去重（高性能）
     LOCK_TTL: 3000,
     LOCAL_CACHE_TTL: 100,
     DEDUP_WINDOW: 500
