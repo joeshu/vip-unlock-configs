@@ -1,25 +1,7 @@
 {
-  "version": "20.2.5",
-  "updated": "2026-03-21",
+  "version": "20.3.1",
+  "updated": "2026-03-23",
   "total": 16,
-  "configVersions": {
-    "iappdaily": "2026032101",
-    "tophub": "2026032101",
-    "sylangyue": "2026032101",
-    "gps": "2026032101",
-    "kyxq": "2026032101",
-    "mhlz": "2026032101",
-    "xjsm": "2026032101",
-    "v2ex": "2026032101",
-    "foday": "2026032101",
-    "qiujingapp": "2026032101",
-    "tv": "2026032101",
-    "keep": "2026032101",
-    "bqwz": "2026032101",
-    "cyljy": "2026032101",
-    "bxkt": "2026032101",
-    "wohome": "2026032101"
-  },
   "configs": {
     "iappdaily": {
       "name": "iAppDaily",
@@ -28,7 +10,7 @@
     },
     "tophub": {
       "name": "TopHub",
-      "urlPattern": "(?:api[23]\\.tophub\\.(?:xyz|today|app)|tophub(?:2)?\\.(?:tophubdata\\.com|idaily\\.today|remai\\.today|iappdaiy\\.com|ipadown\\.com))\\/account\\/sync",
+      "urlPattern": "^https?:\\/\\/(?:api[23]\\.tophub\\.(?:xyz|today|app)|tophub(?:2)?\\.(?:tophubdata\\.com|idaily\\.today|remai\\.today|iappdaiy\\.com|ipadown\\.com))\\/account\\/sync",
       "mode": "json"
     },
     "sylangyue": {
@@ -58,7 +40,7 @@
     },
     "v2ex": {
       "name": "V2EX去广告",
-      "urlPattern": "^https?:\\/\\/.*v2ex\\.com\\/(?!(?:.*(?:api|login|cdn-cgi|verify|auth|captch|\\.(js|css|jpg|jpeg|png|webp|gif|zip|woff|woff2|m3u8|mp4|mov|m4v|avi|mkv|flv|rmvb|wmv|rm|asf|asx|mp3|json|ico|otf|ttf)))).+$",
+      "urlPattern": "^https?:\\/\\/.*v2ex\\.com\\/(?!(?:.*(?:api|login|cdn-cgi|verify|auth|captch|\\.js|\\.css|\\.jpg|\\.jpeg|\\.png|\\.webp|\\.gif|\\.zip|\\.woff|\\.woff2|\\.m3u8|\\.mp4|\\.mov|\\.m4v|\\.avi|\\.mkv|\\.flv|\\.rmvb|\\.wmv|\\.rm|\\.asf|\\.asx|\\.mp3|\\.json|\\.ico|\\.otf|\\.ttf)))).+$",
       "mode": "html"
     },
     "foday": {
@@ -68,17 +50,17 @@
     },
     "qiujingapp": {
       "name": "球竞APP",
-      "urlPattern": "^https?:\\/\\/gateway-api\\.yizhilive\\.com\\/api\\/(?:v2\\/index\\/carouses\\/(?:3|6|8|11)|v3\\/index\\/all)",
+      "urlPattern": "^https?:\\/\\/gateway-api\\.yizhilive\\.com\\/api\\/(v2\\/index\\/carouses\\/(3|6|8|11)|v3\\/index\\/all)",
       "mode": "json"
     },
     "tv": {
       "name": "影视去广告",
-      "urlPattern": "^https?:\\/\\/(?:yzy0916|yz1018|yz250907|yz0320|cfvip)\\..+\\.com\\/(?:v2|v1)\\/api\\/(?:basic\\/init|home\\/firstScreen|adInfo\\/getPageAd|home\\/body)",
+      "urlPattern": "^https?:\\/\\/(yzy0916|yz1018|yz250907|yz0320|cfvip)\\..+\\.com\\/(v2|v1)\\/api\\/(basic\\/init|home\\/firstScreen|adInfo\\/getPageAd|home\\/body)",
       "mode": "json"
     },
     "keep": {
       "name": "Keep",
-      "urlPattern": "^https?:\\/\\/(?:api|kit)\\.gotokeep\\.com\\/(?:nuocha|gerudo|athena|nuocha\\/plans|suit\\/v5\\/smart|kprime\\/v4\\/suit\\/sales)\\/",
+      "urlPattern": "^https?:\\/\\/(api|kit)\\.gotokeep\\.com\\/(nuocha|gerudo|athena|nuocha\\/plans|suit\\/v5\\/smart|kprime\\/v4\\/suit\\/sales)\\/",
       "mode": "regex"
     },
     "bqwz": {
@@ -101,5 +83,23 @@
       "urlPattern": "^https:\\/\\/iotpservice\\.smartont\\.net\\/wohome\\/dispatcher",
       "mode": "json"
     }
+  },
+  "configVersions": {
+    "iappdaily": "1.0.0",
+    "tophub": "1.0.0",
+    "sylangyue": "1.0.0",
+    "gps": "1.0.0",
+    "kyxq": "1.0.0",
+    "mhlz": "1.0.0",
+    "xjsm": "1.0.0",
+    "v2ex": "1.0.0",
+    "foday": "1.0.0",
+    "qiujingapp": "1.0.0",
+    "tv": "1.0.0",
+    "keep": "1.0.0",
+    "bqwz": "1.0.0",
+    "cyljy": "1.0.0",
+    "bxkt": "1.0.0",
+    "wohome": "1.0.0"
   }
 }
