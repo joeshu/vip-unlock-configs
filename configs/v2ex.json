@@ -5,8 +5,8 @@
   "mode": "html",
   "htmlReplacements": [
 {
-  "pattern": "<html[^>]*>",
-  "replacement": "<html><style>.sidebar_units,.sidebar_compliance,.pro-unitins,.adsbygoogle,#pro-campaign-container,.wwads-img,.wwads-content{display:none!important}</style>",
+  "pattern": "</body>",
+  "replacement": "<script>(function(){var ads=['.sidebar_units','.sidebar_compliance','.wwads','.adsbygoogle','#pro-campaign-container'];ads.forEach(function(s){var e=document.querySelectorAll(s);e.forEach(function(el){el.remove();});});})();</script></body>",
   "flags": "i"
 },
     {
