@@ -79,7 +79,7 @@ const CONFIG = {
     // 强制刷新开关（临时启用）
     // ==========================================
     VERBOSE_PATTERN_LOG: true,  // ← 新增：详细 pattern 日志开关
-    FORCE_REFRESH_MANIFEST: true,  // ← 设为 true 强制刷新，验证成功后改回 false
+    FORCE_REFRESH_MANIFEST: false,  // ← 设为 true 强制刷新，验证成功后改回 false
     MANIFEST_VERSION: '20.3.2'     // ← 与 manifest.json 中的 version 一致
     };
 
@@ -573,7 +573,7 @@ const RegexPool = (() => {
     const accessOrder = [];
     
     return {
-        get: (pattern, flags = 'g') => {
+        get: (pattern, flags = '') => {
             const key = `${pattern}|||${flags}`;
             
             if (cache.has(key)) {
