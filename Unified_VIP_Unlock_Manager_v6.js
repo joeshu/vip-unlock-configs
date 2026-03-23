@@ -6,6 +6,8 @@
  * 特性：高性能锁（读多写少）+ 无锁去重切换
  * Unified VIP Unlock Manager v20.3.2 - QX扩展版（支持通知）
  * 新增：notify 处理器，支持系统通知
+  * Unified VIP Unlock Manager v20.3.2 - QX强制刷新版
+ * 临时修改：强制跳过缓存，重新下载 manifest
  * ==========================================
  [rewrite_local]
  # iAppDaily - 余额查询接口（JSON模式-声明式字段设置）
@@ -62,25 +64,31 @@ if (typeof console === 'undefined') {
 // ==========================================
 const CONFIG = {
     REMOTE_BASE: 'https://joeshu.github.io/vip-unlock-configs',
-    CACHE_TTL: 0 * 60 * 60 * 1000,
-    CONFIG_CACHE_TTL: 0 * 60 * 1000,
+    CACHE_TTL: 6 * 60 * 60 * 1000,
+    CONFIG_CACHE_TTL: 60 * 60 * 1000,
     MAX_BODY_SIZE: 5 * 1024 * 1024,
     MAX_PROCESSORS_PER_REQUEST: 30,
     TIMEOUT: 10,
     DEBUG: true,
-    USE_DISTRIBUTED_LOCK: false,  // true=分布式锁（强一致性）, false=内存去重（高性能）
+    USE_DISTRIBUTED_LOCK: false,// true=分布式锁（强一致性）, false=内存去重（高性能）
     LOCK_TTL: 3000,
     LOCAL_CACHE_TTL: 100,
-    DEDUP_WINDOW: 500
+    DEDUP_WINDOW: 500,
+    
+    // ==========================================
+    // 强制刷新开关（临时启用）
+    // ==========================================
+    FORCE_REFRESH_MANIFEST: true,  // ← 设为 true 强制刷新，验证成功后改回 false
+    MANIFEST_VERSION: '20.3.2'     // ← 与 manifest.json 中的 version 一致
 };
 
 const META = {
     name: 'UnifiedVIP',
-    version: '20.3.2'
+    version: '20.3.1-notify'
 };
 
 // ==========================================
-// 2. 平台检测（新增，用于通知）
+// 2. 平台检测
 // ==========================================
 const Platform = {
     isQX: typeof $task !== 'undefined',
@@ -110,7 +118,7 @@ const SimpleLog = (level, tag, msg, data) => {
 };
 
 // ==========================================
-// 4. 通知系统（新增）
+// 4. 通知系统
 // ==========================================
 const Notify = (() => {
     const send = (title, subtitle, message, options = {}) => {
@@ -139,20 +147,36 @@ const Notify = (() => {
 
     return {
         send,
-        // 快捷方法：从配置发送
         sendFromConfig: (config, data) => {
             const title = config.title || 'UnifiedVIP';
-            const subtitle = config.subtitle || '';
+            let subtitle = config.subtitle || '';
             let message = config.message || '';
             
-            // 支持模板变量替换
+            if (config.subtitleField) {
+                subtitle = Utils.getPath(data, config.subtitleField) || subtitle;
+            }
+            
             if (config.template && data) {
                 message = config.template.replace(/\{\{(\w+)\}\}/g, (match, key) => {
                     return Utils.getPath(data, key) || match;
                 });
             }
             
-            // 限制长度
+            if (config.messageField) {
+                const fieldData = Utils.getPath(data, config.messageField);
+                if (fieldData) {
+                    if (typeof fieldData === 'object') {
+                        message = Utils.formatObject(fieldData, config.separator || '\n');
+                    } else {
+                        message = String(fieldData);
+                    }
+                }
+            }
+            
+            if (config.prefix) {
+                message = config.prefix + message;
+            }
+            
             const maxLen = config.maxLength || 500;
             if (message.length > maxLen) {
                 message = message.substring(0, maxLen) + '...';
@@ -336,6 +360,7 @@ const Logger = (() => {
 })();
 
 Logger.info('Init', `Platform: ${Platform.getName()}, Logger ready`);
+Logger.info('Config', `FORCE_REFRESH_MANIFEST: ${CONFIG.FORCE_REFRESH_MANIFEST}, MANIFEST_VERSION: ${CONFIG.MANIFEST_VERSION}`);
 
 // ==========================================
 // 8. 环境修复补充
@@ -358,7 +383,9 @@ const Storage = (() => {
         read: Platform.isQX ? (k) => $prefs.valueForKey(k) : 
               Platform.isSurge ? (k) => $persistentStore.read(k) : () => null,
         write: Platform.isQX ? (k, v) => $prefs.setValueForKey(v, k) :
-               Platform.isSurge ? (k, v) => $persistentStore.write(v, k) : () => false
+               Platform.isSurge ? (k, v) => $persistentStore.write(v, k) : () => false,
+        remove: Platform.isQX ? (k) => $prefs.removeValueForKey(k) :
+                Platform.isSurge ? (k) => { try { $persistentStore.write(null, k); return true; } catch(e) { return false; } } : () => false
     };
     
     return {
@@ -385,6 +412,15 @@ const Storage = (() => {
             memCache.set(key, { v: value, t: now });
             try {
                 return backend.write(key, value);
+            } catch (e) {
+                return false;
+            }
+        },
+        
+        remove: (key) => {
+            memCache.delete(key);
+            try {
+                return backend.remove(key);
             } catch (e) {
                 return false;
             }
@@ -515,7 +551,6 @@ const Utils = {
         }
         return Math.abs(hash).toString(16);
     },
-    // 新增：格式化对象用于通知
     formatObject: (obj, separator = '\n') => {
         if (!obj || typeof obj !== 'object') return '';
         const lines = [];
@@ -578,7 +613,7 @@ const RegexPool = (() => {
 })();
 
 // ==========================================
-// 13. 处理器工厂（新增 notify 处理器）
+// 13. 处理器工厂（含 notify）
 // ==========================================
 function createProcessorFactory(requestId) {
     return {
@@ -658,32 +693,25 @@ function createProcessorFactory(requestId) {
             return obj;
         },
 
-        // ==========================================
-        // 新增：notify 处理器 - 发送系统通知
-        // ==========================================
         notify: (params) => (obj, env) => {
             const title = params.title || 'UnifiedVIP';
             let subtitle = params.subtitle || '';
             let message = params.message || '';
             
-            // 支持从响应体提取字段作为副标题
             if (params.subtitleField) {
                 subtitle = Utils.getPath(obj, params.subtitleField) || subtitle;
             }
             
-            // 支持模板消息
             if (params.template) {
                 message = params.template.replace(/\{\{(\w+)\}\}/g, (match, key) => {
                     return Utils.getPath(obj, key) || match;
                 });
             }
             
-            // 支持从字段提取消息内容
             if (params.messageField) {
                 const fieldData = Utils.getPath(obj, params.messageField);
                 if (fieldData) {
                     if (typeof fieldData === 'object') {
-                        // 格式化对象（如 answers）
                         message = Utils.formatObject(fieldData, params.separator || '\n');
                     } else {
                         message = String(fieldData);
@@ -691,22 +719,18 @@ function createProcessorFactory(requestId) {
                 }
             }
             
-            // 支持前缀
             if (params.prefix) {
                 message = params.prefix + message;
             }
             
-            // 限制长度
             const maxLen = params.maxLength || 500;
             if (message.length > maxLen) {
                 message = message.substring(0, maxLen) + '...';
             }
             
-            // 发送通知
             const success = Notify.send(title, subtitle, message, params.options || {});
             Logger.info('Notify', `Sent: ${success ? 'success' : 'failed'}, title="${title}", length=${message.length}`);
             
-            // 可选：在响应体中标记已通知
             if (params.markField) {
                 Utils.setPath(obj, params.markField, true);
             }
@@ -828,7 +852,7 @@ function createCompiler(factory) {
 }
 
 // ==========================================
-// 15. Manifest加载器
+// 15. Manifest加载器（强制刷新版）
 // ==========================================
 class SimpleManifestLoader {
     constructor(requestId) {
@@ -840,32 +864,91 @@ class SimpleManifestLoader {
     async load() {
         const cacheKey = 'vip_manifest_v20';
         
+        // ==========================================
+        // 强制刷新逻辑
+        // ==========================================
+        if (CONFIG.FORCE_REFRESH_MANIFEST) {
+            Logger.info('ManifestLoader', 'FORCE_REFRESH enabled, clearing cache...');
+            
+            // 删除存储中的 manifest 缓存
+            const removed = Storage.remove(cacheKey);
+            Logger.info('ManifestLoader', `Cache removed: ${removed}`);
+            
+            // 同时删除所有配置缓存（可选）
+            const configKeys = [
+                'vip_cfg_v20_iappdaily',
+                'vip_cfg_v20_tophub',
+                'vip_cfg_v20_sylangyue',
+                'vip_cfg_v20_gps',
+                'vip_cfg_v20_kyxq',
+                'vip_cfg_v20_mhlz',
+                'vip_cfg_v20_xjsm',
+                'vip_cfg_v20_v2ex',
+                'vip_cfg_v20_foday',
+                'vip_cfg_v20_qiujingapp',
+                'vip_cfg_v20_tv',
+                'vip_cfg_v20_keep',
+                'vip_cfg_v20_bqwz',
+                'vip_cfg_v20_cyljy',
+                'vip_cfg_v20_bxkt',
+                'vip_cfg_v20_wohome',
+                'vip_cfg_v20_qmjyzc',
+                'vip_cfg_v20_mingcalc'
+            ];
+            
+            configKeys.forEach(key => {
+                Storage.remove(key);
+            });
+            Logger.info('ManifestLoader', `Cleared ${configKeys.length} config caches`);
+        }
+        
+        // 尝试读取缓存（如果强制刷新，这里会 miss）
         const { [cacheKey]: cached } = Storage.readBatch([cacheKey]);
         
-        if (cached) {
+        if (cached && !CONFIG.FORCE_REFRESH_MANIFEST) {
             this._manifest = Utils.safeJsonParse(cached);
             this._compilePatterns();
             Logger.info('ManifestLoader', `L1 cache hit, ${this._patterns.size} patterns`);
             return this._manifest;
         }
 
+        // 远程下载（带版本号参数防止 CDN 缓存）
         Logger.info('ManifestLoader', 'Fetching remote...');
-        const res = await HTTP.get(`${CONFIG.REMOTE_BASE}/manifest.json?t=${Date.now()}`);
+        const url = `${CONFIG.REMOTE_BASE}/manifest.json?v=${CONFIG.MANIFEST_VERSION}&t=${Date.now()}`;
+        Logger.info('ManifestLoader', `URL: ${url.substring(0, 80)}...`);
+        
+        const res = await HTTP.get(url);
         
         if (res.status !== 200 || !res.body) {
             throw new Error(`HTTP ${res.status}`);
         }
 
         this._manifest = Utils.safeJsonParse(res.body);
+        
+        // 验证版本
+        if (this._manifest.version !== CONFIG.MANIFEST_VERSION) {
+            Logger.warn('ManifestLoader', `Version mismatch: expected ${CONFIG.MANIFEST_VERSION}, got ${this._manifest.version}`);
+        }
+        
+        // 保存到缓存
         Storage.write(cacheKey, res.body);
         this._compilePatterns();
-        Logger.info('ManifestLoader', `Remote loaded, ${this._patterns.size} patterns`);
+        
+        Logger.info('ManifestLoader', `Remote loaded, ${this._patterns.size} patterns, version: ${this._manifest.version}`);
+        
+        // 如果强制刷新，重置开关（可选，建议验证成功后手动改回 false）
+        // if (CONFIG.FORCE_REFRESH_MANIFEST) {
+        //     Logger.info('ManifestLoader', 'Reset FORCE_REFRESH_MANIFEST to false recommended');
+        // }
         
         return this._manifest;
     }
 
     _compilePatterns() {
-        if (!this._manifest?.configs) return;
+        if (!this._manifest?.configs) {
+            Logger.error('ManifestLoader', 'No configs found in manifest');
+            return;
+        }
         
         const patternEntries = [];
         for (const [id, info] of Object.entries(this._manifest.configs)) {
@@ -875,20 +958,43 @@ class SimpleManifestLoader {
         }
         
         this._patterns = RegexPool.precompile(patternEntries);
+        Logger.debug('ManifestLoader', `Compiled ${this._patterns.size} patterns`);
+        
+        // 列出所有 pattern 用于调试
+        if (CONFIG.DEBUG) {
+            for (const [id, pattern] of this._patterns) {
+                Logger.debug('ManifestLoader', `Pattern: ${id} = ${pattern.source.substring(0, 50)}...`);
+            }
+        }
     }
 
     findMatch(url) {
-        if (!this._patterns) return null;
+        if (!this._patterns) {
+            Logger.error('ManifestLoader', 'No patterns compiled');
+            return null;
+        }
+        
+        Logger.debug('ManifestLoader', `Matching URL: ${url.substring(0, 80)}...`);
+        
         for (const [id, pattern] of this._patterns) {
             try {
-                if (pattern.test(url)) return id;
-            } catch (e) {}
+                if (pattern.test(url)) {
+                    Logger.info('ManifestLoader', `Matched: ${id}`);
+                    return id;
+                }
+            } catch (e) {
+                Logger.error('ManifestLoader', `Regex error for ${id}: ${e.message}`);
+            }
         }
+        
+        Logger.warn('ManifestLoader', 'No pattern matched');
         return null;
     }
 
     getConfigVersion(configId) {
-        return this._manifest?.configVersions?.[configId] || '1.0';
+        const version = this._manifest?.configVersions?.[configId] || '1.0';
+        Logger.debug('ManifestLoader', `Version for ${configId}: ${version}`);
+        return version;
     }
 }
 
