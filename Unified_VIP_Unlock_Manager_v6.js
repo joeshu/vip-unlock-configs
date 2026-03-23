@@ -967,5 +967,3 @@ async function main() {
 
 // 启动
 main();
-// 启动
-main();
