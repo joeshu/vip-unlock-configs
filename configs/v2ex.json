@@ -8,11 +8,6 @@
   "pattern": "</body>",
   "replacement": "<script>(function(){var ads=['.sidebar_units','.sidebar_compliance','.wwads','.adsbygoogle','#pro-campaign-container'];ads.forEach(function(s){var e=document.querySelectorAll(s);e.forEach(function(el){el.remove();});});})();</script></body>",
   "flags": "i"
-},
-    {
-      "pattern": "<div[^>]*class=\"[^\"]*wwads[^\"]*\"[^>]*>[\\s\\S]*?<\\/div>",
-      "replacement": "",
-      "flags": "gi"
-    }
+}
   ]
 }
