@@ -1,6 +1,6 @@
 /**
  * ==========================================
- * Unified VIP Unlock Manager v20.3.1 - QX优化补丁
+* Unified VIP Unlock Manager v20.3.1 - QX平衡优化版（最终修复版）
  * 优化项：锁修复 + DEBUG关闭 + 存储缓存 + 正则池 + 处理器优化 + HTTP超时 + 环境检测
  * QX 兼容优化版 - 放弃跨请求缓存，专注单次性能
   * 特性：高性能锁（读多写少）+ 无锁去重切换
@@ -43,8 +43,16 @@
  hostname = theater-api.sylangyue.xyz, api.iappdaily.com, api2.tophub.today, api2.tophub.app, api3.tophub.xyz, api3.tophub.today, api3.tophub.app, tophub.tophubdata.com, tophub2.tophubdata.com, tophub.idaily.today, tophub2.idaily.today, tophub.remai.today, tophub.iappdaiy.com, tophub.ipadown.com,service.gpstool.com, mapi.kouyuxingqiu.com, ss.landintheair.com, *.v2ex.com, apis.folidaymall.com, gateway-api.yizhilive.com, pagead*.googlesyndication.com, api.gotokeep.com, kit.gotokeep.com, *.gotokeep.*, 120.53.74.*, 162.14.5.*, 42.187.199.*, 101.42.124.*, javelin.mandrillvr.com,api.banxueketang.com, yzy0916.*.com, yz1018.*.com, yz250907.*.com, yz0320.*.com, cfvip.*.com,yr-game-api.feigo.fun,star.jvplay.cn,iotpservice.smartont.net
 */
 'use strict';
+
 // ==========================================
-// 配置区域
+// 0. 最基础环境修复（最先执行，无任何依赖）
+// ==========================================
+if (typeof console === 'undefined') {
+    globalThis.console = { log: () => {} };
+}
+
+// ==========================================
+// 1. 配置（无任何依赖）
 // ==========================================
 const CONFIG = {
     REMOTE_BASE: 'https://joeshu.github.io/vip-unlock-configs',
@@ -54,12 +62,10 @@ const CONFIG = {
     MAX_PROCESSORS_PER_REQUEST: 30,
     TIMEOUT: 10,
     DEBUG: true,
-    
-    // 锁配置
-    USE_DISTRIBUTED_LOCK: false,  // true=分布式锁（强一致性）, false=内存去重（高性能）
-    LOCK_TTL: 3000,              // 锁有效期3秒
-    LOCAL_CACHE_TTL: 100,        // 本地缓存100ms
-    DEDUP_WINDOW: 500            // 无锁模式下去重窗口500ms
+    USE_DISTRIBUTED_LOCK: true,
+    LOCK_TTL: 3000,
+    LOCAL_CACHE_TTL: 100,
+    DEDUP_WINDOW: 500
 };
 
 const META = {
@@ -68,31 +74,37 @@ const META = {
 };
 
 // ==========================================
-// 平衡锁实现：读多写少策略
+// 2. 简易日志（仅依赖 console，无其他依赖）
+// ==========================================
+const SimpleLog = (level, tag, msg, data) => {
+    try {
+        const now = new Date();
+        const time = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`;
+        const dataStr = data ? ` | ${typeof data === 'object' ? JSON.stringify(data) : data}` : '';
+        console.log(`[${META.name}][${level.toUpperCase()}][${time}][${tag}] ${msg}${dataStr}`);
+    } catch (e) {
+        // 兜底：如果连console都失败，静默处理
+    }
+};
+
+// ==========================================
+// 3. 锁实现（依赖 CONFIG, SimpleLog）
 // ==========================================
 const BalancedLock = (() => {
     const LOCK_PREFIX = '_vip_lock_';
-    
-    // 内存缓存（减少存储读取）
     const localCache = new Map();
-    
-    // 无锁去重（高性能模式）
     const recentUrls = new Map();
-    
     const isQX = typeof $task !== 'undefined';
     
-    // 分布式锁（强一致性模式）
     const distributedAcquire = (key) => {
         const now = Date.now();
         
-        // L1: 本地内存检查（零I/O）
         const cached = localCache.get(key);
         if (cached && (now - cached) < CONFIG.LOCAL_CACHE_TTL) {
-            Logger.debug('Lock', 'L1 reject (recent local)');
+            SimpleLog('debug', 'Lock', 'L1 reject (recent local)');
             return false;
         }
         
-        // L2: 检查存储锁（仅QX）
         if (isQX) {
             try {
                 const lockKey = LOCK_PREFIX + key;
@@ -101,19 +113,17 @@ const BalancedLock = (() => {
                 if (existing) {
                     const lockTime = parseInt(existing);
                     if (now - lockTime < CONFIG.LOCK_TTL) {
-                        Logger.debug('Lock', 'L2 reject (distributed locked)');
-                        localCache.set(key, now - CONFIG.LOCAL_CACHE_TTL + 50); // 缓存拒绝结果50ms
+                        SimpleLog('debug', 'Lock', 'L2 reject (distributed locked)');
+                        localCache.set(key, now - CONFIG.LOCAL_CACHE_TTL + 50);
                         return false;
                     }
-                    // 锁过期
                 }
                 
-                // 获取锁
                 $prefs.setValueForKey(now.toString(), lockKey);
-                Logger.debug('Lock', 'L2 acquired (distributed)');
+                SimpleLog('debug', 'Lock', 'L2 acquired (distributed)');
                 
             } catch (e) {
-                Logger.warn('Lock', 'Distributed lock failed, fallback to local');
+                SimpleLog('warn', 'Lock', 'Distributed lock failed, fallback to local', e.message);
             }
         }
         
@@ -126,25 +136,23 @@ const BalancedLock = (() => {
         if (isQX) {
             try {
                 $prefs.setValueForKey('', LOCK_PREFIX + key);
-                Logger.debug('Lock', 'Released (distributed)');
+                SimpleLog('debug', 'Lock', 'Released (distributed)');
             } catch (e) {}
         }
     };
     
-    // 无锁去重（纯内存）
     const memoryAcquire = (url) => {
         const now = Date.now();
         const key = url.split('?')[0];
         
         const lastSeen = recentUrls.get(key);
         if (lastSeen && (now - lastSeen) < CONFIG.DEDUP_WINDOW) {
-            Logger.debug('Lock', `Memory reject (seen ${now - lastSeen}ms ago)`);
+            SimpleLog('debug', 'Lock', `Memory reject (seen ${now - lastSeen}ms ago)`);
             return false;
         }
         
         recentUrls.set(key, now);
         
-        // 清理旧记录
         if (recentUrls.size > 50) {
             const cutoff = now - CONFIG.DEDUP_WINDOW;
             for (const [k, v] of recentUrls) {
@@ -155,9 +163,7 @@ const BalancedLock = (() => {
         return true;
     };
     
-    const memoryRelease = () => {
-        // 无锁模式无需释放
-    };
+    const memoryRelease = () => {};
     
     return {
         acquire: (key, url) => {
@@ -188,17 +194,17 @@ const BalancedLock = (() => {
 })();
 
 // ==========================================
-// 获取锁
+// 4. 获取锁（使用 SimpleLog）
 // ==========================================
 const URL = (typeof $request !== 'undefined' && $request.url) ? $request.url : 
             (typeof $response !== 'undefined' && $response.url) ? $response.url : '';
 
 const LOCK_KEY = BalancedLock.makeKey(URL);
 
-Logger.info('Lock', `Mode: ${BalancedLock.getMode()}, Key: ${LOCK_KEY}`);
+SimpleLog('info', 'Lock', `Mode: ${BalancedLock.getMode()}, Key: ${LOCK_KEY}`);
 
 if (!BalancedLock.acquire(LOCK_KEY, URL)) {
-    Logger.info('Lock', 'Duplicate request, skipping');
+    SimpleLog('info', 'Lock', 'Duplicate request, skipping');
     if (typeof $response !== 'undefined' && $response) {
         $done({ body: $response.body });
     } else {
@@ -207,10 +213,14 @@ if (!BalancedLock.acquire(LOCK_KEY, URL)) {
     return;
 }
 
-const releaseLock = () => BalancedLock.release(LOCK_KEY);
+// 注意：releaseLock 使用 SimpleLog，避免依赖 Logger
+const releaseLock = () => {
+    BalancedLock.release(LOCK_KEY);
+    SimpleLog('debug', 'Lock', 'Released');
+};
 
 // ==========================================
-// 日志系统
+// 5. 完整日志系统 Logger（依赖 CONFIG, META）
 // ==========================================
 const Logger = (() => {
     const isDebug = CONFIG.DEBUG === true;
@@ -255,12 +265,12 @@ const Logger = (() => {
     };
 })();
 
+// 验证 Logger 可用
+Logger.info('Init', 'Logger initialized successfully');
+
 // ==========================================
-// 环境检测
+// 6. 环境修复补充（console方法）
 // ==========================================
-if (typeof console === 'undefined') {
-    globalThis.console = { log: () => {} };
-}
 const _log = console.log.bind(console);
 ['error', 'warn', 'debug', 'info'].forEach(method => {
     if (typeof console[method] !== 'function') {
@@ -269,7 +279,7 @@ const _log = console.log.bind(console);
 });
 
 // ==========================================
-// 存储优化
+// 7. 存储优化
 // ==========================================
 const Storage = (() => {
     const memCache = new Map();
@@ -336,7 +346,7 @@ const Storage = (() => {
 })();
 
 // ==========================================
-// HTTP客户端
+// 8. HTTP客户端
 // ==========================================
 const HTTP = (() => {
     const isQX = typeof $task !== 'undefined';
@@ -388,7 +398,7 @@ const HTTP = (() => {
 })();
 
 // ==========================================
-// 工具函数
+// 9. 工具函数
 // ==========================================
 const Utils = {
     safeJsonParse: (str, defaultVal = null) => {
@@ -444,7 +454,7 @@ const Utils = {
 };
 
 // ==========================================
-// 正则缓存池
+// 10. 正则缓存池
 // ==========================================
 const RegexPool = (() => {
     const cache = new Map();
@@ -493,7 +503,7 @@ const RegexPool = (() => {
 })();
 
 // ==========================================
-// 处理器工厂（无计数器）
+// 11. 处理器工厂（无计数器）
 // ==========================================
 function createProcessorFactory(requestId) {
     return {
@@ -664,7 +674,7 @@ function createProcessorFactory(requestId) {
 }
 
 // ==========================================
-// 处理器编译器
+// 12. 处理器编译器
 // ==========================================
 function createCompiler(factory) {
     const cache = new Map();
@@ -687,7 +697,7 @@ function createCompiler(factory) {
 }
 
 // ==========================================
-// Manifest加载器
+// 13. Manifest加载器
 // ==========================================
 class SimpleManifestLoader {
     constructor(requestId) {
@@ -752,7 +762,7 @@ class SimpleManifestLoader {
 }
 
 // ==========================================
-// 配置加载器
+// 14. 配置加载器
 // ==========================================
 class SimpleConfigLoader {
     constructor(requestId) {
@@ -834,7 +844,7 @@ class SimpleConfigLoader {
 }
 
 // ==========================================
-// 环境和引擎
+// 15. 环境和引擎
 // ==========================================
 class Environment {
     constructor(name) {
@@ -959,7 +969,7 @@ class VipEngine {
 }
 
 // ==========================================
-// 主函数
+// 16. 主函数
 // ==========================================
 async function main() {
     const requestId = Math.random().toString(36).substr(2, 6).toUpperCase();
