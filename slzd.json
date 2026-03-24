@@ -1,0 +1,9 @@
+{
+  "name": "Sanlian Zhongdu VIP Remote",
+  "mode": "remote",
+  "remoteUrl": "https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/configs/slzd_vip.json",
+  "validateJson": true,
+  "responseHeaders": {
+    "Content-Type": "application/json"
+  }
+}
