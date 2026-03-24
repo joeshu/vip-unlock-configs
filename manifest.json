@@ -13,6 +13,11 @@
       "urlPattern": "^https?:\\/\\/(?:api[23]\\.tophub\\.(?:xyz|today|app)|tophub(?:2)?\\.(?:tophubdata\\.com|idaily\\.today|remai\\.today|iappdaiy\\.com|ipadown\\.com))\\/account\\/sync",
       "version": "1.0.0"
     },
+    "ipalfish": {
+      "name": "伴鱼绘本",
+      "urlPattern": "^https://picturebook\\.ipalfish\\.com/pfapi/ugc/picturebook/profile/get",
+      "version": "1.0.0"
+    },
     "sylangyue": {
       "name": "思朗月影视",
       "urlPattern": "^https?:\\/\\/theater-api\\.sylangyue\\.xyz\\/api\\/user\\/info",
@@ -130,6 +135,7 @@
     "vvebo": "1.0.0",
     "slzd": "1.0.0",
     "kada": "1.0.0",
+    "ipalfish": "1.0.0",
     "mingcalc": "1.0.0"
   }
 }
