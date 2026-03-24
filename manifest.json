@@ -88,6 +88,11 @@
       "urlPattern": "^https?:\\/\\/res5\\.haotgame\\.com\\/cu03\\/static\\/OpenDoors\\/Res\\/data\\/levels\\/\\d+\\.json",
       "version": "1.0.0"
     },
+    "vvebo": {
+      "urlPattern": "^https://fluxapi\\.vvebo\\.vip/v1/purchase/iap/subscription",
+      "version": "1.0.0"
+    }
+  },
     "mingcalc": {
       "name": "明计算",
       "urlPattern": "^https?:\\/\\/jsq\\.mingcalc\\.cn\\/XMGetMeCount\\.ashx",
@@ -112,6 +117,7 @@
     "bxkt": "1.0.0",
     "wohome": "1.0.0",
     "qmjyzc": "1.0.0",
+    "vvebo": "1.0.0",
     "mingcalc": "1.0.0"
   }
 }
