@@ -1,8 +1,8 @@
 /*
  * ==========================================
- * Unified VIP Unlock Manager v20.3.4 - QX 极致优化版
- * 优化核心：最小化 Storage I/O（批量读写 + 合并存储）
- * 特性：remote/forward/json/regex/game/hybrid/html 全模式支持
+ * Unified VIP Unlock Manager v20.3.5 - QX 修复版
+ * 修复：manifest 独立存储避免 JSON 序列化问题
+ * 优化：Storage I/O 最小化，24h 缓存，失败降级
  * ==========================================
  
  [rewrite_local]
@@ -62,7 +62,7 @@ if (typeof console === 'undefined') {
 }
 
 // ==========================================
-// 1. 配置（QX 优化：移除所有跨请求状态配置）
+// 1. 配置
 // ==========================================
 const CONFIG = {
   REMOTE_BASE: 'https://joeshu.github.io/vip-unlock-configs',
@@ -76,7 +76,7 @@ const CONFIG = {
 
 const META = {
   name: 'UnifiedVIP',
-  version: '20.3.4-qx-optimized'
+  version: '20.3.5-qx-fixed'
 };
 
 // ==========================================
@@ -122,11 +122,9 @@ const Logger = (() => {
 })();
 
 // ==========================================
-// 4. Storage（QX 优化：批量读写 + 合并存储）
+// 4. Storage（修复版：manifest 独立存储）
 // ==========================================
 const Storage = (() => {
-  const META_KEY = 'vip_meta_cache_v20';
-
   const qx = {
     read: (k) => $prefs.valueForKey(k),
     write: (k, v) => $prefs.setValueForKey(v, k),
@@ -134,48 +132,27 @@ const Storage = (() => {
   };
 
   return {
-    // 读取：配置单独存储，元数据合并存储
-    read: (key) => {
-      if (key.startsWith('vip_cfg_v20_')) {
-        return qx.read(key);
-      }
-      const meta = Utils.safeJsonParse(qx.read(META_KEY) || '{}');
-      return meta[key];
+    // manifest：独立存储三个字段，避免 JSON 嵌套问题
+    readManifest: () => ({
+      body: qx.read('manifest_body'),
+      time: qx.read('manifest_time'),
+      version: qx.read('manifest_version')
+    }),
+    
+    writeManifest: (body, time, version) => {
+      qx.write('manifest_body', body);        // 原始 JSON 字符串
+      qx.write('manifest_time', String(time));  // 时间戳
+      qx.write('manifest_version', version);    // 版本
     },
 
-    // 写入：配置单独存储，元数据合并存储
-    write: (key, value) => {
-      if (key.startsWith('vip_cfg_v20_')) {
-        return qx.write(key, value);
-      }
-      const meta = Utils.safeJsonParse(qx.read(META_KEY) || '{}');
-      meta[key] = value;
-      return qx.write(META_KEY, Utils.safeJsonStringify(meta));
-    },
+    // config：独立存储
+    readConfig: (configId) => qx.read(`vip_cfg_v20_${configId}`),
+    writeConfig: (configId, value) => qx.write(`vip_cfg_v20_${configId}`, value),
 
-    // 批量读取：单次 I/O 获取多个元数据
-    readBatch: (keys) => {
-      const result = {};
-      const meta = Utils.safeJsonParse(qx.read(META_KEY) || '{}');
-      
-      for (const key of keys) {
-        if (key.startsWith('vip_cfg_v20_')) {
-          result[key] = qx.read(key);
-        } else {
-          result[key] = meta[key];
-        }
-      }
-      return result;
-    },
-
-    remove: (key) => {
-      if (key.startsWith('vip_cfg_v20_')) {
-        return qx.remove(key);
-      }
-      const meta = Utils.safeJsonParse(qx.read(META_KEY) || '{}');
-      delete meta[key];
-      return qx.write(META_KEY, Utils.safeJsonStringify(meta));
-    }
+    // 通用
+    read: (key) => qx.read(key),
+    write: (key, value) => qx.write(key, value),
+    remove: (key) => qx.remove(key)
   };
 })();
 
@@ -183,25 +160,22 @@ const Storage = (() => {
 // 5. HTTP 客户端
 // ==========================================
 const HTTP = (() => {
-  const handleResponse = (resolve, reject, timer) => {
-    return (error, response, body) => {
-      clearTimeout(timer);
-      if (error) {
-        reject(new Error(String(error)));
-      } else {
-        resolve({
-          body: body || '',
-          statusCode: typeof response === 'object' ? (response.statusCode || response.status || 200) : 200,
-          headers: typeof response === 'object' ? (response.headers || {}) : {}
-        });
-      }
-    };
-  };
-
   return {
     get: (url, timeout = CONFIG.TIMEOUT * 1000) => new Promise((resolve, reject) => {
       const timer = setTimeout(() => reject(new Error('Timeout')), timeout);
-      const callback = handleResponse(resolve, reject, timer);
+
+      const callback = (error, response, body) => {
+        clearTimeout(timer);
+        if (error) {
+          reject(new Error(String(error)));
+        } else {
+          resolve({
+            body: body || '',
+            statusCode: typeof response === 'object' ? (response.statusCode || response.status || 200) : 200,
+            headers: typeof response === 'object' ? (response.headers || {}) : {}
+          });
+        }
+      };
 
       try {
         if (Platform.isQX) {
@@ -227,7 +201,19 @@ const HTTP = (() => {
 
     post: (options, timeout = CONFIG.TIMEOUT * 1000) => new Promise((resolve, reject) => {
       const timer = setTimeout(() => reject(new Error('Timeout')), timeout);
-      const callback = handleResponse(resolve, reject, timer);
+
+      const callback = (error, response, body) => {
+        clearTimeout(timer);
+        if (error) {
+          reject(new Error(String(error)));
+        } else {
+          resolve({
+            body: body || '',
+            statusCode: typeof response === 'object' ? (response.statusCode || response.status || 200) : 200,
+            headers: typeof response === 'object' ? (response.headers || {}) : {}
+          });
+        }
+      };
 
       try {
         if (Platform.isQX) {
@@ -339,7 +325,7 @@ const Utils = {
 };
 
 // ==========================================
-// 7. 正则缓存池（单次请求内有效）
+// 7. 正则缓存池
 // ==========================================
 const RegexPool = (() => {
   const cache = new Map();
@@ -625,7 +611,7 @@ function createCompiler(factory) {
 }
 
 // ==========================================
-// 10. Manifest 加载器（QX 优化版）
+// 10. Manifest 加载器（修复版）
 // ==========================================
 class SimpleManifestLoader {
   constructor(requestId) {
@@ -635,62 +621,80 @@ class SimpleManifestLoader {
   async load() {
     const now = Date.now();
     
-    // 批量读取元数据（单次 I/O）
-    const { 
-      manifest_body: cachedBody,
-      manifest_time: cachedTime,
-      manifest_version: cachedVersion
-    } = Storage.readBatch([
-      'manifest_body',
-      'manifest_time',
-      'manifest_version'
-    ]);
+    // 读取缓存（独立存储）
+    const cached = Storage.readManifest();
 
-    // 检查 24 小时 TTL
-    const isValid = cachedBody && cachedTime && 
-                   (now - parseInt(cachedTime)) < 24 * 60 * 60 * 1000;
+    Logger.debug('ManifestLoader', `Cache check: body=${!!cached.body}, time=${cached.time}`);
 
-    if (isValid) {
-      Logger.info('ManifestLoader', 'Using cached manifest');
-      const manifest = Utils.safeJsonParse(cachedBody);
-      return this._createManifestProxy(manifest);
+    // 验证缓存
+    let manifest = null;
+    let useCache = false;
+
+    if (cached.body && cached.time) {
+      const age = now - parseInt(cached.time);
+      if (age < 24 * 60 * 60 * 1000) {  // 24 小时 TTL
+        manifest = Utils.safeJsonParse(cached.body);
+        // 关键检查：确保解析成功且有 configs
+        if (manifest && manifest.configs) {
+          useCache = true;
+          Logger.info('ManifestLoader', 'Using valid cached manifest');
+        } else {
+          Logger.warn('ManifestLoader', 'Cached manifest invalid (missing configs)');
+        }
+      } else {
+        Logger.info('ManifestLoader', 'Cache expired');
+      }
     }
 
     // 下载新版本
-    Logger.info('ManifestLoader', 'Fetching remote manifest...');
-    const url = `${CONFIG.REMOTE_BASE}/manifest.json?t=${now}`;
-    
-    try {
-      const res = await HTTP.get(url);
-      if (res.statusCode !== 200 || !res.body) {
-        throw new Error(`HTTP ${res.statusCode}`);
-      }
+    if (!useCache) {
+      try {
+        const url = `${CONFIG.REMOTE_BASE}/manifest.json?t=${now}`;
+        Logger.info('ManifestLoader', `Fetching: ${url}`);
+        
+        const res = await HTTP.get(url);
+        if (res.statusCode !== 200 || !res.body) {
+          throw new Error(`HTTP ${res.statusCode}`);
+        }
 
-      const manifest = Utils.safeJsonParse(res.body);
-      
-      // 批量写入（单次 I/O）
-      Storage.write('manifest_body', res.body);
-      Storage.write('manifest_time', now.toString());
-      Storage.write('manifest_version', manifest.version || '1.0');
+        // 验证下载的数据
+        manifest = Utils.safeJsonParse(res.body);
+        if (!manifest || !manifest.configs) {
+          throw new Error('Invalid manifest: missing configs');
+        }
 
-      return this._createManifestProxy(manifest);
-      
-    } catch (e) {
-      // 网络失败，降级使用过期缓存
-      if (cachedBody) {
-        Logger.warn('ManifestLoader', 'Network failed, using stale cache');
-        const manifest = Utils.safeJsonParse(cachedBody);
-        return this._createManifestProxy(manifest);
+        // 独立存储（3 次 I/O，但避免 JSON 嵌套问题）
+        Storage.writeManifest(res.body, now, manifest.version || '1.0');
+        Logger.info('ManifestLoader', `Downloaded manifest v${manifest.version}`);
+
+      } catch (e) {
+        Logger.error('ManifestLoader', `Download failed: ${e.message}`);
+        
+        // 降级：使用过期缓存
+        if (cached.body) {
+          manifest = Utils.safeJsonParse(cached.body);
+          if (manifest && manifest.configs) {
+            Logger.warn('ManifestLoader', 'Using stale cache as fallback');
+            useCache = true;
+          }
+        }
+
+        // 完全失败：返回空对象避免崩溃
+        if (!useCache) {
+          Logger.error('ManifestLoader', 'No valid manifest available');
+          return this._createEmptyManifest();
+        }
       }
-      throw e;
     }
+
+    return this._createManifestProxy(manifest);
   }
 
   _createManifestProxy(manifest) {
-    // 编译正则（单次请求内有效）
+    // 编译正则
     const patterns = new Map();
     for (const [id, info] of Object.entries(manifest.configs || {})) {
-      if (info.urlPattern) {
+      if (info && info.urlPattern) {
         patterns.set(id, RegexPool.get(info.urlPattern));
       }
     }
@@ -716,14 +720,25 @@ class SimpleManifestLoader {
       },
 
       getConfigVersion: (configId) => {
-        return manifest.configVersions && manifest.configVersions[configId] || '1.0';
+        return (manifest.configVersions && manifest.configVersions[configId]) || '1.0';
       }
+    };
+  }
+
+  _createEmptyManifest() {
+    // 空对象，避免后续代码崩溃
+    return {
+      patterns: new Map(),
+      configs: {},
+      configVersions: {},
+      findMatch: () => null,
+      getConfigVersion: () => '1.0'
     };
   }
 }
 
 // ==========================================
-// 11. 配置加载器（QX 优化版）
+// 11. 配置加载器
 // ==========================================
 class SimpleConfigLoader {
   constructor(requestId) {
@@ -731,10 +746,8 @@ class SimpleConfigLoader {
   }
 
   async load(configId, remoteVersion) {
-    const cacheKey = `vip_cfg_v20_${configId}`;
-    
     // 读取缓存
-    const cached = Storage.read(cacheKey);
+    const cached = Storage.readConfig(configId);
     if (cached) {
       try {
         const { v, t, d } = Utils.safeJsonParse(cached);
@@ -759,7 +772,7 @@ class SimpleConfigLoader {
       const fresh = Utils.safeJsonParse(res.body);
       
       // 写入缓存
-      Storage.write(cacheKey, Utils.safeJsonStringify({
+      Storage.writeConfig(configId, Utils.safeJsonStringify({
         v: remoteVersion,
         t: Date.now(),
         d: fresh
@@ -768,7 +781,9 @@ class SimpleConfigLoader {
       return this._prepareConfig(fresh);
       
     } catch (e) {
-      // 失败时降级使用缓存（即使版本/过期）
+      Logger.error('ConfigLoader', `${configId} failed: ${e.message}`);
+      
+      // 降级使用缓存（即使版本/过期）
       if (cached) {
         Logger.warn('ConfigLoader', `${configId} using stale cache`);
         const { d } = Utils.safeJsonParse(cached);
@@ -1076,7 +1091,7 @@ class VipEngine {
 }
 
 // ==========================================
-// 13. 主函数（QX 极致优化）
+// 13. 主函数
 // ==========================================
 async function main() {
   const requestId = Math.random().toString(36).substr(2, 6).toUpperCase();
@@ -1092,12 +1107,12 @@ async function main() {
 
     if (!url) {
       Logger.warn('Main', 'No URL detected');
-      return $done(typeof $response !== 'undefined' && $response ? { body: $response.body } : {});
+      return $done((typeof $response !== 'undefined' && $response) ? { body: $response.body } : {});
     }
 
     Logger.info('Main', `${requestId} | ${url.replace(/\?.*$/, '').substring(0, 60)}`);
 
-    // 加载 manifest（批量 I/O 优化）
+    // 加载 manifest（修复版）
     const mLoader = new SimpleManifestLoader(requestId);
     const manifest = await mLoader.load();
 
@@ -1105,7 +1120,7 @@ async function main() {
     const configId = manifest.findMatch(url);
     if (!configId) {
       Logger.info('Main', 'No rule matched');
-      return $done(typeof $response !== 'undefined' && $response ? { body: $response.body } : {});
+      return $done((typeof $response !== 'undefined' && $response) ? { body: $response.body } : {});
     }
 
     // 加载配置
