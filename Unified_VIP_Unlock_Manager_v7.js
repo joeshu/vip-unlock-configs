@@ -7,7 +7,7 @@
  
  [rewrite_local]
  # 三联中读 - 远程数据替换
- ^https://apis\.lifeweek\.com\.cn/vip/loadMyVipV2 url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v7.js
+ ^https:\/\/apis\.lifeweek\.com\.cn\/vip\/loadMyVipV2 url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v7.js
  # Vvebo - 订阅验证转发
  ^https:\/\/fluxapi\.vvebo\.vip\/v1\/purchase\/iap\/subscription url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v7.js
  # iAppDaily - 余额查询接口（JSON模式-声明式字段设置）
