@@ -25,14 +25,14 @@ const $ = new Env('WPS签到');
 const CONFIG = {
     // 从 QX 环境变量读取配置
     getCookie() {
-        return $.getdata('wps_cookie') || '';
+        return $.getdata('wps_cookie') || 'act_csrf_token=b2aa20e8e07ed6d684e1ec43a69c9b5a; _c_WBKFRo=COINyHta6kddXetlmH3IUFvuZLwK10lLDmsZJiTo; csrf=ak2wnH2c42wyJCzKTnRtGFJKwjnkkPDa; ks_local_token=m3cDCBJrnzxh3prKsj8AyJpGp7PbRWmb; _ku=1; cid=0; coa_id=0; cv=k3XuYIatFLxJO7gZ3NqGHMbN-0HPX5Hoh-JdbjjxUUYAQPimM3WbyZeWQrjouQKv1AX9ULY.Xwv8m9fagmS; exp=259200; kso_sid=TKS-f0fpeN_8Kx9N7onO0poTTKS7fKoAKQKSq34esQfSJyo_TAqAq9k7Se0odC5uXeNt1zogOfYqA7oyO2IyIeopTp2dyDC-2Z50PMDNOEhahE5XexyAPMIJRf0pRCJuY2UcO7UIKMIpKVzXB5rtcJ6Pw-Gxik7cYFyFRoKXBzQwoOUxj1B4S-ZKQNgyV3QJ-KN-K6oTTKS.ZftBhybsqxAjjwTVEceBFZbEMhFXmN16yEQXsP-tpsZJWA6SmOV6mF_xNkBKbAUBgMbKBvUZ3DLyuR-Sz-tUVw; nexp=129600; uid=120227114; wps_sid=V02S28uNkk7OQT0eDTvqVafuV98cij000a3bea5500072a852a';
     },
     getUserId() {
-        const id = $.getdata('wps_user_id') || '';
+        const id = $.getdata('wps_user_id') || '120227114';
         return id ? parseInt(id) : 0;
     },
     getAccountName() {
-        return $.getdata('wps_account_name') || 'WPS账号';
+        return $.getdata('wps_account_name') || 'shiju007';
     },
     // 抽奖次数限制（默认5次，设为0则跳过抽奖）
     maxLotteryLimit: 5,
