@@ -33,6 +33,11 @@
       "urlPattern": "^https?:\\/\\/ss\\.landintheair\\.com\\/storage\\/",
       "version": "1.0.0"
     },
+    "kada": {
+      "name": "kada阅读",
+      "urlPattern": "^https://service\\.hhdd\\.com/book2",
+      "version": "1.0.0"
+    },
     "xjsm": {
       "name": "星际使命",
       "urlPattern": "^https?:\\/\\/star\\.jvplay\\.cn\\/v2\\/storage",
@@ -124,6 +129,7 @@
     "qmjyzc": "1.0.0",
     "vvebo": "1.0.0",
     "slzd": "1.0.0",
+    "kada": "1.0.0",
     "mingcalc": "1.0.0"
   }
 }
