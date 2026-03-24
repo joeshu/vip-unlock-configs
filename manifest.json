@@ -89,10 +89,15 @@
       "version": "1.0.0"
     },
     "vvebo": {
+     "name": "forward",
       "urlPattern": "^https://fluxapi\\.vvebo\\.vip/v1/purchase/iap/subscription",
       "version": "1.0.0"
     }
   },
+    "slzd": {
+      "name": "三联中读",
+      "urlPattern": "^https?:\\/\\/apis\\.lifeweek\\.com\\.cn\\/reg\\/vistorRegister\\.do"
+   },
     "mingcalc": {
       "name": "明计算",
       "urlPattern": "^https?:\\/\\/jsq\\.mingcalc\\.cn\\/XMGetMeCount\\.ashx",
@@ -118,6 +123,7 @@
     "wohome": "1.0.0",
     "qmjyzc": "1.0.0",
     "vvebo": "1.0.0",
+    "slzd": "1.0.0",
     "mingcalc": "1.0.0"
   }
 }
