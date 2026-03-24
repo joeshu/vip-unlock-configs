@@ -81,6 +81,7 @@
                   "params": {
                     "fields": {
                       "model.vipInfo.vip": true,
+                      "model.userCost.vipType": 6,
                       "model.vipInfo.vipValid": true,
                       "model.vipInfo.vipExpiration": "2099-12-31",
                       "model.vipInfo.message": "VIP会员",
