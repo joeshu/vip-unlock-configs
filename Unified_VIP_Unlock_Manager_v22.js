@@ -73,7 +73,7 @@ const CONFIG = {
  MAX_BODY_SIZE: 5 * 1024 * 1024,
  MAX_PROCESSORS_PER_REQUEST: 30,
  TIMEOUT: 10,
- DEBUG: Platform?.isQX ? false : true,
+ DEBUG: true,
  VERBOSE_PATTERN_LOG: false
 };
 
