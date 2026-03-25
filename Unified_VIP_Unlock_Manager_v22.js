@@ -1,6 +1,6 @@
 /*
  * ==========================================
- * Unified VIP Unlock Manager v21.2.6 - Manifest内置版
+ * Unified VIP Unlock Manager v22.0.0 - Manifest内置版
  * 修改：将manifest内置，configs/*.json保持远程加载
  * 优化：M3单键存储 + S3 URL匹配缓存 + P2 Manifest压缩
  * ==========================================
@@ -73,19 +73,19 @@ const CONFIG = {
  MAX_BODY_SIZE: 5 * 1024 * 1024,
  MAX_PROCESSORS_PER_REQUEST: 30,
  TIMEOUT: 10,
- DEBUG: true,
+ DEBUG: false,
  VERBOSE_PATTERN_LOG: false
 };
 
 const META = {
  name: 'UnifiedVIP',
- version: '21.2.6-builtin'
+ version: '22.0.0'  // 版本号同步更新
 };
 
 // ==========================================
 // 1.5 内置Manifest (P2压缩版)
 // ==========================================
-const BUILTIN_MANIFEST = {"version":"21.2.6","updated":"2026-03-25","total":21,"configs":{"iappdaily":{"name":"iAppDaily","urlPattern":"^https:\\/\\/api\\.iappdaily\\.com\\/my\\/balance"},"tophub":{"name":"TopHub","urlPattern":"^https?:\\/\\/(?:api[23]\\.tophub\\.(?:xyz|today|app)|tophub(?:2)?\\.(?:tophubdata\\.com|idaily\\.today|remai\\.today|iappdaiy\\.com|ipadown\\.com))\\/account\\/sync"},"ipalfish":{"name":"伴鱼绘本","urlPattern":"^https://picturebook\\.ipalfish\\.com/pfapi/ugc/picturebook/profile/get"},"sylangyue":{"name":"思朗月影视","urlPattern":"^https?:\\/\\/theater-api\\.sylangyue\\.xyz\\/api\\/user\\/info"},"gps":{"name":"GPS工具箱","urlPattern":"^https:\\/\\/service\\.gpstool\\.com\\/app\\/index\\/getUserInfo"},"kyxq":{"name":"口语星球","urlPattern":"^https?:\\/\\/mapi\\.kouyuxingqiu\\.com\\/api\\/v2"},"mhlz":{"name":"魔幻粒子","urlPattern":"^https?:\\/\\/ss\\.landintheair\\.com\\/storage\\/"},"kada":{"name":"kada阅读","urlPattern":"^https://service\\.hhdd\\.com/book2"},"xjsm":{"name":"星际使命","urlPattern":"^https?:\\/\\/star\\.jvplay\\.cn\\/v2\\/storage"},"v2ex":{"name":"V2EX去广告","urlPattern":"^https?:\\/\\/.*v2ex\\.com\\/(?!(?:.*(?:api|login|cdn-cgi|verify|auth|captch|\\.(js|css|jpg|jpeg|png|webp|gif|zip|woff|woff2|m3u8|mp4|mov|m4v|avi|mkv|flv|rmvb|wmv|rm|asf|asx|mp3|json|ico|otf|ttf)))).+$"},"foday":{"name":"复游会","urlPattern":"^https?:\\/\\/apis\\.folidaymall\\.com\\/online\\/capi\\/component\\/getPageComponents"},"qiujingapp":{"name":"球竞APP","urlPattern":"^https?:\\/\\/gateway-api\\.yizhilive\\.com\\/api\\/(v2\\/index\\/carouses\\/(3|6|8|11)|v3\\/index\\/all)"},"tv":{"name":"影视去广告","urlPattern":"^https?:\\/\\/(yzy0916|yz1018|yz250907|yz0320|cfvip)\\..+\\.com\\/(v2|v1)\\/api\\/(basic\\/init|home\\/firstScreen|adInfo\\/getPageAd|home\\/body)"},"keep":{"name":"Keep","urlPattern":"^https?:\\/\\/(api|kit)\\.gotokeep\\.com\\/(nuocha|gerudo|athena|nuocha\\/plans|suit\\/v5\\/smart|kprime\\/v4\\/suit\\/sales)\\/"},"bqwz":{"name":"标枪王者","urlPattern":"^https?:\\/\\/javelin\\.mandrillvr\\.com\\/api\\/data\\/get_game_data"},"cyljy":{"name":"成语来解压","urlPattern":"^https?:\\/\\/yr-game-api\\.feigo\\.fun\\/api\\/user\\/get-game-user-value"},"bxkt":{"name":"伴学课堂","urlPattern":"^https?:\\/\\/api\\.banxueketang\\.com\\/api\\/classpal\\/app\\/v1"},"wohome":{"name":"联通智家","urlPattern":"^https:\\/\\/iotpservice\\.smartont\\.net\\/wohome\\/dispatcher"},"qmjyzc":{"name":"全民解压找茬","urlPattern":"^https?:\\/\\/res5\\.haotgame\\.com\\/cu03\\/static\\/OpenDoors\\/Res\\/data\\/levels\\/\\d+\\.json"},"vvebo":{"name":"forward","urlPattern":"^https://fluxapi\\.vvebo\\.vip/v1/purchase/iap/subscription"},"slzd":{"name":"三联中读","urlPattern":"^https://apis\\.lifeweek\\.com\\.cn/(vip/loadMyVipV2|user/newindex\\.do|api/magazine/detail)"},"mingcalc":{"name":"明计算","urlPattern":"^https?:\\/\\/jsq\\.mingcalc\\.cn\\/XMGetMeCount\\.ashx"}}};
+const BUILTIN_MANIFEST = {"version":"22.0.0","updated":"2026-03-26","total":21,"configs":{"iappdaily":{"name":"iAppDaily","urlPattern":"^https:\\/\\/api\\.iappdaily\\.com\\/my\\/balance"},"tophub":{"name":"TopHub","urlPattern":"^https?:\\/\\/(?:api[23]\\.tophub\\.(?:xyz|today|app)|tophub(?:2)?\\.(?:tophubdata\\.com|idaily\\.today|remai\\.today|iappdaiy\\.com|ipadown\\.com))\\/account\\/sync"},"ipalfish":{"name":"伴鱼绘本","urlPattern":"^https://picturebook\\.ipalfish\\.com/pfapi/ugc/picturebook/profile/get"},"sylangyue":{"name":"思朗月影视","urlPattern":"^https?:\\/\\/theater-api\\.sylangyue\\.xyz\\/api\\/user\\/info"},"gps":{"name":"GPS工具箱","urlPattern":"^https:\\/\\/service\\.gpstool\\.com\\/app\\/index\\/getUserInfo"},"kyxq":{"name":"口语星球","urlPattern":"^https?:\\/\\/mapi\\.kouyuxingqiu\\.com\\/api\\/v2"},"mhlz":{"name":"魔幻粒子","urlPattern":"^https?:\\/\\/ss\\.landintheair\\.com\\/storage\\/"},"kada":{"name":"kada阅读","urlPattern":"^https://service\\.hhdd\\.com/book2"},"xjsm":{"name":"星际使命","urlPattern":"^https?:\\/\\/star\\.jvplay\\.cn\\/v2\\/storage"},"v2ex":{"name":"V2EX去广告","urlPattern":"^https?:\\/\\/.*v2ex\\.com\\/(?!(?:.*(?:api|login|cdn-cgi|verify|auth|captch|\\.(js|css|jpg|jpeg|png|webp|gif|zip|woff|woff2|m3u8|mp4|mov|m4v|avi|mkv|flv|rmvb|wmv|rm|asf|asx|mp3|json|ico|otf|ttf)))).+$"},"foday":{"name":"复游会","urlPattern":"^https?:\\/\\/apis\\.folidaymall\\.com\\/online\\/capi\\/component\\/getPageComponents"},"qiujingapp":{"name":"球竞APP","urlPattern":"^https?:\\/\\/gateway-api\\.yizhilive\\.com\\/api\\/(v2\\/index\\/carouses\\/(3|6|8|11)|v3\\/index\\/all)"},"tv":{"name":"影视去广告","urlPattern":"^https?:\\/\\/(yzy0916|yz1018|yz250907|yz0320|cfvip)\\..+\\.com\\/(v2|v1)\\/api\\/(basic\\/init|home\\/firstScreen|adInfo\\/getPageAd|home\\/body)"},"keep":{"name":"Keep","urlPattern":"^https?:\\/\\/(api|kit)\\.gotokeep\\.com\\/(nuocha|gerudo|athena|nuocha\\/plans|suit\\/v5\\/smart|kprime\\/v4\\/suit\\/sales)\\/"},"bqwz":{"name":"标枪王者","urlPattern":"^https?:\\/\\/javelin\\.mandrillvr\\.com\\/api\\/data\\/get_game_data"},"cyljy":{"name":"成语来解压","urlPattern":"^https?:\\/\\/yr-game-api\\.feigo\\.fun\\/api\\/user\\/get-game-user-value"},"bxkt":{"name":"伴学课堂","urlPattern":"^https?:\\/\\/api\\.banxueketang\\.com\\/api\\/classpal\\/app\\/v1"},"wohome":{"name":"联通智家","urlPattern":"^https:\\/\\/iotpservice\\.smartont\\.net\\/wohome\\/dispatcher"},"qmjyzc":{"name":"全民解压找茬","urlPattern":"^https?:\\/\\/res5\\.haotgame\\.com\\/cu03\\/static\\/OpenDoors\\/Res\\/data\\/levels\\/\\d+\\.json"},"vvebo":{"name":"forward","urlPattern":"^https://fluxapi\\.vvebo\\.vip/v1/purchase/iap/subscription"},"slzd":{"name":"三联中读","urlPattern":"^https://apis\\.lifeweek\\.com\\.cn/(vip/loadMyVipV2|user/newindex\\.do|api/magazine/detail)"},"mingcalc":{"name":"明计算","urlPattern":"^https?:\\/\\/jsq\\.mingcalc\\.cn\\/XMGetMeCount\\.ashx"}}};
 
 // ==========================================
 // 2. 平台检测
@@ -124,7 +124,11 @@ const Logger = (() => {
  return {
  info: (tag, msg) => console.log(`[${META.name}][${now()}][INFO][${tag}] ${msg}`),
  error: (tag, msg) => console.log(`[${META.name}][${now()}][ERROR][${tag}] ${msg}`),
- debug: (tag, msg) => console.log(`[${META.name}][${now()}][DEBUG][${tag}] ${msg}`),
+ debug: (tag, msg) => {
+ if (CONFIG.VERBOSE_PATTERN_LOG) {
+ console.log(`[${META.name}][${now()}][DEBUG][${tag}] ${msg}`);
+ }
+ },
  warn: (tag, msg) => console.log(`[${META.name}][${now()}][WARN][${tag}] ${msg}`)
  };
 })();
@@ -133,7 +137,7 @@ const Logger = (() => {
 // 4. Storage（M3单键存储）
 // ==========================================
 const Storage = (() => {
- const KEY = 'vip_v21_data';
+ const KEY = 'vip_v22_data';  // 更新存储键名，避免与v15冲突
  
  const qx = {
  read: (k) => $prefs.valueForKey(k),
@@ -672,7 +676,7 @@ class SimpleManifestLoader {
  this._requestId = requestId;
  // S3: URL匹配缓存初始化
  this._urlCache = Platform.isQX ? {} : null;
- this._urlCacheKey = 'url_match_v21';
+ this._urlCacheKey = 'url_match_v22';  // 更新缓存键名，避免与v15冲突
  
  // S3: 读取持久化缓存
  if (Platform.isQX) {
@@ -1117,7 +1121,8 @@ async function main() {
  return $done((typeof $response !== 'undefined' && $response) ? { body: $response.body } : {});
  }
 
- Logger.info('Main', `${requestId} | ${url.replace(/\\?.*$/, '').substring(0, 60)}`);
+ const displayUrl = url ? url.split('?')[0].substring(0, 60) : 'unknown';
+ Logger.info('Main', `${requestId} | ${displayUrl}`);
 
  const mLoader = new SimpleManifestLoader(requestId);
  const manifest = await mLoader.load();
