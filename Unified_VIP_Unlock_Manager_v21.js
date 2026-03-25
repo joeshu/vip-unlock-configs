@@ -1,7 +1,7 @@
 /*
  * ==========================================
- * Unified VIP Unlock Manager v21.2.0 - QX优化版
- * 修复：QX平台兼容性、Map序列化、正则缓存
+ * Unified VIP Unlock Manager v21.2.1 - QX优化版
+ * 修复：域名提取逻辑，支持转义后的正则表达式
  * ==========================================
 
  [rewrite_local]
@@ -74,16 +74,16 @@ const CONFIG = {
     MAX_BODY_SIZE: 5 * 1024 * 1024,
     MAX_PROCESSORS_PER_REQUEST: 30,
     TIMEOUT: 10,
-    DEBUG: true  // 生产环境建议关闭
+    DEBUG: true
 };
 
 const META = {
     name: 'UnifiedVIP',
-    version: '21.2.0-qx'
+    version: '21.2.1-qx'
 };
 
 // ==========================================
-// 2. 平台检测（简化版）
+// 2. 平台检测
 // ==========================================
 const Platform = {
     isQX: typeof $task !== 'undefined',
@@ -125,7 +125,7 @@ const Logger = (() => {
 })();
 
 // ==========================================
-// 4. Storage（修复：移除Map存储）
+// 4. Storage
 // ==========================================
 const Storage = (() => {
     const qx = {
@@ -157,7 +157,7 @@ const Storage = (() => {
 })();
 
 // ==========================================
-// 5. HTTP 客户端（修复：QX兼容性）
+// 5. HTTP 客户端
 // ==========================================
 const HTTP = (() => {
     return {
@@ -345,7 +345,7 @@ const Utils = {
 };
 
 // ==========================================
-// 7. 正则缓存池（修复：移除预编译缓存）
+// 7. 正则缓存池
 // ==========================================
 const RegexPool = (() => {
     const cache = new Map();
@@ -636,33 +636,36 @@ function createCompiler(factory) {
 }
 
 // ==========================================
-// 10. Manifest 加载器（修复：移除Map，使用简单对象）
+// 10. Manifest 加载器（修复：改进域名提取）
 // ==========================================
 class SimpleManifestLoader {
     constructor(requestId) {
         this._requestId = requestId;
-        this._domainMap = {};  // 使用普通对象代替Map
+        this._domainMap = {};
         this._fallbackPatterns = [];
     }
 
+    // 修复：改进域名提取，处理转义后的正则表达式
     _extractDomainKeys(patternStr) {
         const keys = new Set();
         
-        // 提取精确域名
-        const exactDomains = patternStr.match(/(?:\\*\.)?([a-z0-9-]+(?:\.[a-z0-9-])*\.\[a-z\]{2,})/gi);
-        if (exactDomains) {
-            exactDomains.forEach(d => {
-                const clean = d.replace(/\\/g, '').toLowerCase();
-                if (clean.includes('.')) keys.add(clean);
-            });
-        }
+        if (!patternStr) return Array.from(keys);
 
-        // 提取通配符域名
-        const wildcardDomains = patternStr.match(/\\*\\.([a-z0-9-]+\.[a-z]{2,})/gi);
-        if (wildcardDomains) {
-            wildcardDomains.forEach(d => {
-                const clean = d.replace(/\\/g, '').replace('*', '').toLowerCase();
-                keys.add(clean);
+        // 解码转义字符：\\. -> \. -> .
+        // 先处理双重转义（JSON字符串中的转义）
+        let decoded = patternStr.replace(/\\\\/g, '\\');
+        
+        // 提取所有域名模式
+        // 匹配：xxx.com, xxx.xyz, xxx.cn 等
+        const domainMatches = decoded.match(/[a-z0-9-]+(?:\.[a-z0-9-]+)*\.[a-z]{2,}/gi);
+        
+        if (domainMatches) {
+            domainMatches.forEach(domain => {
+                const clean = domain.toLowerCase();
+                // 只保留有效域名（包含至少一个点）
+                if (clean.includes('.') && clean.length > 3) {
+                    keys.add(clean);
+                }
             });
         }
 
@@ -687,10 +690,12 @@ class SimpleManifestLoader {
 
             if (keys.length === 0) {
                 fallback.push(entry);
+                Logger.debug('DomainIndex', `${id} -> fallback (no keys)`);
             } else {
                 keys.forEach(key => {
                     if (!index[key]) index[key] = [];
                     index[key].push(entry);
+                    Logger.debug('DomainIndex', `${id} -> ${key}`);
                 });
             }
         }
@@ -760,13 +765,17 @@ class SimpleManifestLoader {
         this._domainMap = index;
         this._fallbackPatterns = fallback;
 
+        Logger.info('ManifestLoader', `Domain index: ${Object.keys(index).length} domains, ${fallback.length} fallback`);
         Logger.perf('ManifestLoader', startTime);
+        
         return this._createManifestProxy(manifest);
     }
 
     _findMatch(url) {
         const hostname = Utils.extractHostname(url);
         if (!hostname) return this._fallbackFind(url);
+
+        Logger.debug('FindMatch', `Looking for: ${hostname}`);
 
         // 精确匹配
         let candidates = this._domainMap[hostname];
@@ -777,7 +786,10 @@ class SimpleManifestLoader {
             for (let i = 1; i < parts.length - 1; i++) {
                 const parentDomain = parts.slice(i).join('.');
                 candidates = this._domainMap[parentDomain];
-                if (candidates) break;
+                if (candidates) {
+                    Logger.debug('FindMatch', `Found parent domain: ${parentDomain}`);
+                    break;
+                }
             }
         }
 
@@ -785,10 +797,11 @@ class SimpleManifestLoader {
             for (const entry of candidates) {
                 try {
                     if (entry.regex.test(url)) {
+                        Logger.info('FindMatch', `Hit: ${entry.id} (${entry.name})`);
                         return entry;
                     }
                 } catch (e) {
-                    Logger.error('HashRoute', `Regex error ${entry.id}: ${e.message}`);
+                    Logger.error('FindMatch', `Regex error ${entry.id}: ${e.message}`);
                 }
             }
         }
@@ -800,11 +813,11 @@ class SimpleManifestLoader {
         for (const entry of this._fallbackPatterns) {
             try {
                 if (entry.regex.test(url)) {
-                    Logger.info('HashRoute', `Fallback hit: ${entry.id}`);
+                    Logger.info('FindMatch', `Fallback hit: ${entry.id}`);
                     return entry;
                 }
             } catch (e) {
-                Logger.error('HashRoute', `Fallback regex error ${entry.id}: ${e.message}`);
+                Logger.error('FindMatch', `Fallback regex error ${entry.id}: ${e.message}`);
             }
         }
         return null;
@@ -922,7 +935,7 @@ class SimpleConfigLoader {
 }
 
 // ==========================================
-// 12. 环境（修复：QX兼容性）
+// 12. 环境
 // ==========================================
 class Environment {
     constructor(name) {
@@ -931,26 +944,21 @@ class Environment {
         this.isSurge = Platform.isSurge;
         this.isLoon = Platform.isLoon;
 
-        // 修复：QX环境下$response和$request的处理
         this.response = (typeof $response !== 'undefined') ? $response : {};
         this.request = (typeof $request !== 'undefined') ? $request : {};
 
-        // 修复：QX中$request可能是字符串
         if (this.isQX && typeof this.request === 'string') {
             this.request = { url: this.request };
         }
 
-        // 修复：从response中获取request信息
         if (!this.request.url && this.response?.request?.url) {
             this.request = this.response.request;
         }
     }
 
     getUrl() {
-        // 修复：优先从response获取，QX中$response包含url
         let url = this.response?.url || this.request?.url || '';
         
-        // 修复：QX中$request可能是字符串
         if (this.isQX && typeof $request === 'string') {
             url = $request;
         }
@@ -959,7 +967,6 @@ class Environment {
     }
 
     getBody() {
-        // 修复：QX中$response.body可能为undefined
         return this.response?.body || '';
     }
 
@@ -1205,14 +1212,13 @@ class VipEngine {
 }
 
 // ==========================================
-// 14. 主函数（修复：简化逻辑，增强稳定性）
+// 14. 主函数
 // ==========================================
 async function main() {
     const requestId = Math.random().toString(36).substr(2, 6).toUpperCase();
     const mainStart = Date.now();
 
     try {
-        // 修复：优先初始化环境
         const env = new Environment(META.name);
         const url = env.getUrl();
         const body = env.getBody();
@@ -1222,7 +1228,6 @@ async function main() {
             return env.done({ body: body || '{}' });
         }
 
-        // 修复：简化body检查，避免过早返回
         const bodySize = body?.length || 0;
         if (bodySize === 0) {
             Logger.debug('Main', 'Empty body');
@@ -1231,11 +1236,9 @@ async function main() {
 
         Logger.info('Main', `${requestId} | ${url.replace(/\?.*$/, '').substring(0, 60)} | ${bodySize} bytes`);
 
-        // 加载Manifest
         const mLoader = new SimpleManifestLoader(requestId);
         const manifest = await mLoader.load();
 
-        // 查找匹配
         const matchEntry = manifest.findMatch(url);
         if (!matchEntry) {
             Logger.info('Main', 'No rule matched');
@@ -1244,13 +1247,11 @@ async function main() {
 
         Logger.info('Main', `Matched: ${matchEntry.id} [${matchEntry.mode}]`);
 
-        // 加载配置
         const cLoader = new SimpleConfigLoader(requestId);
         const config = await cLoader.load(matchEntry.id, manifest.getConfigVersion(matchEntry.id));
         config.name = config.name || matchEntry.name;
         config.mode = config.mode || matchEntry.mode;
 
-        // 执行处理
         const engine = new VipEngine(env, requestId);
         const result = await engine.process(body, config);
 
@@ -1260,7 +1261,6 @@ async function main() {
 
     } catch (e) {
         Logger.error('Main', `${requestId} failed: ${e.message}`);
-        // 修复：确保总是返回有效响应
         const fallbackBody = (typeof $response !== 'undefined' && $response?.body) ? $response.body : '{}';
         if (typeof $done === 'function') {
             $done({ body: fallbackBody });
