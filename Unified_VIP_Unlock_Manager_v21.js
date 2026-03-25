@@ -1,7 +1,7 @@
 /*
  * ==========================================
- * Unified VIP Unlock Manager v21.2.2 - QX优化版
- * 修复：正确处理manifest中已转义的urlPattern
+ * Unified VIP Unlock Manager v21.2.3 - QX优化版
+ * 修复：正确处理JSON解析后的正则字符串
  * ==========================================
 
  [rewrite_local]
@@ -74,12 +74,12 @@ const CONFIG = {
     MAX_BODY_SIZE: 5 * 1024 * 1024,
     MAX_PROCESSORS_PER_REQUEST: 30,
     TIMEOUT: 10,
-    DEBUG: true
+    DEBUG: true  // 临时开启以查看调试信息
 };
 
 const META = {
     name: 'UnifiedVIP',
-    version: '21.2.2-qx'
+    version: '21.2.3-qx'
 };
 
 // ==========================================
@@ -636,7 +636,7 @@ function createCompiler(factory) {
 }
 
 // ==========================================
-// 10. Manifest 加载器（修复：正确处理转义的正则）
+// 10. Manifest 加载器（修复：正确处理正则字符串）
 // ==========================================
 class SimpleManifestLoader {
     constructor(requestId) {
@@ -645,35 +645,53 @@ class SimpleManifestLoader {
         this._fallbackPatterns = [];
     }
 
-    // 修复：manifest中的urlPattern已经是正确的正则字符串（如 \\. 表示匹配 .）
-    // 我们直接从中提取域名，不需要额外解码
+    // 修复：manifest中的urlPattern经过JSON解析后，\\. 已经变成了 \.
+    // 我们需要将 \. 替换为 . 来提取域名
     _extractDomainKeys(patternStr) {
         const keys = new Set();
         
-        if (!patternStr || typeof patternStr !== 'string') return Array.from(keys);
+        if (!patternStr || typeof patternStr !== 'string') {
+            Logger.debug('ExtractDomain', 'Empty or invalid pattern');
+            return Array.from(keys);
+        }
 
-        // 在manifest中，\\. 表示匹配字面量 .
-        // 我们需要提取类似 api\\.iappdaily\\.com 中的域名部分
-        // 策略：将 \\. 替换为 .，然后提取域名
+        // 调试：显示原始模式的前50个字符
+        Logger.debug('ExtractDomain', `Raw pattern: ${patternStr.substring(0, 50)}...`);
+
+        // 在JavaScript字符串中，经过JSON解析后，原来的 \\. 变成了 \.
+        // 我们需要将 \. 替换为 . 来提取域名，同时保留其他正则语法
+        // 注意：在JS字符串中，\. 表示一个字面量的反斜杠+点
         
-        // 将正则中的 \\. 替换为 . 以便提取域名
-        const normalized = patternStr.replace(/\\\\\./g, '.');
+        // 步骤1：将 \. 替换为 . （域名分隔符）
+        // 步骤2：将 \/ 替换为 / （路径分隔符，可选）
+        let normalized = patternStr.replace(/\\\./g, '.');
         
-        // 现在提取所有域名（xxx.yyy.zzz 格式）
-        // 匹配：字母数字- + . + 字母数字- + . + 字母2位以上
+        Logger.debug('ExtractDomain', `Normalized: ${normalized.substring(0, 50)}...`);
+
+        // 现在提取域名：字母数字- + . + 字母数字- + . + 字母2位以上
+        // 排除正则特殊字符如 (, ), |, *, ?, + 等后面的点
         const domainMatches = normalized.match(/[a-z0-9-]+(?:\.[a-z0-9-]+)*\.[a-z]{2,}/gi);
         
         if (domainMatches) {
             domainMatches.forEach(domain => {
                 const clean = domain.toLowerCase();
-                // 过滤掉太短或无效的
-                if (clean.includes('.') && clean.length > 3 && !clean.includes('*')) {
+                // 过滤掉包含正则特殊字符的匹配结果
+                if (clean.includes('.') && 
+                    clean.length > 3 && 
+                    !clean.includes('*') && 
+                    !clean.includes('?') &&
+                    !clean.includes('+') &&
+                    !clean.includes('(') &&
+                    !clean.includes(')')) {
                     keys.add(clean);
+                    Logger.debug('ExtractDomain', `Found: ${clean}`);
                 }
             });
         }
 
-        return Array.from(keys);
+        const result = Array.from(keys);
+        Logger.debug('ExtractDomain', `Total keys: ${result.length}`);
+        return result;
     }
 
     _buildDomainIndex(configs) {
