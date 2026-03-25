@@ -1,7 +1,7 @@
 /*
  * ==========================================
- * Unified VIP Unlock Manager v21.2.3 - QX优化版
- * 修复：正确处理JSON解析后的正则字符串
+ * Unified VIP Unlock Manager v21.2.6 - QX精简版
+ * 优化：仅保留 Quantumult X 平台支持
  * ==========================================
 
  [rewrite_local]
@@ -74,22 +74,19 @@ const CONFIG = {
     MAX_BODY_SIZE: 5 * 1024 * 1024,
     MAX_PROCESSORS_PER_REQUEST: 30,
     TIMEOUT: 10,
-    DEBUG: true  // 临时开启以查看调试信息
+    DEBUG: true
 };
 
 const META = {
     name: 'UnifiedVIP',
-    version: '21.2.3-qx'
+    version: '21.2.6-qx-only'
 };
 
 // ==========================================
-// 2. 平台检测
+// 2. 平台检测 (QX Only)
 // ==========================================
 const Platform = {
-    isQX: typeof $task !== 'undefined',
-    isLoon: typeof $loon !== 'undefined',
-    isSurge: typeof $httpClient !== 'undefined' && typeof $loon === 'undefined',
-    isStash: typeof $stash !== 'undefined'
+    isQX: true
 };
 
 // ==========================================
@@ -125,126 +122,85 @@ const Logger = (() => {
 })();
 
 // ==========================================
-// 4. Storage
+// 4. Storage (QX Only)
 // ==========================================
-const Storage = (() => {
-    const qx = {
-        read: (k) => $prefs.valueForKey(k),
-        write: (k, v) => $prefs.setValueForKey(v, k),
-        remove: (k) => $prefs.removeValueForKey(k)
-    };
+const Storage = {
+    readManifest: () => ({
+        body: $prefs.valueForKey('manifest_body_v21'),
+        time: $prefs.valueForKey('manifest_time_v21'),
+        version: $prefs.valueForKey('manifest_version_v21'),
+        domainIndex: $prefs.valueForKey('manifest_domain_index_v21'),
+        fallbackPatterns: $prefs.valueForKey('manifest_fallback_v21')
+    }),
 
-    return {
-        readManifest: () => ({
-            body: qx.read('manifest_body_v21'),
-            time: qx.read('manifest_time_v21'),
-            version: qx.read('manifest_version_v21')
-        }),
+    writeManifest: (body, time, version, domainIndex = null, fallbackPatterns = null) => {
+        $prefs.setValueForKey('manifest_body_v21', body);
+        $prefs.setValueForKey('manifest_time_v21', String(time));
+        $prefs.setValueForKey('manifest_version_v21', version);
+        if (domainIndex) $prefs.setValueForKey('manifest_domain_index_v21', JSON.stringify(domainIndex));
+        if (fallbackPatterns) $prefs.setValueForKey('manifest_fallback_v21', JSON.stringify(fallbackPatterns));
+    },
 
-        writeManifest: (body, time, version) => {
-            qx.write('manifest_body_v21', body);
-            qx.write('manifest_time_v21', String(time));
-            qx.write('manifest_version_v21', version);
-        },
+    readConfig: (configId) => $prefs.valueForKey(`vip_cfg_v21_${configId}`),
+    writeConfig: (configId, value) => $prefs.setValueForKey(`vip_cfg_v21_${configId}`, value),
 
-        readConfig: (configId) => qx.read(`vip_cfg_v21_${configId}`),
-        writeConfig: (configId, value) => qx.write(`vip_cfg_v21_${configId}`, value),
-
-        read: (key) => qx.read(key),
-        write: (key, value) => qx.write(key, value),
-        remove: (key) => qx.remove(key)
-    };
-})();
+    read: (key) => $prefs.valueForKey(key),
+    write: (key, value) => $prefs.setValueForKey(key, value),
+    remove: (key) => $prefs.removeValueForKey(key)
+};
 
 // ==========================================
-// 5. HTTP 客户端
+// 5. HTTP 客户端 (QX Only)
 // ==========================================
-const HTTP = (() => {
-    return {
-        get: (url, timeout = CONFIG.TIMEOUT * 1000) => new Promise((resolve, reject) => {
-            const timer = setTimeout(() => reject(new Error('Timeout')), timeout);
+const HTTP = {
+    get: (url, timeout = CONFIG.TIMEOUT * 1000) => new Promise((resolve, reject) => {
+        const timer = setTimeout(() => reject(new Error('Timeout')), timeout);
 
-            const callback = (error, response, body) => {
+        $task.fetch({
+            url,
+            method: 'GET',
+            timeout: Math.ceil(timeout / 1000)
+        }).then(
+            res => {
                 clearTimeout(timer);
-                if (error) {
-                    reject(new Error(String(error)));
-                } else {
-                    resolve({
-                        body: body || '',
-                        statusCode: typeof response === 'object' ? (response.statusCode || response.status || 200) : 200,
-                        headers: typeof response === 'object' ? (response.headers || {}) : {}
-                    });
-                }
-            };
-
-            try {
-                if (Platform.isQX) {
-                    $task.fetch({
-                        url,
-                        method: 'GET',
-                        timeout: Math.ceil(timeout / 1000)
-                    }).then(
-                        res => callback(null, { statusCode: res.statusCode, headers: res.headers }, res.body),
-                        err => callback(err, null, null)
-                    );
-                } else if (Platform.isSurge || Platform.isLoon) {
-                    $httpClient.get({ url, timeout: timeout / 1000 }, callback);
-                } else {
-                    clearTimeout(timer);
-                    reject(new Error('No HTTP client'));
-                }
-            } catch (e) {
+                resolve({
+                    body: res.body || '',
+                    statusCode: res.statusCode || 200,
+                    headers: res.headers || {}
+                });
+            },
+            err => {
                 clearTimeout(timer);
-                reject(e);
+                reject(new Error(String(err)));
             }
-        }),
+        );
+    }),
 
-        post: (options, timeout = CONFIG.TIMEOUT * 1000) => new Promise((resolve, reject) => {
-            const timer = setTimeout(() => reject(new Error('Timeout')), timeout);
+    post: (options, timeout = CONFIG.TIMEOUT * 1000) => new Promise((resolve, reject) => {
+        const timer = setTimeout(() => reject(new Error('Timeout')), timeout);
 
-            const callback = (error, response, body) => {
+        $task.fetch({
+            url: options.url,
+            method: 'POST',
+            headers: options.headers || {},
+            body: options.body || '',
+            timeout: Math.ceil(timeout / 1000)
+        }).then(
+            res => {
                 clearTimeout(timer);
-                if (error) {
-                    reject(new Error(String(error)));
-                } else {
-                    resolve({
-                        body: body || '',
-                        statusCode: typeof response === 'object' ? (response.statusCode || response.status || 200) : 200,
-                        headers: typeof response === 'object' ? (response.headers || {}) : {}
-                    });
-                }
-            };
-
-            try {
-                if (Platform.isQX) {
-                    $task.fetch({
-                        url: options.url,
-                        method: 'POST',
-                        headers: options.headers || {},
-                        body: options.body || '',
-                        timeout: Math.ceil(timeout / 1000)
-                    }).then(
-                        res => callback(null, { statusCode: res.statusCode, headers: res.headers }, res.body),
-                        err => callback(err, null, null)
-                    );
-                } else if (Platform.isSurge || Platform.isLoon) {
-                    $httpClient.post({
-                        url: options.url,
-                        headers: options.headers || {},
-                        body: options.body || '',
-                        timeout: timeout / 1000
-                    }, callback);
-                } else {
-                    clearTimeout(timer);
-                    reject(new Error('No HTTP client'));
-                }
-            } catch (e) {
+                resolve({
+                    body: res.body || '',
+                    statusCode: res.statusCode || 200,
+                    headers: res.headers || {}
+                });
+            },
+            err => {
                 clearTimeout(timer);
-                reject(e);
+                reject(new Error(String(err)));
             }
-        })
-    };
-})();
+        );
+    })
+};
 
 // ==========================================
 // 6. 工具函数
@@ -502,18 +458,7 @@ function createProcessorFactory(requestId) {
                 message = message.substring(0, maxLen) + '...';
             }
 
-            if (Platform.isQX) {
-                $notify(title, subtitle, message, params.options || {});
-            } else if (Platform.isLoon) {
-                const url = params.options && params.options['open-url'];
-                if (url) {
-                    $notification.post(title, subtitle, message, url);
-                } else {
-                    $notification.post(title, subtitle, message);
-                }
-            } else if (Platform.isSurge) {
-                $notification.post(title, subtitle, message, params.options || {});
-            }
+            $notify(title, subtitle, message, params.options || {});
 
             if (params.markField) {
                 Utils.setPath(obj, params.markField, true);
@@ -636,62 +581,35 @@ function createCompiler(factory) {
 }
 
 // ==========================================
-// 10. Manifest 加载器（修复：正确处理正则字符串）
+// 10. Manifest 加载器（简化：移除configVersions）
 // ==========================================
 class SimpleManifestLoader {
     constructor(requestId) {
         this._requestId = requestId;
-        this._domainMap = {};
-        this._fallbackPatterns = [];
+        this._domainMap = null;
+        this._fallbackPatterns = null;
+        this._manifest = null;
     }
 
-    // 修复：manifest中的urlPattern经过JSON解析后，\\. 已经变成了 \.
-    // 我们需要将 \. 替换为 . 来提取域名
     _extractDomainKeys(patternStr) {
         const keys = new Set();
-        
-        if (!patternStr || typeof patternStr !== 'string') {
-            Logger.debug('ExtractDomain', 'Empty or invalid pattern');
-            return Array.from(keys);
-        }
+        if (!patternStr || typeof patternStr !== 'string') return Array.from(keys);
 
-        // 调试：显示原始模式的前50个字符
-        Logger.debug('ExtractDomain', `Raw pattern: ${patternStr.substring(0, 50)}...`);
-
-        // 在JavaScript字符串中，经过JSON解析后，原来的 \\. 变成了 \.
-        // 我们需要将 \. 替换为 . 来提取域名，同时保留其他正则语法
-        // 注意：在JS字符串中，\. 表示一个字面量的反斜杠+点
-        
-        // 步骤1：将 \. 替换为 . （域名分隔符）
-        // 步骤2：将 \/ 替换为 / （路径分隔符，可选）
         let normalized = patternStr.replace(/\\\./g, '.');
-        
-        Logger.debug('ExtractDomain', `Normalized: ${normalized.substring(0, 50)}...`);
-
-        // 现在提取域名：字母数字- + . + 字母数字- + . + 字母2位以上
-        // 排除正则特殊字符如 (, ), |, *, ?, + 等后面的点
         const domainMatches = normalized.match(/[a-z0-9-]+(?:\.[a-z0-9-]+)*\.[a-z]{2,}/gi);
         
         if (domainMatches) {
             domainMatches.forEach(domain => {
                 const clean = domain.toLowerCase();
-                // 过滤掉包含正则特殊字符的匹配结果
-                if (clean.includes('.') && 
-                    clean.length > 3 && 
-                    !clean.includes('*') && 
-                    !clean.includes('?') &&
-                    !clean.includes('+') &&
-                    !clean.includes('(') &&
-                    !clean.includes(')')) {
+                if (clean.includes('.') && clean.length > 3 && 
+                    !clean.includes('*') && !clean.includes('?') &&
+                    !clean.includes('+') && !clean.includes('(') && !clean.includes(')')) {
                     keys.add(clean);
-                    Logger.debug('ExtractDomain', `Found: ${clean}`);
                 }
             });
         }
 
-        const result = Array.from(keys);
-        Logger.debug('ExtractDomain', `Total keys: ${result.length}`);
-        return result;
+        return Array.from(keys);
     }
 
     _buildDomainIndex(configs) {
@@ -705,19 +623,16 @@ class SimpleManifestLoader {
             const entry = {
                 id,
                 pattern: info.urlPattern,
-                regex: RegexPool.get(info.urlPattern),
                 mode: info.mode || 'json',
                 name: info.name || id
             };
 
             if (keys.length === 0) {
                 fallback.push(entry);
-                Logger.debug('DomainIndex', `${id} -> fallback (no keys)`);
             } else {
                 keys.forEach(key => {
                     if (!index[key]) index[key] = [];
                     index[key].push(entry);
-                    Logger.debug('DomainIndex', `${id} -> ${key}`);
                 });
             }
         }
@@ -730,22 +645,35 @@ class SimpleManifestLoader {
         const now = Date.now();
         const cached = Storage.readManifest();
 
-        Logger.debug('ManifestLoader', `Cache check: body=${!!cached.body}, time=${cached.time}`);
-
         let manifest = null;
         let useCache = false;
+        let useIndexCache = false;
 
-        if (cached.body && cached.time) {
+        // 检查manifest缓存
+        if (cached.body && cached.time && cached.version) {
             const age = now - parseInt(cached.time);
             if (age < CONFIG.CONFIG_CACHE_TTL) {
                 manifest = Utils.safeJsonParse(cached.body);
                 if (manifest?.configs) {
                     useCache = true;
-                    Logger.info('ManifestLoader', 'Using valid cached manifest');
+                    Logger.info('ManifestLoader', `Using cached manifest v${cached.version}`);
+                    
+                    // 检查域名索引缓存
+                    if (cached.domainIndex && cached.fallbackPatterns) {
+                        try {
+                            this._domainMap = Utils.safeJsonParse(cached.domainIndex);
+                            this._fallbackPatterns = Utils.safeJsonParse(cached.fallbackPatterns);
+                            useIndexCache = true;
+                            Logger.info('ManifestLoader', 'Using cached domain index');
+                        } catch (e) {
+                            Logger.warn('ManifestLoader', 'Domain index cache invalid, will rebuild');
+                        }
+                    }
                 }
             }
         }
 
+        // 需要下载新manifest
         if (!useCache) {
             try {
                 const url = `${CONFIG.REMOTE_BASE}/manifest.json?t=${now}`;
@@ -761,8 +689,22 @@ class SimpleManifestLoader {
                     throw new Error('Invalid manifest: missing configs');
                 }
 
-                Storage.writeManifest(res.body, now, manifest.version || '1.0');
-                Logger.info('ManifestLoader', `Downloaded manifest v${manifest.version}`);
+                // 构建域名索引
+                const { index, fallback } = this._buildDomainIndex(manifest.configs);
+                this._domainMap = index;
+                this._fallbackPatterns = fallback;
+                useIndexCache = true;
+
+                // 保存manifest和索引
+                Storage.writeManifest(
+                    res.body, 
+                    now, 
+                    manifest.version || '1.0',
+                    index,
+                    fallback
+                );
+                
+                Logger.info('ManifestLoader', `Downloaded manifest v${manifest.version}, built ${Object.keys(index).length} domains`);
 
             } catch (e) {
                 Logger.error('ManifestLoader', `Download failed: ${e.message}`);
@@ -782,12 +724,23 @@ class SimpleManifestLoader {
             }
         }
 
-        // 构建域名索引
-        const { index, fallback } = this._buildDomainIndex(manifest.configs);
-        this._domainMap = index;
-        this._fallbackPatterns = fallback;
+        // 有缓存manifest但没有索引，需要构建
+        if (useCache && !useIndexCache) {
+            Logger.info('ManifestLoader', 'Building domain index from cached manifest');
+            const { index, fallback } = this._buildDomainIndex(manifest.configs);
+            this._domainMap = index;
+            this._fallbackPatterns = fallback;
+            
+            Storage.writeManifest(
+                cached.body,
+                parseInt(cached.time),
+                cached.version || '1.0',
+                index,
+                fallback
+            );
+        }
 
-        Logger.info('ManifestLoader', `Domain index: ${Object.keys(index).length} domains, ${fallback.length} fallback`);
+        this._manifest = manifest;
         Logger.perf('ManifestLoader', startTime);
         
         return this._createManifestProxy(manifest);
@@ -799,10 +752,8 @@ class SimpleManifestLoader {
 
         Logger.debug('FindMatch', `Looking for: ${hostname}`);
 
-        // 精确匹配
         let candidates = this._domainMap[hostname];
         
-        // 父域名匹配
         if (!candidates && hostname.includes('.')) {
             const parts = hostname.split('.');
             for (let i = 1; i < parts.length - 1; i++) {
@@ -818,7 +769,8 @@ class SimpleManifestLoader {
         if (candidates) {
             for (const entry of candidates) {
                 try {
-                    if (entry.regex.test(url)) {
+                    const regex = RegexPool.get(entry.pattern);
+                    if (regex.test(url)) {
                         Logger.info('FindMatch', `Hit: ${entry.id} (${entry.name})`);
                         return entry;
                     }
@@ -834,7 +786,8 @@ class SimpleManifestLoader {
     _fallbackFind(url) {
         for (const entry of this._fallbackPatterns) {
             try {
-                if (entry.regex.test(url)) {
+                const regex = RegexPool.get(entry.pattern);
+                if (regex.test(url)) {
                     Logger.info('FindMatch', `Fallback hit: ${entry.id}`);
                     return entry;
                 }
@@ -848,26 +801,21 @@ class SimpleManifestLoader {
     _createManifestProxy(manifest) {
         return {
             configs: manifest.configs || {},
-            configVersions: manifest.configVersions || {},
-            findMatch: (url) => this._findMatch(url),
-            getConfigVersion: (configId) => {
-                return (manifest.configVersions && manifest.configVersions[configId]) || '1.0';
-            }
+            // 简化：移除getConfigVersion，不再需要
+            findMatch: (url) => this._findMatch(url)
         };
     }
 
     _createEmptyManifest() {
         return {
             configs: {},
-            configVersions: {},
-            findMatch: () => null,
-            getConfigVersion: () => '1.0'
+            findMatch: () => null
         };
     }
 }
 
 // ==========================================
-// 11. 配置加载器
+// 11. 配置加载器（简化：移除版本检查）
 // ==========================================
 class SimpleConfigLoader {
     constructor(requestId) {
@@ -875,25 +823,26 @@ class SimpleConfigLoader {
         this._cache = new Map();
     }
 
-    async load(configId, remoteVersion) {
-        const cacheKey = `${configId}@${remoteVersion}`;
-
-        if (this._cache.has(cacheKey)) {
+    async load(configId) {
+        // 简化：只使用configId作为缓存key
+        if (this._cache.has(configId)) {
             Logger.debug('ConfigLoader', `${configId} memory cache hit`);
-            return this._cache.get(cacheKey);
+            return this._cache.get(configId);
         }
 
         const cached = Storage.readConfig(configId);
         if (cached) {
             try {
-                const { v, t, d } = Utils.safeJsonParse(cached);
-                if (v === remoteVersion && (Date.now() - t) < CONFIG.CONFIG_CACHE_TTL) {
-                    const prepared = this._prepareConfig(d);
-                    this._cache.set(cacheKey, prepared);
+                const config = Utils.safeJsonParse(cached);
+                if (config && config.processor) {
+                    const prepared = this._prepareConfig(config);
+                    this._cache.set(configId, prepared);
                     Logger.info('ConfigLoader', `${configId} persistent cache hit`);
                     return prepared;
                 }
-            } catch (e) {}
+            } catch (e) {
+                Logger.warn('ConfigLoader', `${configId} cache parse failed`);
+            }
         }
 
         Logger.info('ConfigLoader', `${configId} fetching...`);
@@ -906,14 +855,10 @@ class SimpleConfigLoader {
             }
 
             const fresh = Utils.safeJsonParse(res.body);
-            Storage.writeConfig(configId, Utils.safeJsonStringify({
-                v: remoteVersion,
-                t: Date.now(),
-                d: fresh
-            }));
+            Storage.writeConfig(configId, res.body);  // 直接保存原始响应
 
             const prepared = this._prepareConfig(fresh);
-            this._cache.set(cacheKey, prepared);
+            this._cache.set(configId, prepared);
             return prepared;
 
         } catch (e) {
@@ -921,9 +866,9 @@ class SimpleConfigLoader {
 
             if (cached) {
                 Logger.warn('ConfigLoader', `${configId} using stale cache`);
-                const { d } = Utils.safeJsonParse(cached);
-                const prepared = this._prepareConfig(d);
-                this._cache.set(cacheKey, prepared);
+                const config = Utils.safeJsonParse(cached);
+                const prepared = this._prepareConfig(config);
+                this._cache.set(configId, prepared);
                 return prepared;
             }
             throw e;
@@ -1234,7 +1179,7 @@ class VipEngine {
 }
 
 // ==========================================
-// 14. 主函数
+// 14. 主函数（简化：移除版本参数）
 // ==========================================
 async function main() {
     const requestId = Math.random().toString(36).substr(2, 6).toUpperCase();
@@ -1269,8 +1214,9 @@ async function main() {
 
         Logger.info('Main', `Matched: ${matchEntry.id} [${matchEntry.mode}]`);
 
+        // 简化：移除版本参数
         const cLoader = new SimpleConfigLoader(requestId);
-        const config = await cLoader.load(matchEntry.id, manifest.getConfigVersion(matchEntry.id));
+        const config = await cLoader.load(matchEntry.id);
         config.name = config.name || matchEntry.name;
         config.mode = config.mode || matchEntry.mode;
 
