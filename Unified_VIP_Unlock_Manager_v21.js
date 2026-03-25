@@ -1,7 +1,7 @@
 /*
  * ==========================================
- * Unified VIP Unlock Manager v21.2.1 - QX优化版
- * 修复：域名提取逻辑，支持转义后的正则表达式
+ * Unified VIP Unlock Manager v21.2.2 - QX优化版
+ * 修复：正确处理manifest中已转义的urlPattern
  * ==========================================
 
  [rewrite_local]
@@ -79,7 +79,7 @@ const CONFIG = {
 
 const META = {
     name: 'UnifiedVIP',
-    version: '21.2.1-qx'
+    version: '21.2.2-qx'
 };
 
 // ==========================================
@@ -636,7 +636,7 @@ function createCompiler(factory) {
 }
 
 // ==========================================
-// 10. Manifest 加载器（修复：改进域名提取）
+// 10. Manifest 加载器（修复：正确处理转义的正则）
 // ==========================================
 class SimpleManifestLoader {
     constructor(requestId) {
@@ -645,25 +645,29 @@ class SimpleManifestLoader {
         this._fallbackPatterns = [];
     }
 
-    // 修复：改进域名提取，处理转义后的正则表达式
+    // 修复：manifest中的urlPattern已经是正确的正则字符串（如 \\. 表示匹配 .）
+    // 我们直接从中提取域名，不需要额外解码
     _extractDomainKeys(patternStr) {
         const keys = new Set();
         
-        if (!patternStr) return Array.from(keys);
+        if (!patternStr || typeof patternStr !== 'string') return Array.from(keys);
 
-        // 解码转义字符：\\. -> \. -> .
-        // 先处理双重转义（JSON字符串中的转义）
-        let decoded = patternStr.replace(/\\\\/g, '\\');
+        // 在manifest中，\\. 表示匹配字面量 .
+        // 我们需要提取类似 api\\.iappdaily\\.com 中的域名部分
+        // 策略：将 \\. 替换为 .，然后提取域名
         
-        // 提取所有域名模式
-        // 匹配：xxx.com, xxx.xyz, xxx.cn 等
-        const domainMatches = decoded.match(/[a-z0-9-]+(?:\.[a-z0-9-]+)*\.[a-z]{2,}/gi);
+        // 将正则中的 \\. 替换为 . 以便提取域名
+        const normalized = patternStr.replace(/\\\\\./g, '.');
+        
+        // 现在提取所有域名（xxx.yyy.zzz 格式）
+        // 匹配：字母数字- + . + 字母数字- + . + 字母2位以上
+        const domainMatches = normalized.match(/[a-z0-9-]+(?:\.[a-z0-9-]+)*\.[a-z]{2,}/gi);
         
         if (domainMatches) {
             domainMatches.forEach(domain => {
                 const clean = domain.toLowerCase();
-                // 只保留有效域名（包含至少一个点）
-                if (clean.includes('.') && clean.length > 3) {
+                // 过滤掉太短或无效的
+                if (clean.includes('.') && clean.length > 3 && !clean.includes('*')) {
                     keys.add(clean);
                 }
             });
