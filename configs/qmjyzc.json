@@ -22,7 +22,7 @@
             "messageField": "answers",
             "prefix": "",
             "separator": "\n",
-            "maxLength": 200,
+            "maxLength": 400,
             "template": null,
             "markField": null,
             "options": {}
