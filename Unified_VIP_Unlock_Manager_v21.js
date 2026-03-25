@@ -1,47 +1,42 @@
 /*
  * ==========================================
- * Unified VIP Unlock Manager v21.1.0 - 极速优化版
- * 优化项：
- * 1. URL不匹配时立即退出（零成本短路）
- * 2. Body大小/类型预检（前端拦截）
- * 3. 延迟加载配置（按需获取）
- * 4. 合并多次replace（单次扫描）
- * 5. 预编译所有正则（启动即就绪）
+ * Unified VIP Unlock Manager v21.1.1 - A平台兼容修复版
+ * 修复：严格对齐原文件API调用，消除异常
  * ==========================================
  */
 
 [rewrite_local]
 # 三联中读 - 所有 VIP 接口
-^https://apis\.lifeweek\.com\.cn/(vip/loadMyVipV2\|user/newindex\.do\|api/magazine/detail) url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v21.js
+^https://apis\.lifeweek\.com\.cn/(vip/loadMyVipV2|user/newindex\.do|api/magazine/detail) url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v21.js
 # 三联中读 - 注册接口
 ^https?:\/\/apis\.lifeweek\.com\.cn\/reg\/vistorRegister\.do url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v21.js
 # Vvebo - 订阅验证转发
 ^https:\/\/fluxapi\.vvebo\.vip\/v1\/purchase\/iap\/subscription url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v21.js
 # iAppDaily - 余额查询接口
 ^https:\/\/api\.iappdaily\.com\/my\/balance url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v21.js
-^https?:\/\/(?:api[23]\.tophub\.(?:xyz\|today\|app)\|tophub(?:2)?\.(?:tophubdata\.com\|idaily\.today\|remai\.today\|iappdaiy\.com\|ipadown\.com))\/account\/sync url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v21.js
+^https?:\/\/(?:api[23]\.tophub\.(?:xyz|today|app)|tophub(?:2)?\.(?:tophubdata\.com|idaily\.today|remai\.today|iappdaiy\.com|ipadown\.com))\/account\/sync url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v21.js
 # gps - GPS工具箱
 ^https:\/\/service\.gpstool\.com\/app\/index\/getUserInfo url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v21.js
 ^https?:\/\/mapi\.kouyuxingqiu\.com\/api\/v2 url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v21.js
 # mhlz - 魔幻粒子
 ^https?:\/\/ss\.landintheair\.com\/storage\/ url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v21.js
 # v2ex - V2EX去广告
-^https?:\/\/.*v2ex\.com\/(?!(?:.*(?:api\|login\|cdn-cgi\|verify\|auth\|captch\|\.(js\|css\|jpg\|jpeg\|png\|webp\|gif\|zip\|woff\|woff2\|m3u8\|mp4\|mov\|m4v\|avi\|mkv\|flv\|rmvb\|wmv\|rm\|asf\|asx\|mp3\|json\|ico\|otf\|ttf)))).+$ url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v21.js
+^https?:\/\/.*v2ex\.com\/(?!(?:.*(?:api|login|cdn-cgi|verify|auth|captch|\.(js|css|jpg|jpeg|png|webp|gif|zip|woff|woff2|m3u8|mp4|mov|m4v|avi|mkv|flv|rmvb|wmv|rm|asf|asx|mp3|json|ico|otf|ttf)))).+$ url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v21.js
 # foday - 复游会
 ^https?:\/\/apis\.folidaymall\.com\/online\/capi\/component\/getPageComponents url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v21.js
 # qiujingapp - 球竞APP
-^https?:\/\/gateway-api\.yizhilive\.com\/api\/v2\/index\/carouses\/(3\|6\|8\|11)(\?.*)?$ url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v21.js
+^https?:\/\/gateway-api\.yizhilive\.com\/api\/v2\/index\/carouses\/(3|6|8|11)(\?.*)?$ url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v21.js
 ^https?:\/\/gateway-api\.yizhilive\.com\/api\/v3\/index\/all\?.*position=2.*$ url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v21.js
 # Keep - 课程/会员
-^https?:\/\/(api\|kit)\.gotokeep\.com\/(nuocha\|gerudo\|athena\|nuocha\/plans\|suit\/v5\/smart\|kprime\/v4\/suit\/sales)\/ url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v21.js
+^https?:\/\/(api|kit)\.gotokeep\.com\/(nuocha|gerudo|athena|nuocha\/plans|suit\/v5\/smart|kprime\/v4\/suit\/sales)\/ url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v21.js
 # bqwz - 标枪王者
 ^https?:\/\/javelin\.mandrillvr\.com\/api\/data\/get_game_data url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v21.js
 # bxkt - 伴学课堂
 ^https?:\/\/api\.banxueketang\.com\/api\/classpal\/app\/v1 url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v21.js
 # tv - 影视去广告
-^https?:\/\/(yzy0916\|yz1018\|yz250907\|yz0320\|cfvip)\..+\.com\/(v2\|v1)\/api\/(basic\/init\|home\/firstScreen\|adInfo\/getPageAd\|home\/body) url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v21.js
-^https?:\/\/(yz\w{4,6}\|cfvip)\..+\.com\/(v2\|v1)\/api\/(adInfo\|vodInfo)\/(getPageAd\|getTextAd\|getSearchAd\|getVodBodyAd\|getVodPauseAd\|getUserCenterAd) url reject-dict
-^https?:\/\/(yz\w{4,6}\|cfvip)\..+\.com\/(v2\|v1)\/api\/(home\/notice\|gameCenter\/gameDetailList) url reject-dict
+^https?:\/\/(yzy0916|yz1018|yz250907|yz0320|cfvip)\..+\.com\/(v2|v1)\/api\/(basic\/init|home\/firstScreen|adInfo\/getPageAd|home\/body) url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v21.js
+^https?:\/\/(yz\w{4,6}|cfvip)\..+\.com\/(v2|v1)\/api\/(adInfo|vodInfo)\/(getPageAd|getTextAd|getSearchAd|getVodBodyAd|getVodPauseAd|getUserCenterAd) url reject-dict
+^https?:\/\/(yz\w{4,6}|cfvip)\..+\.com\/(v2|v1)\/api\/(home\/notice|gameCenter\/gameDetailList) url reject-dict
 # 成语来解压
 ^https?:\/\/yr-game-api\.feigo\.fun\/api\/user\/get-game-user-value url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v21.js
 # 星际使命
@@ -65,7 +60,7 @@ hostname = 59.82.99.78, *.ipalfish.com, service.hhdd.com, apis.lifeweek.com.cn, 
 'use strict';
 
 // ==========================================
-// 0. 环境修复
+// 0. 环境修复（关键：必须最先执行）
 // ==========================================
 if (typeof console === 'undefined') {
   globalThis.console = { log: () => {} };
@@ -77,23 +72,20 @@ if (typeof console === 'undefined') {
 const CONFIG = {
   REMOTE_BASE: 'https://joeshu.github.io/vip-unlock-configs',
   CONFIG_CACHE_TTL: 24 * 60 * 60 * 1000,
-  MAX_BODY_SIZE: 5 * 1024 * 1024,  // 5MB
+  MAX_BODY_SIZE: 5 * 1024 * 1024,
   MAX_PROCESSORS_PER_REQUEST: 30,
   TIMEOUT: 10,
   DEBUG: true,
-  // 优化2：Content-Type白名单，非JSON直接跳过
-  JSON_CONTENT_TYPES: ['application/json', 'text/json', 'application/javascript', 'text/javascript', 'text/plain'],
-  // 优化3：不需要配置的模式列表
-  NO_CONFIG_MODES: ['reject-dict', 'reject-img', 'reject-200', 'reject-video']
+  VERBOSE_PATTERN_LOG: false
 };
 
 const META = {
   name: 'UnifiedVIP',
-  version: '21.1.0-optimized'
+  version: '21.1.1-fixed'
 };
 
 // ==========================================
-// 2. 平台检测
+// 2. 平台检测（修复：严格对齐原文件）
 // ==========================================
 const Platform = {
   isQX: typeof $task !== 'undefined',
@@ -111,7 +103,7 @@ const Platform = {
 };
 
 // ==========================================
-// 3. 日志系统（生产环境建议关闭DEBUG）
+// 3. 日志系统（修复：原文件兼容模式）
 // ==========================================
 const Logger = (() => {
   const isDebug = CONFIG.DEBUG === true;
@@ -130,16 +122,12 @@ const Logger = (() => {
     info: (tag, msg) => console.log(`[${META.name}][${now()}][INFO][${tag}] ${msg}`),
     error: (tag, msg) => console.log(`[${META.name}][${now()}][ERROR][${tag}] ${msg}`),
     debug: (tag, msg) => console.log(`[${META.name}][${now()}][DEBUG][${tag}] ${msg}`),
-    warn: (tag, msg) => console.log(`[${META.name}][${now()}][WARN][${tag}] ${msg}`),
-    perf: (tag, startTime) => {
-      const elapsed = Date.now() - startTime;
-      console.log(`[${META.name}][${now()}][PERF][${tag}] ${elapsed}ms`);
-    }
+    warn: (tag, msg) => console.log(`[${META.name}][${now()}][WARN][${tag}] ${msg}`)
   };
 })();
 
 // ==========================================
-// 4. Storage
+// 4. Storage（修复：使用原文件键名）
 // ==========================================
 const Storage = (() => {
   const qx = {
@@ -152,19 +140,18 @@ const Storage = (() => {
     readManifest: () => ({
       body: qx.read('manifest_body'),
       time: qx.read('manifest_time'),
-      version: qx.read('manifest_version'),
-      hashRoute: qx.read('manifest_hashroute_v21')
+      version: qx.read('manifest_version')
     }),
 
-    writeManifest: (body, time, version, hashRoute = null) => {
+    writeManifest: (body, time, version) => {
       qx.write('manifest_body', body);
       qx.write('manifest_time', String(time));
       qx.write('manifest_version', version);
-      if (hashRoute) qx.write('manifest_hashroute_v21', JSON.stringify(hashRoute));
     },
 
-    readConfig: (configId) => qx.read(`vip_cfg_v21_${configId}`),
-    writeConfig: (configId, value) => qx.write(`vip_cfg_v21_${configId}`, value),
+    // 修复：使用原文件键名格式 vip_cfg_v20_${configId}
+    readConfig: (configId) => qx.read(`vip_cfg_v20_${configId}`),
+    writeConfig: (configId, value) => qx.write(`vip_cfg_v20_${configId}`, value),
 
     read: (key) => qx.read(key),
     write: (key, value) => qx.write(key, value),
@@ -173,7 +160,7 @@ const Storage = (() => {
 })();
 
 // ==========================================
-// 5. HTTP 客户端
+// 5. HTTP 客户端（修复：严格对齐原文件）
 // ==========================================
 const HTTP = (() => {
   return {
@@ -203,7 +190,8 @@ const HTTP = (() => {
             res => callback(null, { statusCode: res.statusCode, headers: res.headers }, res.body),
             err => callback(err, null, null)
           );
-        } else if (Platform.isSurge) {
+        } else if (Platform.isSurge || Platform.isLoon || Platform.isStash) {
+          // 修复：Surge/Loon/Stash 使用 $httpClient
           $httpClient.get({ url, timeout: timeout / 1000 }, callback);
         } else {
           clearTimeout(timer);
@@ -243,7 +231,8 @@ const HTTP = (() => {
             res => callback(null, { statusCode: res.statusCode, headers: res.headers }, res.body),
             err => callback(err, null, null)
           );
-        } else if (Platform.isSurge) {
+        } else if (Platform.isSurge || Platform.isLoon || Platform.isStash) {
+          // 修复：Surge/Loon/Stash 使用 $httpClient
           $httpClient.post({
             url: options.url,
             headers: options.headers || {},
@@ -357,22 +346,15 @@ const Utils = {
     } catch (e) {
       return null;
     }
-  },
-
-  // 优化2：检查Content-Type是否为JSON
-  isJsonContentType: (headers) => {
-    if (!headers) return false;
-    const ct = headers['Content-Type'] || headers['content-type'] || '';
-    return CONFIG.JSON_CONTENT_TYPES.some(type => ct.toLowerCase().includes(type));
   }
 };
 
 // ==========================================
-// 7. 正则缓存池（优化5：预编译支持）
+// 7. 正则缓存池
 // ==========================================
 const RegexPool = (() => {
   const cache = new Map();
-  const MAX_SIZE = 300; // 增加容量
+  const MAX_SIZE = 100;
 
   return {
     get: (pattern, flags = '') => {
@@ -392,30 +374,14 @@ const RegexPool = (() => {
       }
     },
 
-    // 优化5：批量预编译
-    precompileAll: (configs) => {
-      const compiled = new Map();
-      for (const [id, info] of Object.entries(configs)) {
-        if (info?.urlPattern) {
-          compiled.set(id, RegexPool.get(info.urlPattern));
-        }
+    precompile: (patterns) => {
+      const results = new Map();
+      for (const [id, patternStr] of patterns) {
+        try {
+          results.set(id, RegexPool.get(patternStr));
+        } catch (e) {}
       }
-      Logger.debug('RegexPool', `Precompiled ${compiled.size} patterns`);
-      return compiled;
-    },
-
-    // 优化4：创建合并正则
-    createCombinedRegex: (patterns, flags = 'g') => {
-      if (!patterns || patterns.length === 0) return null;
-      if (patterns.length === 1) return patterns[0];
-      
-      // 合并为交替模式 (pattern1|pattern2|...)
-      const combined = patterns.map(p => `(?:${p.source})`).join('|');
-      try {
-        return new RegExp(combined, flags);
-      } catch (e) {
-        return null;
-      }
+      return results;
     }
   };
 })();
@@ -548,6 +514,7 @@ function createProcessorFactory(requestId) {
         message = message.substring(0, maxLen) + '...';
       }
 
+      // 修复：严格对齐原文件的通知API调用
       if (Platform.isQX) {
         $notify(title, subtitle, message, params.options || {});
       } else if (Platform.isLoon) {
@@ -682,105 +649,34 @@ function createCompiler(factory) {
 }
 
 // ==========================================
-// 10. 【优化1+5】哈希路由 Manifest 加载器
+// 10. 【优化版】Manifest 加载器
 // ==========================================
-class HashRouteManifestLoader {
+class SimpleManifestLoader {
   constructor(requestId) {
     this._requestId = requestId;
-    this._hashRoute = null;
-    this._fallbackPatterns = [];
-    this._configMeta = {};
-    this._allPatterns = new Map(); // 优化5：预编译的正则池
-  }
-
-  _extractHashKeys(patternStr, configId) {
-    const keys = new Set();
-    
-    const exactDomains = patternStr.match(/(?:\\*\.)?([a-z0-9-]+(?:\\.[a-z0-9-]+)*\.[a-z]{2,})/gi);
-    if (exactDomains) {
-      exactDomains.forEach(d => {
-        const clean = d.replace(/\\/g, '').toLowerCase();
-        if (clean.includes('.')) keys.add(clean);
-      });
-    }
-
-    const wildcardDomains = patternStr.match(/\\*\\.([a-z0-9-]+\.[a-z]{2,})/gi);
-    if (wildcardDomains) {
-      wildcardDomains.forEach(d => {
-        const clean = d.replace(/\\/g, '').replace('*', '').toLowerCase();
-        keys.add(clean);
-      });
-    }
-
-    const altDomains = patternStr.match(/\(\?:[^)]+\)\\.([a-z0-9-]+\.[a-z]{2,})/gi);
-    if (altDomains) {
-      altDomains.forEach(d => {
-        const base = d.match(/([a-z0-9-]+\.[a-z]{2,})$/i);
-        if (base) keys.add(base[1].toLowerCase());
-      });
-    }
-
-    return Array.from(keys);
-  }
-
-  _buildHashRoute(configs) {
-    const route = new Map();
-    const fallback = [];
-
-    // 优化5：先预编译所有正则
-    const precompiled = RegexPool.precompileAll(configs);
-
-    for (const [id, info] of Object.entries(configs)) {
-      if (!info || !info.urlPattern) continue;
-
-      const keys = this._extractHashKeys(info.urlPattern, id);
-      const regex = precompiled.get(id);
-      const entry = {
-        id,
-        pattern: info.urlPattern,
-        regex: regex,
-        mode: info.mode || 'json',
-        name: info.name || id,
-        // 优化3：标记是否需要远程配置
-        needConfig: !CONFIG.NO_CONFIG_MODES.includes(info.mode || 'json')
-      };
-
-      if (keys.length === 0) {
-        fallback.push(entry);
-        Logger.debug('HashRoute', `${id} -> fallback (no domain keys)`);
-      } else {
-        keys.forEach(key => {
-          if (!route.has(key)) route.set(key, []);
-          route.get(key).push(entry);
-        });
-        Logger.debug('HashRoute', `${id} -> ${keys.join(', ')}`);
-      }
-    }
-
-    this._allPatterns = precompiled;
-    return { route, fallback };
   }
 
   async load() {
-    const startTime = Date.now();
     const now = Date.now();
     const cached = Storage.readManifest();
 
-    Logger.debug('ManifestLoader', `Cache check: body=${!!cached.body}, hashRoute=${!!cached.hashRoute}`);
+    Logger.debug('ManifestLoader', `Cache check: body=${!!cached.body}, time=${cached.time}`);
 
     let manifest = null;
-    let hashRouteData = null;
     let useCache = false;
 
-    if (cached.body && cached.time && cached.hashRoute) {
+    if (cached.body && cached.time) {
       const age = now - parseInt(cached.time);
-      if (age < CONFIG.CONFIG_CACHE_TTL) {
+      if (age < 24 * 60 * 60 * 1000) {
         manifest = Utils.safeJsonParse(cached.body);
-        hashRouteData = Utils.safeJsonParse(cached.hashRoute);
-        if (manifest?.configs && hashRouteData) {
+        if (manifest && manifest.configs) {
           useCache = true;
-          Logger.info('ManifestLoader', 'Using valid cached manifest + hashRoute');
+          Logger.info('ManifestLoader', 'Using valid cached manifest');
+        } else {
+          Logger.warn('ManifestLoader', 'Cached manifest invalid (missing configs)');
         }
+      } else {
+        Logger.info('ManifestLoader', 'Cache expired');
       }
     }
 
@@ -795,30 +691,19 @@ class HashRouteManifestLoader {
         }
 
         manifest = Utils.safeJsonParse(res.body);
-        if (!manifest?.configs) {
+        if (!manifest || !manifest.configs) {
           throw new Error('Invalid manifest: missing configs');
         }
 
-        const { route, fallback } = this._buildHashRoute(manifest.configs);
-        hashRouteData = {
-          route: Array.from(route.entries()),
-          fallback,
-          version: manifest.version || '1.0',
-          builtAt: now
-        };
-
-        Storage.writeManifest(res.body, now, manifest.version, hashRouteData);
-        Logger.info('ManifestLoader', `Built hashRoute: ${route.size} domains, ${fallback.length} fallback rules`);
+        Storage.writeManifest(res.body, now, manifest.version || '1.0');
+        Logger.info('ManifestLoader', `Downloaded manifest v${manifest.version}`);
 
       } catch (e) {
         Logger.error('ManifestLoader', `Download failed: ${e.message}`);
-        
+
         if (cached.body) {
           manifest = Utils.safeJsonParse(cached.body);
-          if (cached.hashRoute) {
-            hashRouteData = Utils.safeJsonParse(cached.hashRoute);
-          }
-          if (manifest?.configs) {
+          if (manifest && manifest.configs) {
             Logger.warn('ManifestLoader', 'Using stale cache as fallback');
             useCache = true;
           }
@@ -831,122 +716,75 @@ class HashRouteManifestLoader {
       }
     }
 
-    this._hashRoute = new Map(hashRouteData.route);
-    this._fallbackPatterns = hashRouteData.fallback;
-    this._configMeta = manifest.configs;
-
-    Logger.perf('ManifestLoader', startTime);
-    return this._createManifestProxy(manifest, hashRouteData.version);
+    return this._createManifestProxy(manifest);
   }
 
-  // 【优化1】O(1) 哈希查找
-  _findMatch(url) {
-    const hostname = Utils.extractHostname(url);
-    
-    if (!hostname) {
-      return this._fallbackFind(url);
-    }
-
-    let candidates = this._hashRoute.get(hostname);
-    
-    if (!candidates && hostname.includes('.')) {
-      const parts = hostname.split('.');
-      for (let i = 1; i < parts.length - 1; i++) {
-        const parentDomain = parts.slice(i).join('.');
-        candidates = this._hashRoute.get(parentDomain);
-        if (candidates) break;
+  _createManifestProxy(manifest) {
+    const patterns = new Map();
+    for (const [id, info] of Object.entries(manifest.configs || {})) {
+      if (info && info.urlPattern) {
+        patterns.set(id, RegexPool.get(info.urlPattern));
       }
     }
 
-    if (candidates) {
-      for (const entry of candidates) {
-        try {
-          if (entry.regex.test(url)) {
-            return entry;
-          }
-        } catch (e) {
-          Logger.error('HashRoute', `Regex error ${entry.id}: ${e.message}`);
-        }
-      }
-    }
-
-    return this._fallbackFind(url);
-  }
-
-  _fallbackFind(url) {
-    for (const entry of this._fallbackPatterns) {
-      try {
-        if (entry.regex.test(url)) {
-          Logger.info('HashRoute', `Fallback hit: ${entry.id}`);
-          return entry;
-        }
-      } catch (e) {
-        Logger.error('HashRoute', `Fallback regex error ${entry.id}: ${e.message}`);
-      }
-    }
-    return null;
-  }
-
-  _createManifestProxy(manifest, version) {
     return {
+      patterns,
       configs: manifest.configs || {},
       configVersions: manifest.configVersions || {},
-      findMatch: (url) => this._findMatch(url),
+
+      findMatch: (url) => {
+        for (const [id, pattern] of patterns) {
+          try {
+            if (pattern.test(url)) {
+              Logger.info('ManifestLoader', `Matched: ${id}`);
+              return id;
+            }
+          } catch (e) {
+            Logger.error('ManifestLoader', `Regex error ${id}: ${e.message}`);
+          }
+        }
+        Logger.warn('ManifestLoader', 'No pattern matched');
+        return null;
+      },
+
       getConfigVersion: (configId) => {
         return (manifest.configVersions && manifest.configVersions[configId]) || '1.0';
-      },
-      getStats: () => ({
-        domains: this._hashRoute.size,
-        fallbackRules: this._fallbackPatterns.length,
-        totalConfigs: Object.keys(manifest.configs || {}).length
-      })
+      }
     };
   }
 
   _createEmptyManifest() {
     return {
+      patterns: new Map(),
       configs: {},
       configVersions: {},
       findMatch: () => null,
-      getConfigVersion: () => '1.0',
-      getStats: () => ({ domains: 0, fallbackRules: 0, totalConfigs: 0 })
+      getConfigVersion: () => '1.0'
     };
   }
 }
 
 // ==========================================
-// 11. 【优化3】延迟配置加载器
+// 11. 配置加载器
 // ==========================================
-class LazyConfigLoader {
+class SimpleConfigLoader {
   constructor(requestId) {
     this._requestId = requestId;
-    this._cache = new Map(); // 内存缓存
   }
 
   async load(configId, remoteVersion) {
-    const cacheKey = `${configId}@${remoteVersion}`;
-    
-    // 检查内存缓存
-    if (this._cache.has(cacheKey)) {
-      Logger.debug('ConfigLoader', `${configId} memory cache hit`);
-      return this._cache.get(cacheKey);
-    }
-
-    // 检查持久化缓存
     const cached = Storage.readConfig(configId);
+
     if (cached) {
       try {
         const { v, t, d } = Utils.safeJsonParse(cached);
         if (v === remoteVersion && (Date.now() - t) < CONFIG.CONFIG_CACHE_TTL) {
-          const prepared = this._prepareConfig(d);
-          this._cache.set(cacheKey, prepared);
-          Logger.info('ConfigLoader', `${configId} persistent cache hit`);
-          return prepared;
+          Logger.info('ConfigLoader', `${configId} cache hit`);
+          return this._prepareConfig(d);
         }
       } catch (e) {}
     }
 
-    // 远程获取
     Logger.info('ConfigLoader', `${configId} fetching...`);
     const url = `${CONFIG.REMOTE_BASE}/configs/${configId}.json?t=${Date.now()}`;
 
@@ -957,15 +795,14 @@ class LazyConfigLoader {
       }
 
       const fresh = Utils.safeJsonParse(res.body);
+
       Storage.writeConfig(configId, Utils.safeJsonStringify({
         v: remoteVersion,
         t: Date.now(),
         d: fresh
       }));
 
-      const prepared = this._prepareConfig(fresh);
-      this._cache.set(cacheKey, prepared);
-      return prepared;
+      return this._prepareConfig(fresh);
 
     } catch (e) {
       Logger.error('ConfigLoader', `${configId} failed: ${e.message}`);
@@ -973,9 +810,7 @@ class LazyConfigLoader {
       if (cached) {
         Logger.warn('ConfigLoader', `${configId} using stale cache`);
         const { d } = Utils.safeJsonParse(cached);
-        const prepared = this._prepareConfig(d);
-        this._cache.set(cacheKey, prepared);
-        return prepared;
+        return this._prepareConfig(d);
       }
       throw e;
     }
@@ -988,7 +823,6 @@ class LazyConfigLoader {
       return config;
     }
 
-    // 优化4：预编译正则替换规则
     if (raw.regexReplacements) {
       config._regexReplacements = raw.regexReplacements.map(r => ({
         pattern: RegexPool.get(r.pattern, r.flags || 'g'),
@@ -1009,7 +843,7 @@ class LazyConfigLoader {
 }
 
 // ==========================================
-// 12. 环境
+// 12. 环境和引擎（修复：严格对齐原文件）
 // ==========================================
 class Environment {
   constructor(name) {
@@ -1018,16 +852,17 @@ class Environment {
     this.isSurge = Platform.isSurge;
     this.isLoon = Platform.isLoon;
 
+    // 修复：使用与原文件完全一致的环境变量获取方式
     this.response = (typeof $response !== 'undefined') ? $response : {};
     this.request = (typeof $request !== 'undefined') ? $request : {};
 
-    if (!this.request.url && this.response?.request?.url) {
+    if (!this.request.url && this.response && this.response.request && this.response.request.url) {
       this.request = this.response.request;
     }
   }
 
   getUrl() {
-    let url = this.response?.url || this.request?.url || '';
+    let url = (this.response && this.response.url) || (this.request && this.request.url) || '';
     if (this.isQX && typeof $request === 'string') {
       url = $request;
     }
@@ -1035,19 +870,16 @@ class Environment {
   }
 
   getBody() {
-    return this.response?.body || '';
+    return (this.response && this.response.body) || '';
   }
 
-  getHeaders() {
-    return this.response?.headers || this.request?.headers || {};
-  }
-
+  // 修复：原文件只有 getRequestHeaders，保持一致
   getRequestHeaders() {
-    return this.request?.headers || {};
+    return (this.request && this.request.headers) || {};
   }
 
   getRequestBody() {
-    return this.request?.body || '';
+    return (this.request && this.request.body) || '';
   }
 
   done(result) {
@@ -1059,10 +891,7 @@ class Environment {
   }
 }
 
-// ==========================================
-// 13. 【优化4】极速引擎 - 合并正则处理
-// ==========================================
-class FastVipEngine {
+class VipEngine {
   constructor(env, requestId) {
     this.env = env;
     this._requestId = requestId;
@@ -1073,7 +902,6 @@ class FastVipEngine {
 
     const bodySize = typeof body === 'string' ? body.length : Utils.safeJsonStringify(body).length;
     if (bodySize > CONFIG.MAX_BODY_SIZE) {
-      Logger.info('VipEngine', `Body too large (${bodySize} bytes), skipping`);
       return { body: typeof body === 'string' ? body : Utils.safeJsonStringify(body) };
     }
 
@@ -1085,13 +913,13 @@ class FastVipEngine {
       case 'json':
         return this._processJson(body, config);
       case 'regex':
-        return this._processRegexOptimized(body, config); // 优化4
+        return this._processRegex(body, config);
       case 'game':
-        return this._processGameOptimized(body, config);   // 优化4
+        return this._processGame(body, config);
       case 'hybrid':
-        return this._processHybridOptimized(body, config); // 优化4
+        return this._processHybrid(body, config);
       case 'html':
-        return this._processHtmlOptimized(body, config);  // 优化4
+        return this._processHtml(body, config);
       default:
         return { body };
     }
@@ -1100,6 +928,7 @@ class FastVipEngine {
   async _processForward(config) {
     const statusTexts = config.statusTexts;
     if (!statusTexts) {
+      Logger.error('Forward', 'Missing statusTexts');
       return {
         status: 'HTTP/1.1 500 Internal Server Error',
         headers: { 'content-type': 'application/json' },
@@ -1150,10 +979,11 @@ class FastVipEngine {
       Logger.error('Forward', `Failed: ${e.message}`);
       const errorCode = 500;
       const errorText = statusTexts[String(errorCode)] || 'Internal Server Error';
-      
+      const errorHeaders = config.responseHeaders ? Object.assign({}, config.responseHeaders) : {};
+
       return {
         status: `HTTP/1.1 ${errorCode} ${errorText}`,
-        headers: config.responseHeaders ? {...config.responseHeaders} : {},
+        headers: errorHeaders,
         body: Utils.safeJsonStringify({
           error: 'Request failed',
           message: e.message,
@@ -1233,194 +1063,95 @@ class FastVipEngine {
     return { body: Utils.safeJsonStringify(obj) };
   }
 
-  // 【优化4】合并多次replace为单次扫描
-  _processRegexOptimized(body, config) {
-    const replacements = config._regexReplacements || config.regexReplacements || [];
-    if (replacements.length === 0) return { body };
-
-    // 策略：使用replace回调，一次扫描完成所有替换
+  _processRegex(body, config) {
     let modified = body;
-    
-    // 如果只有一个规则，直接替换
-    if (replacements.length === 1) {
-      try {
-        modified = body.replace(replacements[0].pattern, replacements[0].replacement);
-      } catch (e) {}
-      return { body: modified };
-    }
-
-    // 多个规则：尝试合并为单次处理（如果模式兼容）
-    // 简单方案：按顺序执行，但使用同一个字符串引用避免中间拷贝
+    const replacements = config._regexReplacements || config.regexReplacements || [];
     for (const rule of replacements) {
       try {
         modified = modified.replace(rule.pattern, rule.replacement);
-      } catch (e) {
-        Logger.error('Regex', `Replace failed: ${e.message}`);
-      }
+      } catch (e) {}
     }
-
     return { body: modified };
   }
 
-  // 【优化4】游戏资源处理优化
-  _processGameOptimized(body, config) {
-    const resources = config._gameResources || config.gameResources || [];
-    if (resources.length === 0) return { body };
-
+  _processGame(body, config) {
     let modified = body;
-    
-    // 批量替换，减少字符串重建
+    const resources = config._gameResources || config.gameResources || [];
     for (const res of resources) {
       try {
         modified = modified.replace(res.pattern, `"${res.field}":${res.value}`);
       } catch (e) {}
     }
-
     return { body: modified };
   }
 
-  // 【优化4】混合模式优化 - 避免重复序列化
-  _processHybridOptimized(body, config) {
-    // 先JSON处理
+  _processHybrid(body, config) {
     let result = this._processJson(body, config);
-    
-    // 如果有正则替换，直接在字符串上操作，避免再次parse
-    if (config._regexReplacements?.length > 0 || config.regexReplacements?.length > 0) {
-      result = this._processRegexOptimized(result.body, config);
+    if (config._regexReplacements || config.regexReplacements) {
+      result = this._processRegex(result.body, config);
     }
-
     return result;
   }
 
-  // 【优化4】HTML处理优化 - 合并规则
-  _processHtmlOptimized(body, config) {
-    const rules = config.htmlReplacements || [];
-    if (rules.length === 0) return { body };
-
+  _processHtml(body, config) {
     let modified = body;
-
-    // 尝试合并同类规则
-    const simpleReplacements = [];
-    const complexRules = [];
-
-    for (const rule of rules) {
-      if (!rule.flags || rule.flags === 'i' || rule.flags === 'g') {
-        simpleReplacements.push(rule);
-      } else {
-        complexRules.push(rule);
-      }
-    }
-
-    // 先执行简单替换
-    for (const rule of simpleReplacements) {
+    for (const rule of config.htmlReplacements || []) {
       try {
         const regex = RegexPool.get(rule.pattern, rule.flags || 'i');
         modified = modified.replace(regex, rule.replacement);
-      } catch (e) {
-        Logger.error('Html', `Replace failed: ${e.message}`);
-      }
+      } catch (e) {}
     }
-
-    // 再执行复杂规则
-    for (const rule of complexRules) {
-      try {
-        const regex = RegexPool.get(rule.pattern, rule.flags);
-        modified = modified.replace(regex, rule.replacement);
-      } catch (e) {
-        Logger.error('Html', `Complex replace failed: ${e.message}`);
-      }
-    }
-
     return { body: modified };
   }
 }
 
 // ==========================================
-// 14. 【优化1+2+3】极速主函数
+// 13. 主函数（修复：严格对齐原文件流程）
 // ==========================================
 async function main() {
   const requestId = Math.random().toString(36).substr(2, 6).toUpperCase();
-  const mainStart = Date.now();
 
   try {
-    // ========== 优化2：前置环境检查 ==========
-    const env = new Environment(META.name);
-    const url = env.getUrl();
-    const body = env.getBody();
-    const headers = env.getHeaders();
+    // 修复：使用与原文件完全一致的URL获取逻辑
+    let url = '';
+    if (typeof $request !== 'undefined') {
+      url = (typeof $request === 'string') ? $request : ($request.url || '');
+    } else if (typeof $response !== 'undefined' && $response) {
+      url = $response.url || '';
+    }
 
     if (!url) {
       Logger.warn('Main', 'No URL detected');
-      return env.done({ body: body || '{}' });
+      return $done((typeof $response !== 'undefined' && $response) ? { body: $response.body } : {});
     }
 
-    // 优化2：Content-Type预检
-    if (!Utils.isJsonContentType(headers)) {
-      Logger.debug('Main', `Non-JSON content-type, skip processing`);
-      return env.done({ body: body || '{}' });
-    }
+    Logger.info('Main', `${requestId} | ${url.replace(/\?.*$/, '').substring(0, 60)}`);
 
-    // 优化2：Body大小预检
-    const bodySize = body?.length || 0;
-    if (bodySize === 0) {
-      Logger.debug('Main', 'Empty body, skip processing');
-      return env.done({ body: '{}' });
-    }
-    if (bodySize > CONFIG.MAX_BODY_SIZE) {
-      Logger.info('Main', `Body too large (${bodySize} bytes), skip processing`);
-      return env.done({ body: body });
-    }
-
-    Logger.info('Main', `${requestId} | ${url.replace(/\?.*$/, '').substring(0, 60)} | ${bodySize} bytes`);
-
-    // ========== 优化1：极速匹配 ==========
-    const mLoader = new HashRouteManifestLoader(requestId);
+    const mLoader = new SimpleManifestLoader(requestId);
     const manifest = await mLoader.load();
-    
-    const matchEntry = manifest.findMatch(url);
-    
-    // 优化1：未匹配立即退出（零成本短路）
-    if (!matchEntry) {
-      Logger.info('Main', 'No rule matched, early exit');
-      return env.done({ body: body });
+
+    const configId = manifest.findMatch(url);
+    if (!configId) {
+      Logger.info('Main', 'No rule matched');
+      return $done((typeof $response !== 'undefined' && $response) ? { body: $response.body } : {});
     }
 
-    Logger.info('Main', `Matched: ${matchEntry.id} [${matchEntry.mode}]`);
+    const cLoader = new SimpleConfigLoader(requestId);
+    const config = await cLoader.load(configId, manifest.getConfigVersion(configId));
 
-    // ========== 优化3：延迟加载配置 ==========
-    let config = null;
-    
-    // 如果模式不需要配置，直接构造空配置
-    if (!matchEntry.needConfig) {
-      config = { 
-        mode: matchEntry.mode,
-        name: matchEntry.name,
-        _minimal: true // 标记为最小配置
-      };
-      Logger.debug('Main', `Using minimal config for ${matchEntry.mode} mode`);
-    } else {
-      // 需要配置时才加载
-      const cLoader = new LazyConfigLoader(requestId);
-      config = await cLoader.load(matchEntry.id, manifest.getConfigVersion(matchEntry.id));
-      config.name = config.name || matchEntry.name;
-      config.mode = config.mode || matchEntry.mode;
-    }
+    const env = new Environment(META.name);
+    const engine = new VipEngine(env, requestId);
+    const result = await engine.process(
+      (typeof $response !== 'undefined' && $response) ? $response.body : '',
+      config
+    );
 
-    // ========== 执行处理 ==========
-    const engine = new FastVipEngine(env, requestId);
-    const result = await engine.process(body, config);
-
-    Logger.perf('MainTotal', mainStart);
-    Logger.info('Main', `${requestId} completed [${config.mode}]`);
-    env.done(result);
+    Logger.info('Main', `${requestId} completed [${config.mode || 'default'}]`);
+    $done(result);
 
   } catch (e) {
     Logger.error('Main', `${requestId} failed: ${e.message}`);
-    // 出错时返回原始响应
-    const fallbackBody = (typeof $response !== 'undefined' && $response) ? $response.body : '';
-    if (typeof $done === 'function') {
-      $done({ body: fallbackBody || '{}' });
-    }
+    $done((typeof $response !== 'undefined' && $response) ? { body: $response.body } : {});
   }
 }
 
