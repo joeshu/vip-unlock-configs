@@ -1,7 +1,7 @@
 /*
  * ==========================================
- * Unified VIP Unlock Manager v21.2.7 - QX NE 修复版
- * 修复：QX NE 版 $prefs 存储失效，改用内存缓存
+ * Unified VIP Unlock Manager v21.2.8 - QX NE 终极修复版
+ * 修复：QX NE 脚本实例隔离，使用共享存储
  * ==========================================
 
  [rewrite_local]
@@ -57,30 +57,18 @@
 'use strict';
 
 // ==========================================
-// 0. 环境修复 & 全局内存缓存
+// 0. 环境修复
 // ==========================================
 if (typeof console === 'undefined') {
     globalThis.console = { log: () => {} };
 }
-
-// 全局内存缓存（QX NE 版 $prefs 有 bug，改用内存）
-const GlobalCache = {
-    manifest: null,
-    configs: new Map(),
-    lastRequestTime: 0,
-    requestCount: 0,
-    initTime: Date.now()
-};
 
 // ==========================================
 // 1. 配置
 // ==========================================
 const CONFIG = {
     REMOTE_BASE: 'https://joeshu.github.io/vip-unlock-configs',
-    // 内存缓存 24 小时（QX 不重启的话）
-    CONFIG_CACHE_TTL: 24 * 60 * 60 * 1000,
-    // 后台刷新间隔（避免频繁检查）
-    MANIFEST_REFRESH_INTERVAL: 5 * 60 * 1000,
+    CONFIG_CACHE_TTL: 24 * 60 * 60 * 1000,  // 24小时
     MAX_BODY_SIZE: 5 * 1024 * 1024,
     MAX_PROCESSORS_PER_REQUEST: 30,
     TIMEOUT: 10,
@@ -89,7 +77,7 @@ const CONFIG = {
 
 const META = {
     name: 'UnifiedVIP',
-    version: '21.2.7-qx-ne-fix'
+    version: '21.2.8-qx-ne-final'
 };
 
 // ==========================================
@@ -132,50 +120,73 @@ const Logger = (() => {
 })();
 
 // ==========================================
-// 4. Storage - 纯内存存储（QX NE 修复）
+// 4. Storage - QX NE 兼容版
 // ==========================================
 const Storage = {
+    // 尝试使用 $sharedStorage (QX 1.0.0+)
+    _useShared: typeof $sharedStorage !== 'undefined',
+    
     readManifest: () => {
-        if (!GlobalCache.manifest) {
-            Logger.debug('Storage', 'No memory cache available');
+        try {
+            let body = null, time = null, version = null, domainIndex = null, fallbackPatterns = null;
+            
+            if (Storage._useShared) {
+                body = $sharedStorage.get('manifest_body_v21');
+                time = $sharedStorage.get('manifest_time_v21');
+                version = $sharedStorage.get('manifest_version_v21');
+                domainIndex = $sharedStorage.get('manifest_domain_index_v21');
+                fallbackPatterns = $sharedStorage.get('manifest_fallback_v21');
+                Logger.debug('Storage', 'Using $sharedStorage');
+            } else {
+                // 尝试 $prefs (已知在 NE 版有问题)
+                body = $prefs.valueForKey('manifest_body_v21');
+                time = $prefs.valueForKey('manifest_time_v21');
+                version = $prefs.valueForKey('manifest_version_v21');
+                domainIndex = $prefs.valueForKey('manifest_domain_index_v21');
+                fallbackPatterns = $prefs.valueForKey('manifest_fallback_v21');
+                Logger.debug('Storage', 'Using $prefs (may not work in NE)');
+            }
+            
+            const hasData = !!(body && time && version);
+            Logger.debug('Storage', `readManifest: hasData=${hasData}`);
+            
+            return {
+                body: body || null,
+                time: time || null,
+                version: version || null,
+                domainIndex: domainIndex || null,
+                fallbackPatterns: fallbackPatterns || null
+            };
+        } catch (e) {
+            Logger.error('Storage', `readManifest error: ${e.message}`);
             return { body: null, time: null, version: null, domainIndex: null, fallbackPatterns: null };
         }
-        
-        Logger.debug('Storage', `Reading from memory: v${GlobalCache.manifest.version}`);
-        
-        return {
-            body: Utils.safeJsonStringify(GlobalCache.manifest.data),
-            time: String(GlobalCache.manifest.time),
-            version: GlobalCache.manifest.version,
-            domainIndex: JSON.stringify(GlobalCache.manifest.domainMap),
-            fallbackPatterns: JSON.stringify(GlobalCache.manifest.fallbackPatterns)
-        };
     },
 
     writeManifest: (body, time, version, domainIndex, fallbackPatterns) => {
         try {
             if (!body || !time || !version) {
-                Logger.error('Storage', 'writeManifest: missing required params');
+                Logger.error('Storage', 'writeManifest: missing params');
                 return false;
             }
             
-            const parsed = Utils.safeJsonParse(body);
-            if (!parsed) {
-                Logger.error('Storage', 'writeManifest: invalid JSON body');
-                return false;
+            const timeStr = String(time);
+            
+            if (Storage._useShared) {
+                $sharedStorage.set('manifest_body_v21', body);
+                $sharedStorage.set('manifest_time_v21', timeStr);
+                $sharedStorage.set('manifest_version_v21', version);
+                if (domainIndex) $sharedStorage.set('manifest_domain_index_v21', JSON.stringify(domainIndex));
+                if (fallbackPatterns) $sharedStorage.set('manifest_fallback_v21', JSON.stringify(fallbackPatterns));
+            } else {
+                $prefs.setValueForKey('manifest_body_v21', body);
+                $prefs.setValueForKey('manifest_time_v21', timeStr);
+                $prefs.setValueForKey('manifest_version_v21', version);
+                if (domainIndex) $prefs.setValueForKey('manifest_domain_index_v21', JSON.stringify(domainIndex));
+                if (fallbackPatterns) $prefs.setValueForKey('manifest_fallback_v21', JSON.stringify(fallbackPatterns));
             }
             
-            // 保存到全局内存缓存
-            GlobalCache.manifest = {
-                data: parsed,
-                time: parseInt(time),
-                version: version,
-                domainMap: domainIndex,
-                fallbackPatterns: fallbackPatterns,
-                savedAt: Date.now()
-            };
-            
-            Logger.info('Storage', `Saved to memory cache: v${version}, ${Object.keys(domainIndex || {}).length} domains`);
+            Logger.info('Storage', `Manifest cached: v${version}`);
             return true;
         } catch (e) {
             Logger.error('Storage', `writeManifest error: ${e.message}`);
@@ -184,33 +195,61 @@ const Storage = {
     },
 
     readConfig: (configId) => {
-        const cached = GlobalCache.configs.get(configId);
-        if (!cached) return null;
-        
-        // 检查是否过期
-        if (Date.now() - cached.time > CONFIG.CONFIG_CACHE_TTL) {
-            Logger.debug('Storage', `Config ${configId} expired`);
-            GlobalCache.configs.delete(configId);
+        try {
+            const key = `vip_cfg_v21_${configId}`;
+            if (Storage._useShared) {
+                return $sharedStorage.get(key);
+            }
+            return $prefs.valueForKey(key);
+        } catch (e) {
+            Logger.error('Storage', `readConfig error: ${e.message}`);
             return null;
         }
-        
-        Logger.debug('Storage', `Config ${configId} memory cache hit`);
-        return cached.data;
     },
-
+    
     writeConfig: (configId, value) => {
-        GlobalCache.configs.set(configId, {
-            data: value,
-            time: Date.now()
-        });
-        Logger.debug('Storage', `Config ${configId} saved to memory`);
-        return true;
+        try {
+            const key = `vip_cfg_v21_${configId}`;
+            if (Storage._useShared) {
+                $sharedStorage.set(key, value);
+            } else {
+                $prefs.setValueForKey(key, value);
+            }
+            return true;
+        } catch (e) {
+            Logger.error('Storage', `writeConfig error: ${e.message}`);
+            return false;
+        }
     },
 
-    // 以下方法在内存模式下不可用
-    read: (key) => null,
-    write: (key, value) => false,
-    remove: (key) => false
+    read: (key) => {
+        try { 
+            if (Storage._useShared) return $sharedStorage.get(key);
+            return $prefs.valueForKey(key);
+        } catch (e) { return null; }
+    },
+    
+    write: (key, value) => {
+        try { 
+            if (Storage._useShared) {
+                $sharedStorage.set(key, value);
+                return true;
+            }
+            $prefs.setValueForKey(key, value);
+            return true;
+        } catch (e) { return false; }
+    },
+    
+    remove: (key) => {
+        try { 
+            if (Storage._useShared) {
+                $sharedStorage.set(key, '');
+                return true;
+            }
+            $prefs.removeValueForKey(key);
+            return true;
+        } catch (e) { return false; }
+    }
 };
 
 // ==========================================
@@ -645,140 +684,14 @@ function createCompiler(factory) {
 }
 
 // ==========================================
-// 10. Manifest 加载器（内存缓存优化版）
+// 10. Manifest 加载器（共享存储版）
 // ==========================================
 class SimpleManifestLoader {
     constructor(requestId) {
         this._requestId = requestId;
-    }
-
-    // 全局静态锁，防止并发下载
-    static _loadingPromise = null;
-    static _lastSuccessLoad = 0;
-
-    async load() {
-        const startTime = Date.now();
-        const now = Date.now();
-
-        // 1. 检查内存缓存
-        if (GlobalCache.manifest) {
-            const age = now - GlobalCache.manifest.time;
-            const timeSinceLastRequest = now - GlobalCache.lastRequestTime;
-            
-            // 缓存有效
-            if (age < CONFIG.CONFIG_CACHE_TTL) {
-                GlobalCache.lastRequestTime = now;
-                GlobalCache.requestCount++;
-                
-                // 每5分钟触发一次后台刷新检查
-                if (timeSinceLastRequest > CONFIG.MANIFEST_REFRESH_INTERVAL) {
-                    Logger.info('ManifestLoader', `Using memory cache (age=${Math.round(age/1000)}s, reqs=${GlobalCache.requestCount}), background checking...`);
-                    this._backgroundRefresh();
-                } else {
-                    Logger.debug('ManifestLoader', `Using memory cache (age=${Math.round(age/1000)}s)`);
-                }
-                
-                return this._createManifestProxy(GlobalCache.manifest.data);
-            } else {
-                Logger.info('ManifestLoader', `Memory cache expired (${Math.round(age/1000)}s)`);
-            }
-        }
-
-        GlobalCache.lastRequestTime = now;
-
-        // 2. 检查是否有进行中的请求（防止并发重复下载）
-        if (SimpleManifestLoader._loadingPromise) {
-            Logger.info('ManifestLoader', 'Waiting for in-flight download...');
-            return SimpleManifestLoader._loadingPromise;
-        }
-
-        // 3. 开始下载
-        SimpleManifestLoader._loadingPromise = this._downloadManifest().finally(() => {
-            SimpleManifestLoader._loadingPromise = null;
-        });
-
-        return SimpleManifestLoader._loadingPromise;
-    }
-
-    // 后台静默刷新（不阻塞当前请求）
-    _backgroundRefresh() {
-        // 避免过于频繁的后台刷新
-        if (Date.now() - SimpleManifestLoader._lastSuccessLoad < 60000) return;
-        
-        Logger.info('ManifestLoader', 'Starting background refresh...');
-        
-        HTTP.get(`${CONFIG.REMOTE_BASE}/manifest.json?t=${Date.now()}`, 5000).then(res => {
-            if (res.statusCode === 200 && res.body) {
-                const manifest = Utils.safeJsonParse(res.body);
-                if (manifest?.configs) {
-                    const { index, fallback } = this._buildDomainIndex(manifest.configs);
-                    
-                    GlobalCache.manifest = {
-                        data: manifest,
-                        time: Date.now(),
-                        version: manifest.version || '1.0',
-                        domainMap: index,
-                        fallbackPatterns: fallback
-                    };
-                    
-                    SimpleManifestLoader._lastSuccessLoad = Date.now();
-                    Logger.info('ManifestLoader', `Background refresh done: v${manifest.version}`);
-                }
-            }
-        }).catch(e => {
-            Logger.debug('ManifestLoader', `Background refresh failed: ${e.message}`);
-        });
-    }
-
-    async _downloadManifest() {
-        const startTime = Date.now();
-        
-        try {
-            const url = `${CONFIG.REMOTE_BASE}/manifest.json?t=${Date.now()}`;
-            Logger.info('ManifestLoader', `Downloading: ${url}`);
-
-            const res = await HTTP.get(url);
-            
-            if (res.statusCode !== 200 || !res.body) {
-                throw new Error(`HTTP ${res.statusCode}`);
-            }
-
-            const manifest = Utils.safeJsonParse(res.body);
-            if (!manifest?.configs) {
-                throw new Error('Invalid manifest: missing configs');
-            }
-
-            // 构建域名索引
-            const { index, fallback } = this._buildDomainIndex(manifest.configs);
-            
-            // 保存到全局内存缓存
-            GlobalCache.manifest = {
-                data: manifest,
-                time: Date.now(),
-                version: manifest.version || '1.0',
-                domainMap: index,
-                fallbackPatterns: fallback
-            };
-            
-            SimpleManifestLoader._lastSuccessLoad = Date.now();
-            
-            Logger.info('ManifestLoader', `Downloaded v${manifest.version}, ${Object.keys(index).length} domains`);
-            Logger.perf('ManifestLoader', startTime);
-            
-            return this._createManifestProxy(manifest);
-
-        } catch (e) {
-            Logger.error('ManifestLoader', `Download failed: ${e.message}`);
-
-            // 如果有旧缓存，继续使用（即使过期）
-            if (GlobalCache.manifest) {
-                Logger.warn('ManifestLoader', 'Using stale memory cache as fallback');
-                return this._createManifestProxy(GlobalCache.manifest.data);
-            }
-            
-            Logger.error('ManifestLoader', 'No manifest available');
-            return this._createEmptyManifest();
-        }
+        this._domainMap = null;
+        this._fallbackPatterns = null;
+        this._manifest = null;
     }
 
     _extractDomainKeys(patternStr) {
@@ -830,24 +743,123 @@ class SimpleManifestLoader {
         return { index, fallback };
     }
 
+    async load() {
+        const startTime = Date.now();
+        const now = Date.now();
+        const cached = Storage.readManifest();
+
+        let manifest = null;
+        let useCache = false;
+
+        // 检查缓存有效性
+        if (cached.body && cached.time && cached.version) {
+            const cachedTime = parseInt(cached.time);
+            if (!isNaN(cachedTime)) {
+                const age = now - cachedTime;
+                Logger.debug('ManifestLoader', `Cache age: ${Math.round(age/1000)}s`);
+                
+                if (age < CONFIG.CONFIG_CACHE_TTL) {
+                    manifest = Utils.safeJsonParse(cached.body);
+                    if (manifest?.configs) {
+                        useCache = true;
+                        Logger.info('ManifestLoader', `Using cache v${cached.version}, age=${Math.round(age/1000)}s`);
+                        
+                        // 恢复域名索引
+                        if (cached.domainIndex && cached.fallbackPatterns) {
+                            try {
+                                this._domainMap = Utils.safeJsonParse(cached.domainIndex);
+                                this._fallbackPatterns = Utils.safeJsonParse(cached.fallbackPatterns);
+                            } catch (e) {
+                                Logger.warn('ManifestLoader', 'Index parse failed, rebuilding');
+                                const { index, fallback } = this._buildDomainIndex(manifest.configs);
+                                this._domainMap = index;
+                                this._fallbackPatterns = fallback;
+                            }
+                        } else {
+                            const { index, fallback } = this._buildDomainIndex(manifest.configs);
+                            this._domainMap = index;
+                            this._fallbackPatterns = fallback;
+                        }
+                    }
+                } else {
+                    Logger.info('ManifestLoader', `Cache expired (${Math.round(age/1000)}s)`);
+                }
+            }
+        }
+
+        // 需要下载
+        if (!useCache) {
+            try {
+                const url = `${CONFIG.REMOTE_BASE}/manifest.json?t=${now}`;
+                Logger.info('ManifestLoader', `Downloading: ${url}`);
+
+                const res = await HTTP.get(url);
+                if (res.statusCode !== 200 || !res.body) {
+                    throw new Error(`HTTP ${res.statusCode}`);
+                }
+
+                manifest = Utils.safeJsonParse(res.body);
+                if (!manifest?.configs) {
+                    throw new Error('Invalid manifest');
+                }
+
+                // 构建索引
+                const { index, fallback } = this._buildDomainIndex(manifest.configs);
+                this._domainMap = index;
+                this._fallbackPatterns = fallback;
+
+                // 保存缓存
+                Storage.writeManifest(
+                    res.body,
+                    now,
+                    manifest.version || '1.0',
+                    index,
+                    fallback
+                );
+                
+                Logger.info('ManifestLoader', `Downloaded v${manifest.version}, ${Object.keys(index).length} domains`);
+
+            } catch (e) {
+                Logger.error('ManifestLoader', `Download failed: ${e.message}`);
+
+                // 使用过期缓存作为后备
+                if (cached.body) {
+                    manifest = Utils.safeJsonParse(cached.body);
+                    if (manifest?.configs) {
+                        Logger.warn('ManifestLoader', 'Using stale cache');
+                        const { index, fallback } = this._buildDomainIndex(manifest.configs);
+                        this._domainMap = index;
+                        this._fallbackPatterns = fallback;
+                        useCache = true;
+                    }
+                }
+
+                if (!useCache) {
+                    return this._createEmptyManifest();
+                }
+            }
+        }
+
+        this._manifest = manifest;
+        Logger.perf('ManifestLoader', startTime);
+        return this._createManifestProxy(manifest);
+    }
+
     _findMatch(url) {
-        if (!GlobalCache.manifest) return null;
-        
         const hostname = Utils.extractHostname(url);
         if (!hostname) return this._fallbackFind(url);
 
         Logger.debug('FindMatch', `Looking for: ${hostname}`);
 
-        let candidates = GlobalCache.manifest.domainMap[hostname];
+        let candidates = this._domainMap[hostname];
         
-        // 尝试父域名匹配
         if (!candidates && hostname.includes('.')) {
             const parts = hostname.split('.');
             for (let i = 1; i < parts.length - 1; i++) {
                 const parentDomain = parts.slice(i).join('.');
-                candidates = GlobalCache.manifest.domainMap[parentDomain];
+                candidates = this._domainMap[parentDomain];
                 if (candidates) {
-                    Logger.debug('FindMatch', `Found parent domain: ${parentDomain}`);
+                    Logger.debug('FindMatch', `Found parent: ${parentDomain}`);
                     break;
                 }
             }
@@ -862,7 +874,7 @@ class SimpleManifestLoader {
                         return entry;
                     }
                 } catch (e) {
-                    Logger.error('FindMatch', `Regex error ${entry.id}: ${e.message}`);
+                    Logger.error('FindMatch', `Regex error: ${e.message}`);
                 }
             }
         }
@@ -871,18 +883,14 @@ class SimpleManifestLoader {
     }
 
     _fallbackFind(url) {
-        if (!GlobalCache.manifest) return null;
-        
-        for (const entry of GlobalCache.manifest.fallbackPatterns) {
+        for (const entry of this._fallbackPatterns) {
             try {
                 const regex = RegexPool.get(entry.pattern);
                 if (regex.test(url)) {
-                    Logger.info('FindMatch', `Fallback hit: ${entry.id}`);
+                    Logger.info('FindMatch', `Fallback: ${entry.id}`);
                     return entry;
                 }
-            } catch (e) {
-                Logger.error('FindMatch', `Fallback regex error ${entry.id}: ${e.message}`);
-            }
+            } catch (e) {}
         }
         return null;
     }
@@ -895,15 +903,12 @@ class SimpleManifestLoader {
     }
 
     _createEmptyManifest() {
-        return {
-            configs: {},
-            findMatch: () => null
-        };
+        return { configs: {}, findMatch: () => null };
     }
 }
 
 // ==========================================
-// 11. 配置加载器（内存缓存版）
+// 11. 配置加载器（共享存储版）
 // ==========================================
 class SimpleConfigLoader {
     constructor(requestId) {
@@ -911,22 +916,21 @@ class SimpleConfigLoader {
     }
 
     async load(configId) {
-        // 1. 检查内存缓存
+        // 检查缓存
         const cached = Storage.readConfig(configId);
         if (cached) {
             try {
                 const config = Utils.safeJsonParse(cached);
                 if (config && config.processor) {
-                    const prepared = this._prepareConfig(config);
-                    Logger.info('ConfigLoader', `${configId} memory cache hit`);
-                    return prepared;
+                    Logger.info('ConfigLoader', `${configId} cache hit`);
+                    return this._prepareConfig(config);
                 }
             } catch (e) {
                 Logger.warn('ConfigLoader', `${configId} cache parse failed`);
             }
         }
 
-        // 2. 下载配置
+        // 下载
         Logger.info('ConfigLoader', `${configId} fetching...`);
         const url = `${CONFIG.REMOTE_BASE}/configs/${configId}.json?t=${Date.now()}`;
 
@@ -936,14 +940,10 @@ class SimpleConfigLoader {
                 throw new Error(`HTTP ${res.statusCode}`);
             }
 
-            const fresh = Utils.safeJsonParse(res.body);
-            
-            // 保存到内存缓存
             Storage.writeConfig(configId, res.body);
+            Logger.info('ConfigLoader', `${configId} downloaded`);
 
-            const prepared = this._prepareConfig(fresh);
-            Logger.info('ConfigLoader', `${configId} downloaded and cached`);
-            return prepared;
+            return this._prepareConfig(Utils.safeJsonParse(res.body));
 
         } catch (e) {
             Logger.error('ConfigLoader', `${configId} failed: ${e.message}`);
@@ -1001,11 +1001,9 @@ class Environment {
 
     getUrl() {
         let url = this.response?.url || this.request?.url || '';
-        
         if (this.isQX && typeof $request === 'string') {
             url = $request;
         }
-        
         return url.toString();
     }
 
