@@ -7,8 +7,6 @@
  [rewrite_local]
  # 三联中读 - 所有 VIP 接口
  ^https://apis\.lifeweek\.com\.cn/(vip/loadMyVipV2|user/newindex\.do|api/magazine/detail) url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v21.js
- # 三联中读 - 注册接口
- ^https?:\/\/apis\.lifeweek\.com\.cn\/reg\/vistorRegister\.do url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v21.js
  # Vvebo - 订阅验证转发
  ^https:\/\/fluxapi\.vvebo\.vip\/v1\/purchase\/iap\/subscription url script-response-body https://raw.githubusercontent.com/joeshu/vip-unlock-configs/refs/heads/main/Unified_VIP_Unlock_Manager_v21.js
  # iAppDaily - 余额查询接口
