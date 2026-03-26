@@ -73,7 +73,7 @@ const CONFIG = {
  MAX_PROCESSORS_PER_REQUEST: 30,
  TIMEOUT: 10,
  DEBUG: true,
- VERBOSE_PATTERN_LOG: true
+ VERBOSE_PATTERN_LOG: false
 };
 
 const META = {
