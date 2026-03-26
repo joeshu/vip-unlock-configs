@@ -1,8 +1,7 @@
 /*
  * ==========================================
- * Unified VIP Unlock Manager v22.0.0 - Manifest内置版
- * 修改：将manifest内置，configs/*.json保持远程加载
- * 优化：M3单键存储 + S3 URL匹配缓存 + P2 Manifest压缩
+ * Unified VIP Unlock Manager v22.0.0-Lazy - 延迟加载优化版
+ * 优化：M3单键存储 + S3 URL缓存 + P2 Manifest压缩 + 分层按需匹配
  * ==========================================
 
  [rewrite_local]
@@ -79,7 +78,7 @@ const CONFIG = {
 
 const META = {
  name: 'UnifiedVIP',
- version: '22.0.0'  // 版本号同步更新
+ version: '22.0.0-Lazy'
 };
 
 // ==========================================
@@ -137,7 +136,7 @@ const Logger = (() => {
 // 4. Storage（M3单键存储）
 // ==========================================
 const Storage = (() => {
- const KEY = 'vip_v22_data';  // 更新存储键名，避免与v15冲突
+ const KEY = 'vip_v22_data';
  
  const qx = {
  read: (k) => $prefs.valueForKey(k),
@@ -370,11 +369,11 @@ const Utils = {
 };
 
 // ==========================================
-// 7. 正则缓存池
+// 7. 正则缓存池（请求级）
 // ==========================================
 const RegexPool = (() => {
  const cache = new Map();
- const MAX_SIZE = 100;
+ const MAX_SIZE = 50; // 减小上限，因为延迟加载不需要缓存太多
 
  return {
  get: (pattern, flags = '') => {
@@ -392,16 +391,6 @@ const RegexPool = (() => {
  } catch (e) {
  return /(?!)/;
  }
- },
-
- precompile: (patterns) => {
- const results = new Map();
- for (const [id, patternStr] of patterns) {
- try {
- results.set(id, RegexPool.get(patternStr));
- } catch (e) {}
- }
- return results;
  }
  };
 })();
@@ -669,98 +658,151 @@ function createCompiler(factory) {
 }
 
 // ==========================================
-// 10. Manifest 加载器（S3 URL匹配缓存）
+// 10. Manifest 加载器（延迟加载优化版）
 // ==========================================
 class SimpleManifestLoader {
- constructor(requestId) {
- this._requestId = requestId;
- // S3: URL匹配缓存初始化
- this._urlCache = Platform.isQX ? {} : null;
- this._urlCacheKey = 'url_match_v22';  // 更新缓存键名，避免与v15冲突
- 
- // S3: 读取持久化缓存
- if (Platform.isQX) {
- const saved = $prefs.valueForKey(this._urlCacheKey);
- if (saved) {
- try {
- const parsed = JSON.parse(saved);
- const now = Date.now();
- for (const [k, v] of Object.entries(parsed)) {
- if (now - v.ts < 3600000) this._urlCache[k] = v;
- }
- } catch (e) {}
- }
- }
- }
+  constructor(requestId) {
+    this._requestId = requestId;
+    this._urlCache = Platform.isQX ? {} : null;
+    this._urlCacheKey = 'url_match_v22_lazy';
+    this._regexCache = new Map(); // 本次请求内的正则缓存
+    
+    // 前缀索引表：域名关键字 → 配置ID数组
+    this._prefixIndex = {
+      'lifeweek.com.cn': ['slzd'],
+      'tophub': ['tophub'],
+      'fluxapi.vvebo.vip': ['vvebo'],
+      'iappdaily.com': ['iappdaily'],
+      'gpstool.com': ['gps'],
+      'kouyuxingqiu.com': ['kyxq'],
+      'landintheair.com': ['mhlz'],
+      'hhdd.com': ['kada'],
+      'jvplay.cn': ['xjsm'],
+      'v2ex.com': ['v2ex'],
+      'folidaymall.com': ['foday'],
+      'yizhilive.com': ['qiujingapp'],
+      'gotokeep.com': ['keep'],
+      'mandrillvr.com': ['bqwz'],
+      'banxueketang.com': ['bxkt'],
+      'feigo.fun': ['cyljy'],
+      'smartont.net': ['wohome'],
+      'sylangyue.xyz': ['sylangyue'],
+      'mingcalc.cn': ['mingcalc'],
+      'haotgame.com': ['qmjyzc'],
+      'ipalfish.com': ['ipalfish']
+    };
+    
+    // 延迟加载：仅存储原始配置对象，不预编译正则
+    this._lazyConfigs = BUILTIN_MANIFEST.configs;
+    
+    // 恢复持久化URL缓存
+    if (Platform.isQX) {
+      const saved = $prefs.valueForKey(this._urlCacheKey);
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          const now = Date.now();
+          for (const [k, v] of Object.entries(parsed)) {
+            if (now - v.ts < 3600000) this._urlCache[k] = v;
+          }
+        } catch (e) {}
+      }
+    }
+  }
 
- async load() {
- Logger.info('ManifestLoader', `Using built-in manifest v${BUILTIN_MANIFEST.version}`);
- return this._createManifestProxy(BUILTIN_MANIFEST);
- }
+  async load() {
+    Logger.info('ManifestLoader', `Lazy load v${BUILTIN_MANIFEST.version}, patterns: ${Object.keys(this._lazyConfigs).length}`);
+    return this._createLazyProxy();
+  }
 
- // S3: 保存URL缓存（最近10条）
- _saveUrlCache() {
- if (!Platform.isQX || !this._urlCache) return;
- const entries = Object.entries(this._urlCache)
- .sort((a, b) => b[1].ts - a[1].ts)
- .slice(0, 10);
- $prefs.setValueForKey(this._urlCacheKey, JSON.stringify(Object.fromEntries(entries)));
- }
+  _saveUrlCache() {
+    if (!Platform.isQX || !this._urlCache) return;
+    const entries = Object.entries(this._urlCache)
+      .sort((a, b) => b[1].ts - a[1].ts)
+      .slice(0, 10);
+    $prefs.setValueForKey(this._urlCacheKey, JSON.stringify(Object.fromEntries(entries)));
+  }
 
- _createManifestProxy(manifest) {
- const patterns = new Map();
- for (const [id, info] of Object.entries(manifest.configs || {})) {
- if (info && info.urlPattern) {
- patterns.set(id, RegexPool.get(info.urlPattern));
- }
- }
+  _createLazyProxy() {
+    const self = this;
+    
+    return {
+      findMatch: (url) => {
+        // L0: 完整URL缓存（O(1)）
+        if (Platform.isQX && self._urlCache) {
+          const hash = url.split('?')[0];
+          const cached = self._urlCache[hash];
+          if (cached && (Date.now() - cached.ts) < 3600000) {
+            Logger.info('ManifestLoader', `Cache hit: ${cached.id}`);
+            return cached.id;
+          }
+        }
 
- const self = this;
- 
- return {
- patterns,
- configs: manifest.configs || {},
- configVersions: manifest.configVersions || {},
+        // L1: 前缀索引筛选（零正则开销）
+        let candidates = [];
+        let usedPrefix = false;
+        
+        try {
+          const hostname = new URL(url).hostname.toLowerCase();
+          
+          for (const [prefix, ids] of Object.entries(self._prefixIndex)) {
+            if (hostname.includes(prefix)) {
+              candidates = ids;
+              usedPrefix = true;
+              Logger.debug('ManifestLoader', `Prefix index: ${prefix} → ${ids.join(',')}`);
+              break;
+            }
+          }
+        } catch (e) {
+          Logger.debug('ManifestLoader', 'URL parse failed, fallback to full scan');
+        }
 
- findMatch: (url) => {
- // S3: 先查缓存
- if (Platform.isQX && self._urlCache) {
- const hash = url.split('?')[0];
- const cached = self._urlCache[hash];
- if (cached && (Date.now() - cached.ts) < 3600000) {
- Logger.info('ManifestLoader', `Cache hit: ${cached.id}`);
- return cached.id;
- }
- }
+        // L2: 全量回退（复杂场景或前缀未命中）
+        if (!usedPrefix) {
+          candidates = Object.keys(self._lazyConfigs);
+          Logger.debug('ManifestLoader', `Prefix miss, scanning ${candidates.length} patterns`);
+        }
 
- // 遍历匹配
- for (const [id, pattern] of patterns) {
- try {
- if (pattern.test(url)) {
- Logger.info('ManifestLoader', `Matched: ${id}`);
- 
- // S3: 写入缓存
- if (Platform.isQX && self._urlCache) {
- const hash = url.split('?')[0];
- self._urlCache[hash] = { id, ts: Date.now() };
- self._saveUrlCache();
- }
- 
- return id;
- }
- } catch (e) {
- Logger.error('ManifestLoader', `Regex error ${id}: ${e.message}`);
- }
- }
- Logger.warn('ManifestLoader', 'No pattern matched');
- return null;
- },
+        // L3: 延迟编译 + 精确匹配
+        for (const id of candidates) {
+          // 检查本次请求内是否已编译
+          let regex = self._regexCache.get(id);
+          
+          if (!regex && self._lazyConfigs[id]) {
+            const patternStr = self._lazyConfigs[id].urlPattern;
+            if (!patternStr) continue;
+            
+            try {
+              // 🔥 延迟编译：首次使用才创建RegExp
+              regex = new RegExp(patternStr);
+              self._regexCache.set(id, regex);
+            } catch (e) {
+              Logger.error('ManifestLoader', `Invalid regex ${id}: ${e.message}`);
+              continue;
+            }
+          }
+          
+          if (regex && regex.test(url)) {
+            Logger.info('ManifestLoader', `Matched: ${id} (compiled ${self._regexCache.size}/${candidates.length})`);
+            
+            // 缓存结果到持久化存储
+            if (Platform.isQX && self._urlCache) {
+              const hash = url.split('?')[0];
+              self._urlCache[hash] = { id, ts: Date.now() };
+              self._saveUrlCache();
+            }
+            
+            return id;
+          }
+        }
+        
+        Logger.warn('ManifestLoader', `No match for ${url.substring(0,40)}...`);
+        return null;
+      },
 
- getConfigVersion: (configId) => {
- return (manifest.configVersions && manifest.configVersions[configId]) || '1.0';
- }
- };
- }
+      getConfigVersion: (configId) => '1.0'
+    };
+  }
 }
 
 // ==========================================
